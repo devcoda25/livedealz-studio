@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useRef } from 'react';
@@ -76,7 +77,7 @@ export function LocalMediaPreview({ camOn, micOn, screenShareOn }: LocalMediaPre
       autoPlay
       playsInline
       muted
-      className="absolute inset-0 w-full h-full object-cover z-0 bg-slate-950"
+      className="absolute inset-0 w-full h-full object-cover z-0 bg-secondary"
     />
   );
 }
