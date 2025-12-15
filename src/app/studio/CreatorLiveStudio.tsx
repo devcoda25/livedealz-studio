@@ -31,6 +31,7 @@ export default function CreatorLiveStudio() {
 
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [languagePanelOpen, setLanguagePanelOpen] = useState(false);
+  const [activeFilterPath, setActiveFilterPath] = useState<string | null>(null);
 
   const [mobilePanel, setMobilePanel] = useState<"products" | "chat">("products");
   const [audienceTab, setAudienceTab] = useState<AudienceTab>("chat");
@@ -140,6 +141,12 @@ export default function CreatorLiveStudio() {
   const handleStopFlashDeal = () => actions.stopFlashDeal();
   const handleMarkMoment = () => actions.markMoment();
 
+  const handleFilterChange = (path: string | null) => {
+    const newPath = activeFilterPath === path ? null : path;
+    setActiveFilterPath(newPath);
+  };
+
+
   const typeLabel = mode === "live" ? "Live" : "Pre-live lobby";
   const rootClass = "min-h-screen flex flex-col bg-background text-foreground";
 
@@ -183,7 +190,7 @@ export default function CreatorLiveStudio() {
         </section>
 
         <section className="flex-1 flex flex-col gap-3 min-h-0">
-          <LiveVideoPanel mode={mode} micOn={micOn} camOn={camOn} screenShareOn={screenShareOn} activeSceneId={activeSceneId} scenes={scenes} setActiveSceneId={setActiveSceneId} />
+          <LiveVideoPanel mode={mode} micOn={micOn} camOn={camOn} screenShareOn={screenShareOn} activeSceneId={activeSceneId} scenes={scenes} setActiveSceneId={setActiveSceneId} activeFilterPath={activeFilterPath} />
         </section>
 
         <section className="flex-shrink-0 flex flex-col gap-3 min-h-0">
@@ -209,7 +216,7 @@ export default function CreatorLiveStudio() {
 
       <StudioControlBar mode={mode} onToggleLive={toggleLive} micOn={micOn} onToggleMic={() => setMicOn(m => !m)} camOn={camOn} onToggleCam={() => setCamOn(c => !c)} screenShareOn={screenShareOn} onToggleScreenShare={() => setScreenShareOn(s => !s)} activeSceneId={activeSceneId} scenes={scenes} setActiveSceneId={setActiveSceneId} onMarkMoment={handleMarkMoment} onToggleFilters={() => setFiltersOpen(v => !v)} onOpenLanguagePanel={() => setLanguagePanelOpen(true)} />
 
-      {filtersOpen && <FiltersTray />}
+      {filtersOpen && <FiltersTray onFilterSelect={handleFilterChange} activeFilterPath={activeFilterPath} />}
       {flashConfigOpen && <FlashDealControl onClose={() => setFlashConfigOpen(false)} onStart={handleApplyFlashDeal} />}
       {languagePanelOpen && <LanguagePanel onClose={() => setLanguagePanelOpen(false)} />}
       
@@ -330,13 +337,13 @@ function AttachmentsPanel({ attachments, onApprove, onReject }: { attachments: A
   );
 }
 
-function LiveVideoPanel({ mode, micOn, camOn, screenShareOn, activeSceneId, scenes, setActiveSceneId }: { mode: Mode, micOn: boolean, camOn: boolean, screenShareOn: boolean, activeSceneId: string, scenes: Scene[], setActiveSceneId: (id: string) => void }) {
+function LiveVideoPanel({ mode, micOn, camOn, screenShareOn, activeSceneId, scenes, setActiveSceneId, activeFilterPath }: { mode: Mode, micOn: boolean, camOn: boolean, screenShareOn: boolean, activeSceneId: string, scenes: Scene[], setActiveSceneId: (id: string) => void, activeFilterPath: string | null }) {
   const activeScene = scenes.find((s) => s.id === activeSceneId) || scenes[0];
 
   if (mode === 'lobby') {
     return (
       <div className="bg-card border border-border rounded-3xl p-3 md:p-4 flex flex-col gap-3 h-full">
-        <LobbyPanel micOn={micOn} camOn={camOn} screenShareOn={screenShareOn} scenes={scenes} activeSceneId={activeSceneId} setActiveSceneId={setActiveSceneId} />
+        <LobbyPanel micOn={micOn} camOn={camOn} screenShareOn={screenShareOn} scenes={scenes} activeSceneId={activeSceneId} setActiveSceneId={setActiveSceneId} activeFilterPath={activeFilterPath}/>
       </div>
     );
   }
@@ -344,7 +351,7 @@ function LiveVideoPanel({ mode, micOn, camOn, screenShareOn, activeSceneId, scen
   return (
     <div className="bg-card border border-border rounded-3xl p-3 md:p-4 flex flex-col gap-3 h-full">
       <div className="relative flex-1 rounded-2xl bg-secondary border border-border flex items-center justify-center overflow-hidden">
-        <LocalMediaPreview camOn={camOn} micOn={micOn} screenShareOn={screenShareOn} />
+        <LocalMediaPreview camOn={camOn} micOn={micOn} screenShareOn={screenShareOn} activeFilterPath={activeFilterPath} />
         <span className="text-[11px] text-muted-foreground z-10">{!camOn && !screenShareOn ? `Live video preview · Scene: ${activeScene.label}` : ''}</span>
         {screenShareOn && <span className="absolute top-2 right-2 text-[10px] px-2 py-0.5 rounded-full bg-background/60 border border-border text-foreground z-10">Screen sharing</span>}
         {!camOn && !screenShareOn && <span className="absolute bottom-2 left-2 text-[10px] px-2 py-0.5 rounded-full bg-red-500 text-white z-10">Camera off</span>}
@@ -369,11 +376,11 @@ function LiveVideoPanel({ mode, micOn, camOn, screenShareOn, activeSceneId, scen
   );
 }
 
-function LobbyPanel({ micOn, camOn, screenShareOn, scenes, activeSceneId, setActiveSceneId }: { micOn: boolean, camOn: boolean, screenShareOn: boolean, scenes: Scene[], activeSceneId: string, setActiveSceneId: (id: string) => void }) {
+function LobbyPanel({ micOn, camOn, screenShareOn, scenes, activeSceneId, setActiveSceneId, activeFilterPath }: { micOn: boolean, camOn: boolean, screenShareOn: boolean, scenes: Scene[], activeSceneId: string, setActiveSceneId: (id: string) => void, activeFilterPath: string | null }) {
     return (
         <div className="flex flex-col gap-3 h-full">
             <div className="relative flex-1 rounded-2xl bg-secondary border border-border flex flex-col items-center justify-center gap-2 overflow-hidden">
-                <LocalMediaPreview camOn={camOn} micOn={micOn} screenShareOn={screenShareOn} />
+                <LocalMediaPreview camOn={camOn} micOn={micOn} screenShareOn={screenShareOn} activeFilterPath={activeFilterPath} />
                 <div className="z-10 flex flex-col items-center justify-center gap-2">
                     <span className="text-[11px] text-foreground mb-1">Pre-live lobby · Device & scene check</span>
                     <div className="flex gap-2 text-[10px] text-foreground">
@@ -539,10 +546,17 @@ function StudioControlBar({ mode, onToggleLive, micOn, onToggleMic, camOn, onTog
   );
 }
 
-function FiltersTray() {
+function FiltersTray({ onFilterSelect, activeFilterPath }: { onFilterSelect: (path: string) => void; activeFilterPath: string | null; }) {
   const categories = ["Beauty", "Fun", "Background", "Brand"];
-  const filters = [{ id: 1, label: "Soft Glam" }, { id: 2, label: "Studio Glow" }, { id: 3, label: "Neon Night" }, { id: 4, label: "Clean Backdrop" }, { id: 5, label: "Brand Frame" }];
-  return (<div className="fixed left-1/2 -translate-x-1/2 bottom-4 md:bottom-5 w-full max-w-xl rounded-2xl border border-border shadow-xl px-3 py-2 md:px-4 md:py-3 bg-background/95 z-40"><div className="flex items-center justify-between mb-2 text-[11px]"><span className="font-semibold inline-flex items-center gap-1"><span className="material-icons text-[14px] text-amber-500">auto_awesome</span>AR Filters</span><div className="flex gap-1 overflow-x-auto max-w-[60%] hide-scrollbar">{categories.map((c) => (<span key={c} className="px-2 py-0.5 rounded-full bg-secondary text-foreground text-[10px] whitespace-nowrap">{c}</span>))}</div></div><div className="flex gap-2 overflow-x-auto pb-1 hide-scrollbar">{filters.map((f) => (<div key={f.id} className="min-w-[80px] max-w-[80px] flex-shrink-0 rounded-xl bg-muted border border-border flex flex-col items-center justify-center py-2 cursor-pointer hover:border-emerald-400"><div className="h-9 w-9 rounded-full bg-secondary mb-1" /><span className="text-[10px] text-center px-1 text-foreground">{f.label}</span></div>))}</div></div>);
+  const filters = [
+    { id: 1, label: "Soft Glam", path: 'effects/beauty' },
+    { id: 2, label: "Studio Glow", path: 'effects/studio_glow' },
+    { id: 3, label: "Neon Night", path: 'effects/neon_night' },
+    { id: 4, label: "Clean Backdrop", path: 'backgrounds/clean_backdrop' },
+    { id: 5, label: "Brand Frame", path: 'effects/brand_frame' },
+    { id: 6, label: "No Filter", path: 'none' }
+  ];
+  return (<div className="fixed left-1/2 -translate-x-1/2 bottom-4 md:bottom-5 w-full max-w-xl rounded-2xl border border-border shadow-xl px-3 py-2 md:px-4 md:py-3 bg-background/95 z-40"><div className="flex items-center justify-between mb-2 text-[11px]"><span className="font-semibold inline-flex items-center gap-1"><span className="material-icons text-[14px] text-amber-500">auto_awesome</span>AR Filters</span><div className="flex gap-1 overflow-x-auto max-w-[60%] hide-scrollbar">{categories.map((c) => (<span key={c} className="px-2 py-0.5 rounded-full bg-secondary text-foreground text-[10px] whitespace-nowrap">{c}</span>))}</div></div><div className="flex gap-2 overflow-x-auto pb-1 hide-scrollbar">{filters.map((f) => (<div key={f.id} className={"min-w-[80px] max-w-[80px] flex-shrink-0 rounded-xl flex flex-col items-center justify-center py-2 cursor-pointer " + (activeFilterPath === f.path ? "border-emerald-400 border-2" : "border-border border bg-muted ")} onClick={() => onFilterSelect(f.path)}><div className="h-9 w-9 rounded-full bg-secondary mb-1" /><span className="text-[10px] text-center px-1 text-foreground">{f.label}</span></div>))}</div></div>);
 }
 
 function FlashDealControl({ onClose, onStart }: { onClose: () => void; onStart: (duration: number, discount: number) => void; }) {
@@ -557,5 +571,7 @@ function LanguagePanel({ onClose }: { onClose: () => void }) {
 function MobileStudio({ mode, typeLabel, products, highlightedProductId, setHighlightedProductId, flashDealActive, onOpenFlashConfig, onStopFlash, chatMessages, chatDraft, setChatDraft, onSendChat, mobilePanel, setMobilePanel, onToggleLive, }: { mode: Mode, typeLabel: string, products: Product[], highlightedProductId: string, setHighlightedProductId: (id: string) => void, flashDealActive: boolean, onOpenFlashConfig: () => void, onStopFlash: () => void, chatMessages: ChatMessage[], chatDraft: string, setChatDraft: (d: string) => void, onSendChat: () => void, mobilePanel: "products" | "chat", setMobilePanel: (p: "products" | "chat") => void, onToggleLive: () => void }) {
   return (<div className="md:hidden fixed inset-x-0 bottom-0 top-14 flex flex-col bg-background z-30"><div className="h-1/3 border-b border-border flex items-center justify-center"><span className="text-[11px] text-muted-foreground">{typeLabel} · Mobile view (video placeholder)</span></div><div className="flex-1 flex flex-col"><div className="flex items-center justify-between px-3 py-1 bg-secondary border-b border-border text-[10px]"><div className="flex gap-1"><button className={"px-2.5 py-0.5 rounded-full " + (mobilePanel === "products" ? "bg-background text-foreground" : "bg-secondary text-muted-foreground")} onClick={() => setMobilePanel("products")}>Products</button><button className={"px-2.5 py-0.5 rounded-full " + (mobilePanel === "chat" ? "bg-background text-foreground" : "bg-secondary text-muted-foreground")} onClick={() => setMobilePanel("chat")}>Chat</button></div><span className="text-muted-foreground">Swipe up to browse</span></div><div className="flex-1 overflow-y-auto px-3 py-2">{mobilePanel === "products" ? (<div className="space-y-1">{products.map((p) => (<button key={p.id} className={"w-full text-left border rounded-xl px-2.5 py-1.5 text-[10px] mb-1 " + (p.id === highlightedProductId ? "bg-primary/20 border-primary text-foreground" : "bg-secondary border-border text-foreground")} onClick={() => setHighlightedProductId(p.id)}><div className="flex items-center justify-between"><span className="font-semibold">{p.name}</span><span className="text-emerald-400">{p.price}</span></div><div className="text-[9px] text-muted-foreground">{p.stock} · {p.tag}</div></button>))}</div>) : (<div className="space-y-1 max-h-full">{chatMessages.map((m) => (<div key={m.id} className="text-[10px] mb-1"><span className={"font-semibold " + (m.system ? "text-muted-foreground" : "text-foreground")}>{m.system ? "System" : m.from}</span><span className="text-muted-foreground ml-1">· {m.time}</span><p className="text-foreground whitespace-pre-line">{m.body}</p></div>))}</div>)}</div></div><div className="border-t border-border bg-background px-3 py-2 flex items-center justify-between gap-2 text-[10px]"><button className="px-2.5 py-1 rounded-full border border-border text-foreground flex-1">Highlight product</button><button className={"px-2.5 py-1 rounded-full flex-1 text-white " + (flashDealActive ? "bg-red-600" : "bg-primary")} onClick={flashDealActive ? onStopFlash : onOpenFlashConfig}>{flashDealActive ? "Stop flash deal" : "Flash deal"}</button><button className={"px-2.5 py-1 rounded-full flex-1 " + (mode === "live" ? "bg-red-600 text-white" : "bg-secondary text-foreground border border-border")} onClick={onToggleLive}>{mode === "live" ? "End live" : "Go live"}</button></div><div className="bg-background border-t border-border px-3 py-1 flex items-center gap-1 text-[10px]"><input className="flex-1 border border-border rounded-full px-2 py-1 bg-secondary text-foreground outline-none" placeholder="Reply to viewers…" value={chatDraft} onChange={(e) => setChatDraft(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && onSendChat()} /><button className="px-2.5 py-1 rounded-full bg-primary text-primary-foreground text-[10px]" onClick={onSendChat}>Send</button></div></div>);
 }
+
+    
 
     

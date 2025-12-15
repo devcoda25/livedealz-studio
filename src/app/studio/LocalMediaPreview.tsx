@@ -14,9 +14,10 @@ interface LocalMediaPreviewProps {
   camOn: boolean;
   micOn: boolean;
   screenShareOn: boolean;
+  activeFilterPath: string | null;
 }
 
-export function LocalMediaPreview({ camOn, micOn, screenShareOn }: LocalMediaPreviewProps) {
+export function LocalMediaPreview({ camOn, micOn, screenShareOn, activeFilterPath }: LocalMediaPreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const deepARRef = useRef<any | null>(null);
 
@@ -73,6 +74,15 @@ export function LocalMediaPreview({ camOn, micOn, screenShareOn }: LocalMediaPre
        deepARRef.current.setAudioOutput(micOn);
      }
   }, [micOn]);
+  
+  useEffect(() => {
+    if (deepARRef.current) {
+        const path = activeFilterPath === 'none' ? null : activeFilterPath;
+        deepARRef.current.switchEffect(path, {
+            // Options if needed
+        });
+    }
+  }, [activeFilterPath]);
 
   // Handle screensharing separately as it doesn't use DeepAR
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -113,3 +123,5 @@ export function LocalMediaPreview({ camOn, micOn, screenShareOn }: LocalMediaPre
     />
   );
 }
+
+    
