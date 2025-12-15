@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import type {
   Product, Scene, ChatMessage, QAItem, Viewer, CoHost, Attachment, RunOfShowItem, SalesEvent,
   CommerceGoal, Mode, AudienceTab, MomentMarker
@@ -10,7 +10,7 @@ import { useStudioSocket } from '@/hooks/useStudioSocket';
 import { formatTimer, getCountdownSeconds } from '@/lib/utils';
 import { LocalMediaPreview } from './LocalMediaPreview';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ThemeToggle } from '@/components/ThemeToggle';
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 
 const EV_ORANGE = "#f77f00";
@@ -457,6 +457,21 @@ function CommerceHudPanel({ commerceGoal, salesEvents, momentMarkers }: { commer
 }
 
 function ChatPanel({ activeTab, onTabChange, messages, qaItems, viewers, draft, onDraftChange, onSend }: { activeTab: AudienceTab; onTabChange: (tab: AudienceTab) => void; messages: ChatMessage[]; qaItems: QAItem[]; viewers: Viewer[]; draft: string; onDraftChange: (v: string) => void; onSend: () => void; }) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAttachmentClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      console.log('File selected:', file.name);
+      // Here you would typically handle the file upload
+      // For now, we'll just log it.
+    }
+  };
+
   const renderBody = () => {
     if (activeTab === "qa") {
       return (<div className="space-y-2">{qaItems.map((q) => (<div key={q.id} className="rounded-xl px-3 py-2 bg-background/50 border border-border">
@@ -482,7 +497,12 @@ function ChatPanel({ activeTab, onTabChange, messages, qaItems, viewers, draft, 
         </div>
       </div>
       <div className="flex-1 border border-border rounded-xl p-2.5 bg-secondary overflow-y-auto">{renderBody()}</div>
-      <div className="mt-2 flex items-center gap-1 text-[10px]"><button className="h-7 w-7 rounded-full border border-border text-foreground flex items-center justify-center"><span className="material-icons text-[16px]">mic</span></button><button className="h-7 w-7 rounded-full border border-border text-foreground flex items-center justify-center"><span className="material-icons text-[16px]">attach_file</span></button>
+      <div className="mt-2 flex items-center gap-1 text-[10px]">
+        <button className="h-7 w-7 rounded-full border border-border text-foreground flex items-center justify-center"><span className="material-icons text-[16px]">mic</span></button>
+        <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
+        <button className="h-7 w-7 rounded-full border border-border text-foreground flex items-center justify-center" onClick={handleAttachmentClick}>
+          <span className="material-icons text-[16px]">attach_file</span>
+        </button>
         <input className="flex-1 border border-border rounded-full px-2 py-1 bg-secondary text-foreground outline-none" placeholder="Type a reply or pin a highlight…" value={draft} onChange={(e) => onDraftChange(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && onSend()}/>
         <button className="px-2.5 py-1 rounded-full text-[10px] font-semibold text-primary-foreground bg-primary" onClick={onSend}>Send</button>
       </div>
