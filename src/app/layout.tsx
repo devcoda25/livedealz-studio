@@ -2,6 +2,7 @@ import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { ThemeProvider } from '@/components/ThemeProvider';
+import Script from 'next/script';
 
 export const metadata: Metadata = {
   title: 'Live Studio Pro',
@@ -31,6 +32,7 @@ export default function RootLayout({
           {children}
           <Toaster />
         </ThemeProvider>
+        <Script src="https://sdk.deepar.ai/v5/deepar.js" strategy="beforeInteractive" />
       </body>
     </html>
   );

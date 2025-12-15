@@ -48,6 +48,7 @@ export interface Attachment {
   type: 'image' | 'question';
   label: string;
   status: 'Pending' | 'Approved' | 'Rejected';
+  file?: File;
 }
 
 export interface RunOfShowItem {
@@ -114,6 +115,11 @@ export interface C2S_JoinStudio {
 }
 export interface C2S_SendChat {
   body: string;
+  attachment?: {
+    file: Buffer;
+    name: string;
+    mimeType: string;
+  }
 }
 export interface C2S_SetMode {
   mode: Mode;
