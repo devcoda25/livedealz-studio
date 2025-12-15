@@ -78,6 +78,25 @@ function studioReducer(state: StudioState, action: Action): StudioState {
   }
 }
 
+async function fetchStreamToken(userId: string) {
+    try {
+        const response = await fetch('/api/stream-token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId }),
+        });
+        if (!response.ok) {
+            throw new Error('Failed to fetch stream token');
+        }
+        const { token } = await response.json();
+        return token;
+    } catch (error) {
+        console.error("Error fetching stream token:", error);
+        return null;
+    }
+}
+
+
 export function useStudioStream(channelId: string) {
   const [state, dispatch] = useReducer(studioReducer, initialState);
   const [channel, setChannel] = useState<Channel | null>(null);
@@ -97,7 +116,11 @@ export function useStudioStream(channelId: string) {
 
         chatClient = StreamChat.getInstance(STREAM_API_KEY);
         
-        const userToken = chatClient.devToken(USER_ID_CREATOR);
+        const userToken = await fetchStreamToken(USER_ID_CREATOR);
+        if (!userToken) {
+            setIsConnecting(false);
+            return;
+        }
         
         await chatClient.connectUser(
           { id: USER_ID_CREATOR, name: 'Live Dealz Creator' },
