@@ -32,7 +32,6 @@ export default function RootLayout({
           {children}
           <Toaster />
         </ThemeProvider>
-        <Script src="https://sdk.deepar.ai/v5/deepar.js" strategy="beforeInteractive" />
       </body>
     </html>
   );

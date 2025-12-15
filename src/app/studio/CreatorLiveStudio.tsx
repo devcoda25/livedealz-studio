@@ -131,12 +131,12 @@ export default function CreatorLiveStudio() {
     setCamOn(c => !c);
   };
 
-  const handleToggleScreenShare = () => {
+  const handleToggleScreenShare = async () => {
     if (camOn) {
-      setCamOn(false);
+        setCamOn(false);
     }
     setScreenShareOn(s => !s);
-  };
+};
 
 
   const handleSendChat = () => {
@@ -208,7 +208,7 @@ export default function CreatorLiveStudio() {
         </section>
 
         <section className="flex-1 flex flex-col gap-3 min-h-0">
-          <LiveVideoPanel mode={mode} micOn={micOn} camOn={camOn} screenShareOn={screenShareOn} activeSceneId={activeSceneId} scenes={scenes} setActiveSceneId={setActiveSceneId} activeFilterPath={activeFilterPath} />
+          <LiveVideoPanel mode={mode} micOn={micOn} camOn={camOn} screenShareOn={screenShareOn} activeSceneId={activeSceneId} scenes={scenes} setActiveSceneId={setActiveSceneId} />
         </section>
 
         <section className="flex-shrink-0 flex flex-col gap-3 min-h-0">
@@ -355,13 +355,13 @@ function AttachmentsPanel({ attachments, onApprove, onReject }: { attachments: A
   );
 }
 
-function LiveVideoPanel({ mode, micOn, camOn, screenShareOn, activeSceneId, scenes, setActiveSceneId, activeFilterPath }: { mode: Mode, micOn: boolean, camOn: boolean, screenShareOn: boolean, activeSceneId: string, scenes: Scene[], setActiveSceneId: (id: string) => void, activeFilterPath: string | null }) {
+function LiveVideoPanel({ mode, micOn, camOn, screenShareOn, activeSceneId, scenes, setActiveSceneId }: { mode: Mode, micOn: boolean, camOn: boolean, screenShareOn: boolean, activeSceneId: string, scenes: Scene[], setActiveSceneId: (id: string) => void }) {
   const activeScene = scenes.find((s) => s.id === activeSceneId) || scenes[0];
 
   if (mode === 'lobby') {
     return (
       <div className="bg-card border border-border rounded-3xl p-3 md:p-4 flex flex-col gap-3 h-full">
-        <LobbyPanel micOn={micOn} camOn={camOn} screenShareOn={screenShareOn} scenes={scenes} activeSceneId={activeSceneId} setActiveSceneId={setActiveSceneId} activeFilterPath={activeFilterPath}/>
+        <LobbyPanel micOn={micOn} camOn={camOn} screenShareOn={screenShareOn} scenes={scenes} activeSceneId={activeSceneId} setActiveSceneId={setActiveSceneId}/>
       </div>
     );
   }
@@ -369,7 +369,7 @@ function LiveVideoPanel({ mode, micOn, camOn, screenShareOn, activeSceneId, scen
   return (
     <div className="bg-card border border-border rounded-3xl p-3 md:p-4 flex flex-col gap-3 h-full">
       <div className="relative flex-1 rounded-2xl bg-secondary border border-border flex items-center justify-center overflow-hidden">
-        <LocalMediaPreview camOn={camOn} micOn={micOn} screenShareOn={screenShareOn} activeFilterPath={activeFilterPath} />
+        <LocalMediaPreview camOn={camOn} micOn={micOn} screenShareOn={screenShareOn} />
         <span className="text-[11px] text-muted-foreground z-10">{!camOn && !screenShareOn ? `Live video preview · Scene: ${activeScene.label}` : ''}</span>
         {screenShareOn && <span className="absolute top-2 right-2 text-[10px] px-2 py-0.5 rounded-full bg-background/60 border border-border text-foreground z-10">Screen sharing</span>}
         {!camOn && !screenShareOn && <span className="absolute bottom-2 left-2 text-[10px] px-2 py-0.5 rounded-full bg-red-500 text-white z-10">Camera off</span>}
@@ -394,11 +394,11 @@ function LiveVideoPanel({ mode, micOn, camOn, screenShareOn, activeSceneId, scen
   );
 }
 
-function LobbyPanel({ micOn, camOn, screenShareOn, scenes, activeSceneId, setActiveSceneId, activeFilterPath }: { micOn: boolean, camOn: boolean, screenShareOn: boolean, scenes: Scene[], activeSceneId: string, setActiveSceneId: (id: string) => void, activeFilterPath: string | null }) {
+function LobbyPanel({ micOn, camOn, screenShareOn, scenes, activeSceneId, setActiveSceneId }: { micOn: boolean, camOn: boolean, screenShareOn: boolean, scenes: Scene[], activeSceneId: string, setActiveSceneId: (id: string) => void }) {
     return (
         <div className="flex flex-col gap-3 h-full">
             <div className="relative flex-1 rounded-2xl bg-secondary border border-border flex flex-col items-center justify-center gap-2 overflow-hidden">
-                <LocalMediaPreview camOn={camOn} micOn={micOn} screenShareOn={screenShareOn} activeFilterPath={activeFilterPath} />
+                <LocalMediaPreview camOn={camOn} micOn={micOn} screenShareOn={screenShareOn} />
                 <div className="z-10 flex flex-col items-center justify-center gap-2">
                     <span className="text-[11px] text-foreground mb-1">Pre-live lobby · Device & scene check</span>
                     <div className="flex gap-2 text-[10px] text-foreground">
@@ -560,7 +560,7 @@ function StudioControlBar({ mode, onToggleLive, micOn, onToggleMic, camOn, onTog
         <button className={"px-3 py-1.5 rounded-full border text-[10px] " + (camOn ? "bg-secondary border-border text-foreground" : "bg-card border-border text-muted-foreground")} onClick={onToggleCam}>{camOn ? "Cam on" : "Cam off"}</button>
         <button className={"px-3 py-1.5 rounded-full border text-[10px] " + (screenShareOn ? "bg-secondary border-border text-foreground" : "bg-card border-border text-muted-foreground")} onClick={onToggleScreenShare}>Screen share</button>
         <button className="px-3 py-1.5 rounded-full border border-border text-[10px] text-foreground hover:bg-secondary" onClick={onMarkMoment}>Mark moment</button>
-        <button className="px-3 py-1.5 rounded-full border border-border text-[10px] text-foreground hover:bg-secondary inline-flex items-center gap-1.5" onClick={onToggleFilters}><span className="material-icons text-[14px]">auto_awesome</span>AR Filters</button>
+        <button className="px-3 py-1.5 rounded-full border border-border text-[10px] text-foreground hover:bg-secondary inline-flex items-center gap-1.5" onClick={onToggleFilters} disabled><span className="material-icons text-[14px]">auto_awesome</span>AR Filters</button>
       </div>
       <div className="flex items-center gap-2 text-[10px]"><button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border text-foreground hover:bg-secondary" onClick={onOpenLanguagePanel}><span className="material-icons text-[14px]">translate</span>Language &amp; AI audio</button><span className="text-muted-foreground">Scene:</span>
         <select className="border border-border rounded-full px-2 py-0.5 bg-secondary text-foreground" value={activeSceneId} onChange={(e) => setActiveSceneId(e.target.value)}>{scenes.map((s) => (<option key={s.id} value={s.id}>{s.label}</option>))}</select>
