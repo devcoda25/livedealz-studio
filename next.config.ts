@@ -30,6 +30,11 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  devIndicators: {
+    buildActivity: false,
+  },
+  // Keep in sync with the value in the `server.ts` file
+  port: 9002,
 };
 
 export default nextConfig;

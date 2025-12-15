@@ -180,7 +180,7 @@ export default function CreatorLiveStudio() {
         <section className="w-64 flex-shrink-0 flex flex-col gap-3">
           <ProductPanel products={products} highlightedProductId={highlightedProductId} onHighlight={setHighlightedProductId} flashDealActive={flashDeal.active} flashSeconds={flashDealSeconds} onConfigureFlash={handleOpenFlashConfig} onStopFlash={handleStopFlashDeal}/>
           <CoHostPanel coHosts={coHosts} />
-          <AttachmentsPanel attachments={attachments} onApprove={handleApproveAttachment} onReject={handleRejectAttachment} />
+          <AttachmentsPanel attachments={state.attachments} onApprove={handleApproveAttachment} onReject={handleRejectAttachment} />
         </section>
 
         <section className="flex-1 flex flex-col gap-3 min-h-0">
