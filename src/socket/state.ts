@@ -1,4 +1,4 @@
-import type { StudioState } from '@/types/studio';
+import type { StudioState, Attachment } from '@/types/studio';
 import { format } from 'date-fns';
 
 // In-memory "database" for the studio state.
@@ -41,6 +41,10 @@ let studioState: StudioState = {
     "Viewers reacted strongly when you mentioned 'glow in 7 days' – lean into that angle.",
     "Consider a quick poll: 'Serum vs Cream – what do you want to see next?'.",
     "Average watch time is spiking when you show before/after – keep visuals on screen.",
+  ],
+  attachments: [
+    { id: 1, from: 'Viewer #238', type: 'image', label: 'Before/after photo', status: 'Pending' },
+    { id: 2, from: 'Viewer #874', type: 'question', label: 'Skin type question', status: 'Pending' },
   ],
 };
 
@@ -104,6 +108,15 @@ export function stopFlashDeal() {
 export function updateAIPrompts(prompts: string[]) {
     studioState.aiPrompts = prompts;
     return studioState.aiPrompts;
+}
+
+export function moderateAttachment(id: number, status: 'approved' | 'rejected'): Attachment[] | null {
+    const attachment = studioState.attachments.find(a => a.id === id);
+    if (attachment) {
+        attachment.status = status;
+        return studioState.attachments;
+    }
+    return null;
 }
 
 

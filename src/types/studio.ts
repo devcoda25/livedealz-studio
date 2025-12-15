@@ -103,6 +103,7 @@ export interface StudioState {
   flashDeal: FlashDeal;
   momentMarkers: MomentMarker[];
   aiPrompts: string[];
+  attachments: Attachment[];
 }
 
 
@@ -124,6 +125,10 @@ export interface C2S_StartFlashDeal {
 export interface C2S_StopFlashDeal {}
 export interface C2S_MarkMoment {
   label?: string;
+}
+export interface C2S_ModerateAttachment {
+    attachmentId: number;
+    status: 'approved' | 'rejected';
 }
 
 // S2C: Server to Client
@@ -151,4 +156,8 @@ export interface S2C_AIPromptsUpdate {
 export interface S2C_ModeUpdate {
     mode: Mode;
     startedAt: number | null;
+}
+
+export interface S2C_AttachmentsUpdate {
+  attachments: Attachment[];
 }

@@ -116,6 +116,17 @@ export function initSocketServer(io: Server) {
         const deal = state.stopFlashDeal();
         io.to(STUDIO_ROOM).emit('flash:update', deal);
     });
+    
+    // --- EVENT: attachment:moderate ---
+    socket.on('attachment:moderate', (payload) => {
+        const result = schemas.c2sModerateAttachmentSchema.safeParse(payload);
+        if (!result.success) return;
+
+        const updatedAttachments = state.moderateAttachment(result.data.attachmentId, result.data.status);
+        if (updatedAttachments) {
+            io.to(STUDIO_ROOM).emit('attachments:update', { attachments: updatedAttachments });
+        }
+    });
 
 
     // --- DISCONNECT ---

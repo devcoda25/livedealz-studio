@@ -22,3 +22,8 @@ export const c2sStopFlashDealSchema = z.object({});
 export const c2sMarkMomentSchema = z.object({
   label: z.string().optional(),
 });
+
+export const c2sModerateAttachmentSchema = z.object({
+  attachmentId: z.number(),
+  status: z.enum(['approved', 'rejected']),
+});

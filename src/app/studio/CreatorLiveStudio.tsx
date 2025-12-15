@@ -8,9 +8,12 @@ import type {
 import { useStudioSocket } from '@/hooks/useStudioSocket';
 import { formatTimer, getCountdownSeconds } from '@/lib/utils';
 import { LocalMediaPreview } from './LocalMediaPreview';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 
 const EV_ORANGE = "#f77f00";
+
+type RightPanelTab = "audience" | "script" | "commerce";
 
 export default function CreatorLiveStudio() {
   const { state, actions } = useStudioSocket('main-studio');
@@ -29,6 +32,7 @@ export default function CreatorLiveStudio() {
 
   const [mobilePanel, setMobilePanel] = useState<"products" | "chat">("products");
   const [audienceTab, setAudienceTab] = useState<AudienceTab>("chat");
+  const [rightPanelTab, setRightPanelTab] = useState<RightPanelTab>("audience");
 
   const [chatDraft, setChatDraft] = useState("");
   
@@ -122,8 +126,8 @@ export default function CreatorLiveStudio() {
     setChatDraft('');
   };
 
-  const handleApproveAttachment = (id: number) => alert(`Approved attachment ${id} to show on stream (demo only).`);
-  const handleRejectAttachment = (id: number) => alert(`Rejected attachment ${id} (demo only).`);
+  const handleApproveAttachment = (id: number) => actions.moderateAttachment(id, 'approved');
+  const handleRejectAttachment = (id: number) => actions.moderateAttachment(id, 'rejected');
   const handleOpenFlashConfig = () => setFlashConfigOpen(true);
   
   const handleApplyFlashDeal = (durationMinutes: number, extraDiscount: number) => {
@@ -172,22 +176,35 @@ export default function CreatorLiveStudio() {
         </div>
       </header>
 
-      <main className="hidden md:flex flex-1 p-3 md:p-4 gap-3 overflow-hidden">
+      <main className="hidden md:grid flex-1 p-3 md:p-4 gap-3 overflow-hidden grid-cols-[256px_1fr_384px]">
         <section className="w-64 flex-shrink-0 flex flex-col gap-3">
           <ProductPanel products={products} highlightedProductId={highlightedProductId} onHighlight={setHighlightedProductId} flashDealActive={flashDeal.active} flashSeconds={flashDealSeconds} onConfigureFlash={handleOpenFlashConfig} onStopFlash={handleStopFlashDeal}/>
           <CoHostPanel coHosts={coHosts} />
           <AttachmentsPanel attachments={attachments} onApprove={handleApproveAttachment} onReject={handleRejectAttachment} />
         </section>
 
-        <section className="flex-1 flex flex-col gap-3">
+        <section className="flex-1 flex flex-col gap-3 min-h-0">
           <LiveVideoPanel mode={mode} micOn={micOn} camOn={camOn} screenShareOn={screenShareOn} activeSceneId={activeSceneId} scenes={scenes} setActiveSceneId={setActiveSceneId} />
-          <TeleprompterPanel scriptCues={scriptCues} runOfShow={runOfShow} />
-          <CommerceHudPanel commerceGoal={commerceGoal} salesEvents={salesEvents} momentMarkers={momentMarkers} />
         </section>
 
-        <section className="w-80 flex-shrink-0 flex flex-col gap-3">
-          <ChatPanel activeTab={audienceTab} onTabChange={setAudienceTab} messages={chat.messages} qaItems={qaItems} viewers={viewersList} draft={chatDraft} onDraftChange={setChatDraft} onSend={handleSendChat} />
-          <AiPromptsPanel prompts={aiPrompts} />
+        <section className="flex-shrink-0 flex flex-col gap-3 min-h-0">
+          <Tabs defaultValue="audience" value={rightPanelTab} onValueChange={(v) => setRightPanelTab(v as RightPanelTab)} className="w-full flex flex-col h-full">
+            <TabsList className="grid w-full grid-cols-3 bg-slate-900 border border-slate-800 h-10 p-1">
+              <TabsTrigger value="audience" className="text-xs">Audience</TabsTrigger>
+              <TabsTrigger value="script" className="text-xs">Script</TabsTrigger>
+              <TabsTrigger value="commerce" className="text-xs">Commerce</TabsTrigger>
+            </TabsList>
+            <TabsContent value="audience" className="flex-1 flex flex-col min-h-0 mt-3">
+              <ChatPanel activeTab={audienceTab} onTabChange={setAudienceTab} messages={chat.messages} qaItems={qaItems} viewers={viewersList} draft={chatDraft} onDraftChange={setChatDraft} onSend={handleSendChat} />
+              <AiPromptsPanel prompts={aiPrompts} />
+            </TabsContent>
+            <TabsContent value="script" className="flex-1 min-h-0 mt-3">
+              <TeleprompterPanel scriptCues={scriptCues} runOfShow={runOfShow} />
+            </TabsContent>
+            <TabsContent value="commerce" className="flex-1 min-h-0 mt-3">
+               <CommerceHudPanel commerceGoal={commerceGoal} salesEvents={salesEvents} momentMarkers={momentMarkers} />
+            </TabsContent>
+          </Tabs>
         </section>
       </main>
 
@@ -389,19 +406,19 @@ function LobbyToggle({ label, on, disabled }: { label: string; on: boolean; disa
 
 function TeleprompterPanel({ scriptCues, runOfShow }: { scriptCues: string[], runOfShow: RunOfShowItem[] }) {
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 flex flex-col gap-2 text-[11px] max-h-48">
+    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 flex flex-col gap-2 text-[11px] h-full">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2"><span className="text-[13px]">📜</span><h3 className="text-xs font-semibold">Script teleprompter</h3></div>
         <span className="text-[10px] text-slate-500">Dynamic cues</span>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] gap-2">
-        <div className="space-y-1 max-h-32 overflow-y-auto">
+      <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] gap-2 flex-1 min-h-0">
+        <div className="space-y-1 overflow-y-auto">
           {scriptCues.map((cue: string, idx: number) => (<div key={idx} className={"text-[10px] px-2 py-1 rounded-lg " + (idx === 1 ? "bg-[#f77f00]/20 text-slate-50" : "bg-slate-950 text-slate-200")}>
             {idx === 1 && <span className="mr-1 text-[9px] uppercase tracking-wide text-[#f77f00]">Up next:</span>}
             {cue}
           </div>))}
         </div>
-        <div className="border border-slate-800 rounded-xl p-2 bg-slate-950 text-[10px] text-slate-200 max-h-32 overflow-y-auto">
+        <div className="border border-slate-800 rounded-xl p-2 bg-slate-950 text-[10px] text-slate-200 overflow-y-auto">
           <div className="flex items-center justify-between mb-1"><span>Run-of-show</span><span className="text-[9px] text-slate-500">Shot list</span></div>
           <ul className="space-y-1">{runOfShow.map((shot: any) => (<li key={shot.id} className="flex items-center justify-between gap-2">
             <div className="flex flex-col"><span className="font-medium">{shot.label}</span><span className="text-slate-500">Scene: {shot.scene}</span></div>
@@ -416,7 +433,7 @@ function TeleprompterPanel({ scriptCues, runOfShow }: { scriptCues: string[], ru
 function CommerceHudPanel({ commerceGoal, salesEvents, momentMarkers }: { commerceGoal: CommerceGoal, salesEvents: SalesEvent[], momentMarkers: MomentMarker[] }) {
   const progress = Math.min(commerceGoal.soldUnits / (commerceGoal.targetUnits || 1), 1);
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 flex flex-col gap-2 text-[11px]">
+    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 flex flex-col gap-2 text-[11px] h-full">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2"><span className="text-[13px]">💰</span><div><h3 className="text-xs font-semibold">Commerce HUD</h3><p className="text-[10px] text-slate-500">Live sales, goal tracking and marked moments.</p></div></div>
         <span className="text-[10px] text-slate-400">Goal: {commerceGoal.targetUnits} units</span>
@@ -428,12 +445,12 @@ function CommerceHudPanel({ commerceGoal, salesEvents, momentMarkers }: { commer
         </div>
         <div className="flex flex-col items-end text-[10px]"><span className="text-slate-400">In carts</span><span className="text-slate-100 font-semibold">{commerceGoal.cartCount}</span><span className="text-slate-500">{commerceGoal.last5MinSales} sales · 5 min</span></div>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
-        <div className="border border-slate-800 rounded-xl p-2 bg-slate-950"><h4 className="text-[10px] font-semibold mb-1 text-slate-200">Live sales feed</h4>
-          <ul className="space-y-1 max-h-24 overflow-y-auto text-[10px] text-slate-200">{salesEvents.map((e) => (<li key={e.id} className="flex items-center justify-between gap-2"><span>{e.label}</span><span className="text-slate-500 text-[9px]">{e.time}</span></li>))}</ul>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2 flex-1 min-h-0">
+        <div className="border border-slate-800 rounded-xl p-2 bg-slate-950 flex flex-col"><h4 className="text-[10px] font-semibold mb-1 text-slate-200">Live sales feed</h4>
+          <ul className="space-y-1 overflow-y-auto text-[10px] text-slate-200 flex-1">{salesEvents.map((e) => (<li key={e.id} className="flex items-center justify-between gap-2"><span>{e.label}</span><span className="text-slate-500 text-[9px]">{e.time}</span></li>))}</ul>
         </div>
-        <div className="border border-slate-800 rounded-xl p-2 bg-slate-950"><h4 className="text-[10px] font-semibold mb-1 text-slate-200">Moments for replay</h4>
-          {momentMarkers.length === 0 ? <p className="text-[10px] text-slate-500">Use “Mark moment” to flag highlights for clipping.</p> : <ul className="space-y-1 max-h-24 overflow-y-auto text-[10px] text-slate-200">{momentMarkers.map((m) => (<li key={m.id} className="flex items-center justify-between gap-2"><span>{m.label}</span><span className="text-slate-500 text-[9px]">{m.time}</span></li>))}</ul>}
+        <div className="border border-slate-800 rounded-xl p-2 bg-slate-950 flex flex-col"><h4 className="text-[10px] font-semibold mb-1 text-slate-200">Moments for replay</h4>
+          {momentMarkers.length === 0 ? <p className="text-[10px] text-slate-500 flex-1">Use “Mark moment” to flag highlights for clipping.</p> : <ul className="space-y-1 overflow-y-auto text-[10px] text-slate-200 flex-1">{momentMarkers.map((m) => (<li key={m.id} className="flex items-center justify-between gap-2"><span>{m.label}</span><span className="text-slate-500 text-[9px]">{m.time}</span></li>))}</ul>}
         </div>
       </div>
     </div>
@@ -477,7 +494,7 @@ function ChatPanel({ activeTab, onTabChange, messages, qaItems, viewers, draft, 
 
 function AiPromptsPanel({ prompts }: { prompts: string[] }) {
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 flex flex-col gap-2 text-[11px]">
+    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 flex flex-col gap-2 text-[11px] mt-3">
       <div className="flex items-center justify-between"><div className="flex items-center gap-2"><span className="text-[13px]">💡</span><h3 className="text-xs font-semibold">Live AI prompts</h3></div><span className="text-[10px] text-slate-500">Real-time hints</span></div>
       <ul className="space-y-1 max-h-40 overflow-y-auto">{prompts.map((p, idx) => (<li key={idx} className="border border-slate-800 rounded-xl px-2.5 py-1.5 bg-slate-950 text-[10px] text-slate-200">{p}</li>))}</ul>
       <div className="mt-1 text-[10px] text-slate-500"><span className="font-semibold text-slate-300 mr-1">Sentiment:</span><span>Viewers are most engaged during visuals and pricing moments. Revisit shipping and bundles if questions keep repeating.</span></div>

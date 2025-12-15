@@ -3,7 +3,7 @@
 import { useEffect, useReducer, useRef, useCallback } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import type { 
-    StudioState, ChatMessage, S2C_StatsUpdate, FlashDeal, MomentMarker, S2C_ModeUpdate
+    StudioState, ChatMessage, S2C_StatsUpdate, FlashDeal, MomentMarker, S2C_ModeUpdate, Attachment
 } from '@/types/studio';
 
 type Action =
@@ -13,7 +13,8 @@ type Action =
   | { type: 'UPDATE_STATS'; payload: S2C_StatsUpdate }
   | { type: 'UPDATE_FLASH_DEAL'; payload: FlashDeal }
   | { type: 'UPDATE_MOMENTS'; payload: MomentMarker[] }
-  | { type: 'UPDATE_AI_PROMPTS'; payload: string[] };
+  | { type: 'UPDATE_AI_PROMPTS'; payload: string[] }
+  | { type: 'UPDATE_ATTACHMENTS'; payload: Attachment[] };
 
 const initialState: StudioState = {
   mode: 'lobby',
@@ -25,6 +26,7 @@ const initialState: StudioState = {
   flashDeal: { active: false, endsAt: null, discountPercent: 0, durationSeconds: 0 },
   momentMarkers: [],
   aiPrompts: [],
+  attachments: [],
 };
 
 function studioReducer(state: StudioState, action: Action): StudioState {
@@ -58,6 +60,8 @@ function studioReducer(state: StudioState, action: Action): StudioState {
       return { ...state, momentMarkers: action.payload };
     case 'UPDATE_AI_PROMPTS':
         return { ...state, aiPrompts: action.payload };
+    case 'UPDATE_ATTACHMENTS':
+        return { ...state, attachments: action.payload };
     default:
       return state;
   }
@@ -88,6 +92,7 @@ export function useStudioSocket(studioId: string) {
     socket.on('flash:update', (payload: FlashDeal) => dispatch({ type: 'UPDATE_FLASH_DEAL', payload }));
     socket.on('moments:update', (payload: { moments: MomentMarker[] }) => dispatch({ type: 'UPDATE_MOMENTS', payload: payload.moments }));
     socket.on('ai_prompts:update', (payload: { prompts: string[] }) => dispatch({ type: 'UPDATE_AI_PROMPTS', payload: payload.prompts }));
+    socket.on('attachments:update', (payload: { attachments: Attachment[] }) => dispatch({ type: 'UPDATE_ATTACHMENTS', payload: payload.attachments }));
 
     return () => {
       socket.disconnect();
@@ -116,12 +121,17 @@ export function useStudioSocket(studioId: string) {
     socketRef.current?.emit('flash:stop');
   }, []);
   
+  const moderateAttachment = useCallback((attachmentId: number, status: 'approved' | 'rejected') => {
+    socketRef.current?.emit('attachment:moderate', { attachmentId, status });
+  }, []);
+
   const actions = {
     sendChat,
     setMode,
     markMoment,
     startFlashDeal,
     stopFlashDeal,
+    moderateAttachment,
   };
 
   return { state, actions };
