@@ -7,6 +7,7 @@ import type {
   CommerceGoal, Mode, AudienceTab, MomentMarker
 } from '@/types/studio';
 import { useStudioSocket } from '@/hooks/useStudioSocket';
+import { useToast } from "@/hooks/use-toast";
 import { formatTimer, getCountdownSeconds } from '@/lib/utils';
 import { LocalMediaPreview } from './LocalMediaPreview';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -19,6 +20,7 @@ type RightPanelTab = "audience" | "script" | "commerce";
 
 export default function CreatorLiveStudio() {
   const { state, actions } = useStudioSocket('main-studio');
+  const { toast } = useToast();
   const { mode, startedAt, chat, stats, salesEvents, commerceGoal, flashDeal, momentMarkers, aiPrompts } = state;
 
   const [micOn, setMicOn] = useState(true);
@@ -121,6 +123,21 @@ export default function CreatorLiveStudio() {
   const toggleLive = () => {
     actions.setMode(mode === 'lobby' ? 'live' : 'lobby');
   };
+  
+  const handleToggleCam = () => {
+    if (screenShareOn) {
+      setScreenShareOn(false);
+    }
+    setCamOn(c => !c);
+  };
+
+  const handleToggleScreenShare = () => {
+    if (camOn) {
+      setCamOn(false);
+    }
+    setScreenShareOn(s => !s);
+  };
+
 
   const handleSendChat = () => {
     const txt = chatDraft.trim();
@@ -142,8 +159,9 @@ export default function CreatorLiveStudio() {
   const handleMarkMoment = () => actions.markMoment();
 
   const handleFilterChange = (path: string | null) => {
-    const newPath = activeFilterPath === path ? null : path;
-    setActiveFilterPath(newPath);
+    // A path of 'none' means we should clear the filter.
+    const newPath = path === 'none' ? null : path;
+    setActiveFilterPath(activeFilterPath === newPath ? null : newPath);
   };
 
 
@@ -201,7 +219,7 @@ export default function CreatorLiveStudio() {
               <TabsTrigger value="commerce" className="text-xs">Commerce</TabsTrigger>
             </TabsList>
             <TabsContent value="audience" className="flex-1 flex flex-col min-h-0 mt-3">
-              <ChatPanel activeTab={audienceTab} onTabChange={setAudienceTab} messages={chat.messages} qaItems={qaItems} viewers={viewersList} draft={chatDraft} onDraftChange={setChatDraft} onSend={handleSendChat} />
+              <ChatPanel activeTab={audienceTab} onTabChange={setAudienceTab} messages={chat.messages} qaItems={qaItems} viewers={viewersList} draft={chatDraft} onDraftChange={setChatDraft} onSend={handleSendChat} onAttachment={actions.sendAttachment} />
               <AiPromptsPanel prompts={aiPrompts} />
             </TabsContent>
             <TabsContent value="script" className="flex-1 min-h-0 mt-3">
@@ -214,7 +232,7 @@ export default function CreatorLiveStudio() {
         </section>
       </main>
 
-      <StudioControlBar mode={mode} onToggleLive={toggleLive} micOn={micOn} onToggleMic={() => setMicOn(m => !m)} camOn={camOn} onToggleCam={() => setCamOn(c => !c)} screenShareOn={screenShareOn} onToggleScreenShare={() => setScreenShareOn(s => !s)} activeSceneId={activeSceneId} scenes={scenes} setActiveSceneId={setActiveSceneId} onMarkMoment={handleMarkMoment} onToggleFilters={() => setFiltersOpen(v => !v)} onOpenLanguagePanel={() => setLanguagePanelOpen(true)} />
+      <StudioControlBar mode={mode} onToggleLive={toggleLive} micOn={micOn} onToggleMic={() => setMicOn(m => !m)} camOn={camOn} onToggleCam={handleToggleCam} screenShareOn={screenShareOn} onToggleScreenShare={handleToggleScreenShare} activeSceneId={activeSceneId} scenes={scenes} setActiveSceneId={setActiveSceneId} onMarkMoment={handleMarkMoment} onToggleFilters={() => setFiltersOpen(v => !v)} onOpenLanguagePanel={() => setLanguagePanelOpen(true)} />
 
       {filtersOpen && <FiltersTray onFilterSelect={handleFilterChange} activeFilterPath={activeFilterPath} />}
       {flashConfigOpen && <FlashDealControl onClose={() => setFlashConfigOpen(false)} onStart={handleApplyFlashDeal} />}
@@ -463,8 +481,9 @@ function CommerceHudPanel({ commerceGoal, salesEvents, momentMarkers }: { commer
   );
 }
 
-function ChatPanel({ activeTab, onTabChange, messages, qaItems, viewers, draft, onDraftChange, onSend }: { activeTab: AudienceTab; onTabChange: (tab: AudienceTab) => void; messages: ChatMessage[]; qaItems: QAItem[]; viewers: Viewer[]; draft: string; onDraftChange: (v: string) => void; onSend: () => void; }) {
+function ChatPanel({ activeTab, onTabChange, messages, qaItems, viewers, draft, onDraftChange, onSend, onAttachment }: { activeTab: AudienceTab; onTabChange: (tab: AudienceTab) => void; messages: ChatMessage[]; qaItems: QAItem[]; viewers: Viewer[]; draft: string; onDraftChange: (v: string) => void; onSend: () => void; onAttachment: (file: File) => void; }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const {toast} = useToast();
 
   const handleAttachmentClick = () => {
     fileInputRef.current?.click();
@@ -473,10 +492,14 @@ function ChatPanel({ activeTab, onTabChange, messages, qaItems, viewers, draft, 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      console.log('File selected:', file.name);
-      // Here you would typically handle the file upload
-      // For now, we'll just log it.
+      onAttachment(file);
+      toast({
+          title: "Attachment Sent",
+          description: `"${file.name}" was sent for approval.`,
+      });
     }
+    // Reset file input
+    if(event.target) event.target.value = '';
   };
 
   const renderBody = () => {
@@ -506,7 +529,7 @@ function ChatPanel({ activeTab, onTabChange, messages, qaItems, viewers, draft, 
       <div className="flex-1 border border-border rounded-xl p-2.5 bg-secondary overflow-y-auto">{renderBody()}</div>
       <div className="mt-2 flex items-center gap-1 text-[10px]">
         <button className="h-7 w-7 rounded-full border border-border text-foreground flex items-center justify-center"><span className="material-icons text-[16px]">mic</span></button>
-        <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
+        <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*,video/*" />
         <button className="h-7 w-7 rounded-full border border-border text-foreground flex items-center justify-center" onClick={handleAttachmentClick}>
           <span className="material-icons text-[16px]">attach_file</span>
         </button>
@@ -549,14 +572,14 @@ function StudioControlBar({ mode, onToggleLive, micOn, onToggleMic, camOn, onTog
 function FiltersTray({ onFilterSelect, activeFilterPath }: { onFilterSelect: (path: string) => void; activeFilterPath: string | null; }) {
   const categories = ["Beauty", "Fun", "Background", "Brand"];
   const filters = [
+    { id: 6, label: "No Filter", path: 'none' },
     { id: 1, label: "Soft Glam", path: 'effects/beauty' },
     { id: 2, label: "Studio Glow", path: 'effects/studio_glow' },
     { id: 3, label: "Neon Night", path: 'effects/neon_night' },
     { id: 4, label: "Clean Backdrop", path: 'backgrounds/clean_backdrop' },
     { id: 5, label: "Brand Frame", path: 'effects/brand_frame' },
-    { id: 6, label: "No Filter", path: 'none' }
   ];
-  return (<div className="fixed left-1/2 -translate-x-1/2 bottom-4 md:bottom-5 w-full max-w-xl rounded-2xl border border-border shadow-xl px-3 py-2 md:px-4 md:py-3 bg-background/95 z-40"><div className="flex items-center justify-between mb-2 text-[11px]"><span className="font-semibold inline-flex items-center gap-1"><span className="material-icons text-[14px] text-amber-500">auto_awesome</span>AR Filters</span><div className="flex gap-1 overflow-x-auto max-w-[60%] hide-scrollbar">{categories.map((c) => (<span key={c} className="px-2 py-0.5 rounded-full bg-secondary text-foreground text-[10px] whitespace-nowrap">{c}</span>))}</div></div><div className="flex gap-2 overflow-x-auto pb-1 hide-scrollbar">{filters.map((f) => (<div key={f.id} className={"min-w-[80px] max-w-[80px] flex-shrink-0 rounded-xl flex flex-col items-center justify-center py-2 cursor-pointer " + (activeFilterPath === f.path ? "border-emerald-400 border-2" : "border-border border bg-muted ")} onClick={() => onFilterSelect(f.path)}><div className="h-9 w-9 rounded-full bg-secondary mb-1" /><span className="text-[10px] text-center px-1 text-foreground">{f.label}</span></div>))}</div></div>);
+  return (<div className="fixed left-1/2 -translate-x-1/2 bottom-4 md:bottom-20 w-full max-w-xl rounded-2xl border border-border shadow-xl px-3 py-2 md:px-4 md:py-3 bg-background/95 z-40"><div className="flex items-center justify-between mb-2 text-[11px]"><span className="font-semibold inline-flex items-center gap-1"><span className="material-icons text-[14px] text-amber-500">auto_awesome</span>AR Filters</span><div className="flex gap-1 overflow-x-auto max-w-[60%] hide-scrollbar">{categories.map((c) => (<span key={c} className="px-2 py-0.5 rounded-full bg-secondary text-foreground text-[10px] whitespace-nowrap">{c}</span>))}</div></div><div className="flex gap-2 overflow-x-auto pb-1 hide-scrollbar">{filters.map((f) => (<div key={f.id} className={"min-w-[80px] max-w-[80px] flex-shrink-0 rounded-xl flex flex-col items-center justify-center py-2 cursor-pointer " + (activeFilterPath === f.path || (f.path === 'none' && activeFilterPath === null) ? "border-emerald-400 border-2" : "border-border border bg-muted ")} onClick={() => onFilterSelect(f.path)}><div className="h-9 w-9 rounded-full bg-secondary mb-1" /><span className="text-[10px] text-center px-1 text-foreground">{f.label}</span></div>))}</div></div>);
 }
 
 function FlashDealControl({ onClose, onStart }: { onClose: () => void; onStart: (duration: number, discount: number) => void; }) {
@@ -571,7 +594,3 @@ function LanguagePanel({ onClose }: { onClose: () => void }) {
 function MobileStudio({ mode, typeLabel, products, highlightedProductId, setHighlightedProductId, flashDealActive, onOpenFlashConfig, onStopFlash, chatMessages, chatDraft, setChatDraft, onSendChat, mobilePanel, setMobilePanel, onToggleLive, }: { mode: Mode, typeLabel: string, products: Product[], highlightedProductId: string, setHighlightedProductId: (id: string) => void, flashDealActive: boolean, onOpenFlashConfig: () => void, onStopFlash: () => void, chatMessages: ChatMessage[], chatDraft: string, setChatDraft: (d: string) => void, onSendChat: () => void, mobilePanel: "products" | "chat", setMobilePanel: (p: "products" | "chat") => void, onToggleLive: () => void }) {
   return (<div className="md:hidden fixed inset-x-0 bottom-0 top-14 flex flex-col bg-background z-30"><div className="h-1/3 border-b border-border flex items-center justify-center"><span className="text-[11px] text-muted-foreground">{typeLabel} · Mobile view (video placeholder)</span></div><div className="flex-1 flex flex-col"><div className="flex items-center justify-between px-3 py-1 bg-secondary border-b border-border text-[10px]"><div className="flex gap-1"><button className={"px-2.5 py-0.5 rounded-full " + (mobilePanel === "products" ? "bg-background text-foreground" : "bg-secondary text-muted-foreground")} onClick={() => setMobilePanel("products")}>Products</button><button className={"px-2.5 py-0.5 rounded-full " + (mobilePanel === "chat" ? "bg-background text-foreground" : "bg-secondary text-muted-foreground")} onClick={() => setMobilePanel("chat")}>Chat</button></div><span className="text-muted-foreground">Swipe up to browse</span></div><div className="flex-1 overflow-y-auto px-3 py-2">{mobilePanel === "products" ? (<div className="space-y-1">{products.map((p) => (<button key={p.id} className={"w-full text-left border rounded-xl px-2.5 py-1.5 text-[10px] mb-1 " + (p.id === highlightedProductId ? "bg-primary/20 border-primary text-foreground" : "bg-secondary border-border text-foreground")} onClick={() => setHighlightedProductId(p.id)}><div className="flex items-center justify-between"><span className="font-semibold">{p.name}</span><span className="text-emerald-400">{p.price}</span></div><div className="text-[9px] text-muted-foreground">{p.stock} · {p.tag}</div></button>))}</div>) : (<div className="space-y-1 max-h-full">{chatMessages.map((m) => (<div key={m.id} className="text-[10px] mb-1"><span className={"font-semibold " + (m.system ? "text-muted-foreground" : "text-foreground")}>{m.system ? "System" : m.from}</span><span className="text-muted-foreground ml-1">· {m.time}</span><p className="text-foreground whitespace-pre-line">{m.body}</p></div>))}</div>)}</div></div><div className="border-t border-border bg-background px-3 py-2 flex items-center justify-between gap-2 text-[10px]"><button className="px-2.5 py-1 rounded-full border border-border text-foreground flex-1">Highlight product</button><button className={"px-2.5 py-1 rounded-full flex-1 text-white " + (flashDealActive ? "bg-red-600" : "bg-primary")} onClick={flashDealActive ? onStopFlash : onOpenFlashConfig}>{flashDealActive ? "Stop flash deal" : "Flash deal"}</button><button className={"px-2.5 py-1 rounded-full flex-1 " + (mode === "live" ? "bg-red-600 text-white" : "bg-secondary text-foreground border border-border")} onClick={onToggleLive}>{mode === "live" ? "End live" : "Go live"}</button></div><div className="bg-background border-t border-border px-3 py-1 flex items-center gap-1 text-[10px]"><input className="flex-1 border border-border rounded-full px-2 py-1 bg-secondary text-foreground outline-none" placeholder="Reply to viewers…" value={chatDraft} onChange={(e) => setChatDraft(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && onSendChat()} /><button className="px-2.5 py-1 rounded-full bg-primary text-primary-foreground text-[10px]" onClick={onSendChat}>Send</button></div></div>);
 }
-
-    
-
-    

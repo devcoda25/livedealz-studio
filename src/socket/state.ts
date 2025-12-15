@@ -1,3 +1,4 @@
+
 import type { StudioState, Attachment } from '@/types/studio';
 import { format } from 'date-fns';
 
@@ -80,6 +81,22 @@ export function addChatMessage(from: string, body: string) {
   return newMessage;
 }
 
+export function addAttachment(from: string, label: string, type: 'image' | 'question'): Attachment {
+    const newAttachment: Attachment = {
+        id: Date.now(), // simple id
+        from,
+        label,
+        type,
+        status: 'Pending',
+    };
+    studioState.attachments.unshift(newAttachment);
+    if(studioState.attachments.length > 20) {
+        studioState.attachments.pop();
+    }
+    return newAttachment;
+}
+
+
 export function addMomentMarker(time: string, label?: string) {
   const newMarker = {
     id: crypto.randomUUID(),
@@ -111,9 +128,11 @@ export function updateAIPrompts(prompts: string[]) {
 }
 
 export function moderateAttachment(id: number, status: 'approved' | 'rejected'): Attachment[] | null {
-    const attachment = studioState.attachments.find(a => a.id === id);
-    if (attachment) {
-        attachment.status = status;
+    const attachmentIndex = studioState.attachments.findIndex(a => a.id === id);
+    if (attachmentIndex > -1) {
+        // In a real app, you'd handle the approved attachment (e.g. display it)
+        // For now, we'll just remove it from the pending queue.
+        studioState.attachments.splice(attachmentIndex, 1);
         return studioState.attachments;
     }
     return null;

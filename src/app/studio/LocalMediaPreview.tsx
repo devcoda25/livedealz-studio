@@ -1,9 +1,9 @@
 
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useToast } from '@/hooks/use-toast';
 
-// Make DeepAR types available globally
 declare global {
   interface Window {
     deepar: any;
@@ -19,109 +19,169 @@ interface LocalMediaPreviewProps {
 
 export function LocalMediaPreview({ camOn, micOn, screenShareOn, activeFilterPath }: LocalMediaPreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const deepARRef = useRef<any | null>(null);
+  const screenStreamRef = useRef<MediaStream | null>(null);
+  const { toast } = useToast();
+
+  const cleanupDeepAR = async () => {
+    if (deepARRef.current) {
+      console.log("Shutting down DeepAR.");
+      await deepARRef.current.shutdown();
+      deepARRef.current = null;
+    }
+  };
+  
+  const cleanupScreenShare = () => {
+    if (screenStreamRef.current) {
+      console.log("Stopping screen share tracks.");
+      screenStreamRef.current.getTracks().forEach(track => track.stop());
+      screenStreamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+  };
 
   useEffect(() => {
     async function initializeDeepAR() {
-      if (!canvasRef.current || !camOn || !window.deepar) {
-        if (deepARRef.current) {
-          await deepARRef.current.shutdown();
-          deepARRef.current = null;
-        }
+      // If cam is off, or canvas isn't ready, or DeepAR script isn't loaded, shut down.
+      if (!camOn || !canvasRef.current || !window.deepar) {
+        await cleanupDeepAR();
         return;
       }
       
+      // If DeepAR is already running, no need to re-initialize.
       if (deepARRef.current) {
         return;
       }
+      
+      // Stop screen sharing if it's on
+      cleanupScreenShare();
 
+      console.log("Initializing DeepAR...");
       try {
         const newDeepAR = await window.deepar.initialize({
-          licenseKey: 'your_license_key_here', // IMPORTANT: Replace with your DeepAR license key
+          licenseKey: 'your_license_key_here',
           canvas: canvasRef.current,
-          rootPath: '/deepar-resources', // Make sure these resources are in your public folder
-           additionalOptions: {
-             cameraConfig: {
-                
-             }
-           }
+          rootPath: '/deepar-resources',
+          additionalOptions: {
+            cameraConfig: {
+              // Facing mode can be 'environment' for back camera or 'user' for front
+            }
+          }
         });
         
         deepARRef.current = newDeepAR;
+        console.log("DeepAR Initialized.");
 
-        // Mute audio by default, parent component will control it
-        newDeepAR.setAudioOutput(false);
-        
+        // Apply the initially active filter if there is one
+        if (activeFilterPath) {
+          console.log(`Applying initial filter: ${activeFilterPath}`);
+          newDeepAR.switchEffect(activeFilterPath);
+        }
+
       } catch (error) {
         console.error('DeepAR initialization failed:', error);
+        toast({
+          variant: 'destructive',
+          title: 'AR Engine Failed',
+          description: 'Could not initialize the AR filter engine. Please check your license key and camera permissions.',
+        });
       }
     }
 
-    // Delay initialization slightly to ensure the script has loaded
-    const timer = setTimeout(() => {
-      initializeDeepAR();
-    }, 100);
+    initializeDeepAR();
 
+    // The cleanup function for this effect will run when `camOn` changes.
     return () => {
-      clearTimeout(timer);
-      deepARRef.current?.shutdown();
-      deepARRef.current = null;
+      // This will be called when the component unmounts, or before re-running the effect.
+      // We explicitly call cleanupDeepAR inside the effect logic, so this can be left empty
+      // or we can add a final safety cleanup.
     };
   }, [camOn]);
 
   useEffect(() => {
-     if (deepARRef.current) {
-       deepARRef.current.setAudioOutput(micOn);
-     }
+    if (deepARRef.current) {
+      deepARRef.current.setAudioOutput(micOn);
+      console.log(`DeepAR audio output set to: ${micOn}`);
+    }
   }, [micOn]);
   
   useEffect(() => {
-    if (deepARRef.current) {
-        const path = activeFilterPath === 'none' ? null : activeFilterPath;
-        deepARRef.current.switchEffect(path, {
-            // Options if needed
-        });
+    if (deepARRef.current && camOn) {
+      const path = activeFilterPath === 'none' ? null : activeFilterPath;
+      console.log(`Switching DeepAR effect to: ${path}`);
+      deepARRef.current.switchEffect(path || 'none');
     }
-  }, [activeFilterPath]);
+  }, [activeFilterPath, camOn]);
 
-  // Handle screensharing separately as it doesn't use DeepAR
-  const videoRef = useRef<HTMLVideoElement>(null);
+
   useEffect(() => {
-    async function getScreenShareMedia() {
-      if(videoRef.current?.srcObject) {
-        const stream = videoRef.current.srcObject as MediaStream;
-        stream.getTracks().forEach(track => track.stop());
-        videoRef.current.srcObject = null;
+    async function setupScreenShare() {
+      if (!screenShareOn) {
+        cleanupScreenShare();
+        return;
       }
-
-      if (screenShareOn) {
-        try {
-          const stream = await navigator.mediaDevices.getDisplayMedia({
-            video: true,
-            audio: true,
-          });
-          if (videoRef.current) {
-            videoRef.current.srcObject = stream;
-          }
-        } catch (err) {
-          console.error("Error accessing screen share.", err);
+      
+      // Ensure DeepAR is off before starting screen share
+      await cleanupDeepAR();
+      
+      console.log("Starting screen share...");
+      try {
+        const stream = await navigator.mediaDevices.getDisplayMedia({
+          video: true,
+          audio: true,
+        });
+        screenStreamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.muted = !micOn; // Control mute based on micOn state
         }
+
+        // When the user stops sharing via the browser UI
+        stream.getVideoTracks()[0].onended = () => {
+          console.log("Screen share ended by user.");
+          cleanupScreenShare();
+          // Optionally, turn the camera back on or update state
+        };
+
+      } catch (err) {
+        console.error("Error starting screen share.", err);
+        cleanupScreenShare();
+        toast({
+            variant: 'destructive',
+            title: 'Screen Share Failed',
+            description: 'Could not start screen sharing. Please grant permissions.',
+        });
       }
     }
-    getScreenShareMedia();
-  }, [screenShareOn])
 
+    setupScreenShare();
+    
+    return () => {
+        cleanupScreenShare();
+    }
+  }, [screenShareOn]);
 
-  if(screenShareOn){
-    return <video ref={videoRef} autoPlay playsInline muted className="absolute inset-0 w-full h-full object-cover z-0 bg-secondary" />
-  }
+  useEffect(() => {
+    if(videoRef.current && screenStreamRef.current){
+        videoRef.current.muted = !micOn;
+    }
+  }, [micOn, screenShareOn])
 
   return (
-    <canvas
-      ref={canvasRef}
-      className={`absolute inset-0 w-full h-full object-cover z-0 bg-secondary ${!camOn ? 'hidden' : ''}`}
-    />
+    <>
+      <canvas
+        ref={canvasRef}
+        className={`absolute inset-0 w-full h-full object-cover z-0 bg-secondary ${!camOn || screenShareOn ? 'hidden' : ''}`}
+      />
+      <video 
+        ref={videoRef} 
+        autoPlay 
+        playsInline
+        className={`absolute inset-0 w-full h-full object-contain z-0 bg-secondary ${!screenShareOn ? 'hidden' : ''}`} 
+      />
+    </>
   );
 }
-
-    

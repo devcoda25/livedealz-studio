@@ -1,3 +1,4 @@
+
 import { Server, Socket } from 'socket.io';
 import * as state from './state';
 import * as schemas from './schemas';
@@ -66,6 +67,18 @@ export function initSocketServer(io: Server) {
         console.error('[AI] Failed to get prompt suggestions:', error);
       }
     });
+    
+    // --- EVENT: chat:attachment ---
+    socket.on('chat:attachment', (payload) => {
+        const result = schemas.c2sSendChatSchema.safeParse(payload);
+        if (!result.success || !result.data.attachment) return;
+
+        const newAttachment = state.addAttachment('Viewer #123', result.data.attachment.name, result.data.attachment.mimeType.startsWith('image') ? 'image' : 'question');
+        const updatedAttachments = state.getStudioState().attachments;
+        
+        io.to(STUDIO_ROOM).emit('attachments:update', { attachments: updatedAttachments });
+    });
+
 
     // --- EVENT: live:setMode ---
     socket.on('live:setMode', (payload) => {

@@ -1,9 +1,10 @@
+
 'use client';
 
 import { useEffect, useReducer, useRef, useCallback } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import type { 
-    StudioState, ChatMessage, S2C_StatsUpdate, FlashDeal, MomentMarker, S2C_ModeUpdate, Attachment
+    StudioState, ChatMessage, S2C_StatsUpdate, FlashDeal, MomentMarker, S2C_ModeUpdate, Attachment, C2S_SendChat
 } from '@/types/studio';
 
 type Action =
@@ -105,6 +106,19 @@ export function useStudioSocket(studioId: string) {
     socketRef.current?.emit('chat:send', { body });
   }, []);
 
+  const sendAttachment = useCallback((file: File) => {
+    const payload: C2S_SendChat = {
+        body: `Attachment: ${file.name}`,
+        attachment: {
+            name: file.name,
+            mimeType: file.type,
+        }
+    };
+    // In a real app, you'd likely read the file into a buffer to send
+    // For this demo, we are just sending metadata to create the queue item.
+    socketRef.current?.emit('chat:attachment', payload);
+  }, []);
+
   const setMode = useCallback((mode: 'live' | 'lobby') => {
     socketRef.current?.emit('live:setMode', { mode });
   }, []);
@@ -127,6 +141,7 @@ export function useStudioSocket(studioId: string) {
 
   const actions = {
     sendChat,
+    sendAttachment,
     setMode,
     markMoment,
     startFlashDeal,
