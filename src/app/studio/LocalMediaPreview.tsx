@@ -29,74 +29,70 @@ export function LocalMediaPreview({ camOn, micOn, screenShareOn, activeFilter }:
   const { toast } = useToast();
 
   useEffect(() => {
-    if (typeof window === 'undefined' || !window.BanubaSDK || !banubaMountRef.current) {
+    if (typeof window === 'undefined' || !window.BanubaSDK || !banubaMountRef.current || !camOn) {
       return;
     }
 
+    let currentPlayer: Player | null = null;
+
     const initializeBanuba = async () => {
-      if (playerRef.current) {
-        playerRef.current.stop();
-        playerRef.current.close();
-        playerRef.current = null;
-      }
-      
       try {
         const player = await window.BanubaSDK.create({ 
             clientToken: BANUBA_CLIENT_TOKEN,
-            resourcePath: '/banuba-resources/',
+            resourcePath: '/banuba-resources/', // Default path for public folder
             effectPlayerOptions: {
-              camera: {
-                // To avoid the unnecessary camera flips, we disable the face-tracking feature for the selfie camera.
-                // We recommend you to keep this setting for a better user experience.
-                //
-                // See https://docs.banuba.com/face-ar-sdk-v1/web/web_camera#selfie-mode-and-camera-flip for more details
-                selfieMode: false,
-              },
+              camera: { selfieMode: false },
             }, 
         });
 
         player.use(window.BanubaSDK.UI);
-        player.setRenderTarget(banubaMountRef.current, 1);
+        await player.setRenderTarget(banubaMountRef.current, 1);
+        player.play();
+        
         playerRef.current = player;
+        currentPlayer = player;
         setHasPermission(true);
+
+        if (activeFilter && activeFilter !== 'none') {
+            player.loadEffect(activeFilter)
+                .catch(e => console.error("Error loading initial Banuba effect:", e));
+        }
+
       } catch (error) {
         console.error('Error initializing Banuba SDK:', error);
         setHasPermission(false);
-        toast({
-          variant: 'destructive',
-          title: 'AR Engine Failed',
-          description: 'Could not initialize the AR engine. Please check your license token and resource paths.',
-        });
+        if (error instanceof Error && error.message.includes('license')) {
+             toast({
+              variant: 'destructive',
+              title: 'AR License Invalid',
+              description: 'The Banuba license token is missing or invalid. Please add your token.',
+            });
+        } else {
+            toast({
+              variant: 'destructive',
+              title: 'Camera Access Denied',
+              description: 'Please allow camera access in your browser to use AR filters.',
+            });
+        }
       }
     };
     
     initializeBanuba();
     
     return () => {
-      if (playerRef.current) {
-        playerRef.current.stop();
-        playerRef.current.close();
-        playerRef.current = null;
+      if (currentPlayer) {
+        currentPlayer.stop();
+        currentPlayer.close();
       }
+      playerRef.current = null;
     }
 
-  }, [toast]);
+  }, [camOn, toast]);
 
 
   useEffect(() => {
     const player = playerRef.current;
-    if (!player) return;
-
-    if (camOn) {
-      player.play();
-    } else {
-      player.stop();
-    }
-  }, [camOn]);
-
-  useEffect(() => {
-    const player = playerRef.current;
-    if (!player) return;
+    if (!player || !camOn) return;
 
     if (activeFilter && activeFilter !== 'none') {
         player.loadEffect(activeFilter)
@@ -104,7 +100,7 @@ export function LocalMediaPreview({ camOn, micOn, screenShareOn, activeFilter }:
     } else {
         player.clearEffect();
     }
-  }, [activeFilter]);
+  }, [activeFilter, camOn]);
   
   // NOTE: Screen sharing is not directly supported by the Banuba WebAR SDK in the same way as the camera.
   // This would require a more complex implementation, likely involving capturing the screen with getDisplayMedia,
@@ -130,7 +126,7 @@ export function LocalMediaPreview({ camOn, micOn, screenShareOn, activeFilter }:
           <Alert variant="destructive" className="absolute bottom-4 left-4 right-4 w-auto z-20">
               <AlertTitle>Media Access Required</AlertTitle>
               <AlertDescription>
-                Please allow camera and microphone access to use this feature.
+                Please allow camera access and check your Banuba license token to use AR filters.
               </AlertDescription>
           </Alert>
       )}
