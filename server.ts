@@ -1,8 +1,6 @@
 import { createServer } from 'http';
 import { parse } from 'url';
 import next from 'next';
-import { Server } from 'socket.io';
-import { initSocketServer } from './src/socket';
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = 'localhost';
@@ -23,14 +21,6 @@ app.prepare().then(() => {
       res.end('internal server error');
     }
   });
-
-  const io = new Server(httpServer, {
-    cors: {
-      origin: '*', // Allow all origins for simplicity in dev
-    },
-  });
-
-  initSocketServer(io);
 
   httpServer
     .once('error', (err) => {

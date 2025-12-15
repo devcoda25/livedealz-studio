@@ -1,41 +1,61 @@
 
 'use client';
 
-import { useEffect, useReducer, useRef, useCallback } from 'react';
-import { io, type Socket } from 'socket.io-client';
-import type { 
-    StudioState, ChatMessage, S2C_StatsUpdate, FlashDeal, MomentMarker, S2C_ModeUpdate, Attachment, C2S_SendChat
+import { useEffect, useReducer, useState, useCallback } from 'react';
+import { StreamChat, Channel, Event } from 'stream-chat';
+import type {
+    StudioState, ChatMessage, Attachment, Mode, MomentMarker
 } from '@/types/studio';
+import { format } from 'date-fns';
+import { formatTimer } from '@/lib/utils';
+
+const STREAM_API_KEY = process.env.NEXT_PUBLIC_STREAM_API_KEY || 'your_stream_api_key';
+const USER_ID_CREATOR = 'live-dealz-creator';
+
 
 type Action =
-  | { type: 'SET_INITIAL_STATE'; payload: StudioState }
+  | { type: 'SET_INITIAL_STATE'; payload: Partial<StudioState> }
   | { type: 'ADD_CHAT_MESSAGE'; payload: ChatMessage }
-  | { type: 'UPDATE_MODE'; payload: S2C_ModeUpdate }
-  | { type: 'UPDATE_STATS'; payload: S2C_StatsUpdate }
-  | { type: 'UPDATE_FLASH_DEAL'; payload: FlashDeal }
-  | { type: 'UPDATE_MOMENTS'; payload: MomentMarker[] }
-  | { type: 'UPDATE_AI_PROMPTS'; payload: string[] }
-  | { type: 'UPDATE_ATTACHMENTS'; payload: Attachment[] };
+  | { type: 'UPDATE_CUSTOM_STATE'; payload: Partial<StudioState> }
+  | { type: 'ADD_ATTACHMENT'; payload: Attachment };
 
 const initialState: StudioState = {
   mode: 'lobby',
   startedAt: null,
   chat: { messages: [] },
-  stats: { viewers: 0, sales: 0, connection: 'Excellent', bitrate: '... Mbps' },
-  salesEvents: [],
-  commerceGoal: { targetUnits: 50, soldUnits: 0, cartCount: 0, last5MinSales: 0 },
+  stats: { viewers: 842, sales: 37, connection: 'Excellent', bitrate: '4.5 Mbps' },
+  salesEvents: [
+    { id: 1, label: 'Mary (Kampala) bought GlowUp Serum', time: '18:41' },
+    { id: 2, label: '2x GlowUp bundles sold', time: '18:39' },
+  ],
+  commerceGoal: { targetUnits: 50, soldUnits: 37, cartCount: 12, last5MinSales: 5 },
   flashDeal: { active: false, endsAt: null, discountPercent: 0, durationSeconds: 0 },
   momentMarkers: [],
-  aiPrompts: [],
-  attachments: [],
+  aiPrompts: [
+    "Chat asking about skin type match – address oily vs dry quickly.",
+    "Viewers reacted strongly when you mentioned 'glow in 7 days' – lean into that angle.",
+  ],
+  attachments: [
+    { id: 1, from: 'Viewer #238', type: 'image', label: 'Before/after photo', status: 'Pending' },
+  ],
 };
 
 function studioReducer(state: StudioState, action: Action): StudioState {
   switch (action.type) {
     case 'SET_INITIAL_STATE':
-      return action.payload;
+        return { ...state, ...action.payload };
+    case 'UPDATE_CUSTOM_STATE':
+        // Make sure to merge nested objects like chat correctly
+        if (action.payload.chat) {
+            return { 
+                ...state, 
+                ...action.payload,
+                chat: { messages: [...state.chat.messages, ...action.payload.chat.messages].slice(-100) }
+            };
+        }
+        return { ...state, ...action.payload };
     case 'ADD_CHAT_MESSAGE':
-      // Avoid duplicates on optimistic updates
+      // Prevent duplicate messages
       if (state.chat.messages.some(m => m.id === action.payload.id)) {
         return state;
       }
@@ -45,106 +65,231 @@ function studioReducer(state: StudioState, action: Action): StudioState {
           messages: [...state.chat.messages, action.payload].slice(-100),
         },
       };
-    case 'UPDATE_MODE':
-      return { ...state, mode: action.payload.mode, startedAt: action.payload.startedAt };
-    case 'UPDATE_STATS':
-      return { 
-          ...state, 
-          stats: action.payload.stats,
-          salesEvents: action.payload.salesEvents,
-          commerceGoal: action.payload.commerceGoal,
-          startedAt: action.payload.startedAt,
-        };
-    case 'UPDATE_FLASH_DEAL':
-      return { ...state, flashDeal: action.payload };
-    case 'UPDATE_MOMENTS':
-      return { ...state, momentMarkers: action.payload };
-    case 'UPDATE_AI_PROMPTS':
-        return { ...state, aiPrompts: action.payload };
-    case 'UPDATE_ATTACHMENTS':
-        return { ...state, attachments: action.payload };
+    case 'ADD_ATTACHMENT':
+        if(state.attachments.some(a => a.id === action.payload.id)) {
+            return state;
+        }
+        return {
+            ...state,
+            attachments: [action.payload, ...state.attachments]
+        }
     default:
       return state;
   }
 }
 
-export function useStudioSocket(studioId: string) {
-  const socketRef = useRef<Socket | null>(null);
+export function useStudioStream(channelId: string) {
   const [state, dispatch] = useReducer(studioReducer, initialState);
+  const [channel, setChannel] = useState<Channel | null>(null);
+  const [isConnecting, setIsConnecting] = useState(true);
 
   useEffect(() => {
-    const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:9002');
-    socketRef.current = socket;
+    let chatClient: StreamChat;
+    let currentChannel: Channel;
 
-    socket.on('connect', () => {
-      console.log('Socket connected:', socket.id);
-      socket.emit('studio:join', { studioId });
-    });
+    async function initStream() {
+      try {
+        if (!STREAM_API_KEY || STREAM_API_KEY === 'your_stream_api_key') {
+            console.error("Stream API key is not set. Please add it to your environment variables or replace the placeholder.");
+            setIsConnecting(false); 
+            return;
+        }
 
-    socket.on('disconnect', () => {
-      console.log('Socket disconnected');
-    });
+        chatClient = StreamChat.getInstance(STREAM_API_KEY);
+        
+        const userToken = chatClient.devToken(USER_ID_CREATOR);
+        
+        await chatClient.connectUser(
+          { id: USER_ID_CREATOR, name: 'Live Dealz Creator' },
+          userToken
+        );
+        
+        currentChannel = chatClient.channel('livestream', channelId, {
+            name: 'Live Dealz Studio',
+            // Set initial state for new channels. Stream persists this.
+            ...initialState
+        });
+        
+        // Using watch() is key to getting real-time updates and state
+        const channelState = await currentChannel.watch();
+        setChannel(currentChannel);
+        
+        // The channel's custom data is the source of truth
+        const customState = currentChannel.data?.custom || {};
+        dispatch({ type: 'SET_INITIAL_STATE', payload: customState as Partial<StudioState> });
 
-    // S2C Listeners
-    socket.on('studio:state', (payload: StudioState) => dispatch({ type: 'SET_INITIAL_STATE', payload }));
-    socket.on('chat:new', (payload: ChatMessage) => dispatch({ type: 'ADD_CHAT_MESSAGE', payload }));
-    socket.on('mode:update', (payload: S2C_ModeUpdate) => dispatch({ type: 'UPDATE_MODE', payload }));
-    socket.on('stats:update', (payload: S2C_StatsUpdate) => dispatch({ type: 'UPDATE_STATS', payload }));
-    socket.on('flash:update', (payload: FlashDeal) => dispatch({ type: 'UPDATE_FLASH_DEAL', payload }));
-    socket.on('moments:update', (payload: { moments: MomentMarker[] }) => dispatch({ type: 'UPDATE_MOMENTS', payload: payload.moments }));
-    socket.on('ai_prompts:update', (payload: { prompts: string[] }) => dispatch({ type: 'UPDATE_AI_PROMPTS', payload: payload.prompts }));
-    socket.on('attachments:update', (payload: { attachments: Attachment[] }) => dispatch({ type: 'UPDATE_ATTACHMENTS', payload: payload.attachments }));
+        // Load existing messages
+        const messages = channelState.messages.map((m): ChatMessage => ({
+             id: m.id,
+             from: m.user?.name || m.user?.id || 'Anonymous',
+             body: m.text || '',
+             time: format(m.created_at, 'HH:mm'),
+             system: m.type === 'system',
+        }));
+        dispatch({ type: 'UPDATE_CUSTOM_STATE', payload: { chat: { messages } } });
+        
 
-    return () => {
-      socket.disconnect();
-      socketRef.current = null;
+      } catch (error) {
+        console.error('Stream connection error:', error);
+      } finally {
+        setIsConnecting(false);
+      }
+    }
+
+    initStream();
+
+    const handleEvent = (event: Event) => {
+        if (event.type === 'message.new' && event.message) {
+            // This handles both regular chat and system messages for attachments
+            if (event.message.for_moderation) {
+                const attachmentData = event.message.attachments?.[0];
+                if(attachmentData && event.message.user) {
+                   const newAttachment: Attachment = {
+                       id: Date.now(), // Use a temp ID, or derive from message ID
+                       from: event.message.user.name || event.message.user.id,
+                       type: attachmentData.type as 'image' | 'question',
+                       label: attachmentData.title || 'New Attachment',
+                       status: 'Pending',
+                       // In a real app, you'd handle the file properly
+                       file: { name: attachmentData.title || "file" } as File, 
+                   };
+                   dispatch({ type: 'ADD_ATTACHMENT', payload: newAttachment });
+                }
+            } else {
+                const msg = event.message;
+                const newChatMessage: ChatMessage = {
+                    id: msg.id,
+                    from: msg.user?.name || msg.user?.id || 'Anonymous',
+                    body: msg.text || '',
+                    time: format(msg.created_at, 'HH:mm'),
+                    system: msg.type === 'system',
+                };
+                dispatch({ type: 'ADD_CHAT_MESSAGE', payload: newChatMessage });
+            }
+        } else if (event.type === 'channel.updated' && event.channel?.custom) {
+            // This is the primary way we get state updates
+            dispatch({ type: 'UPDATE_CUSTOM_STATE', payload: event.channel.custom as Partial<StudioState> });
+        }
     };
-  }, [studioId]);
-
-  // C2S Emitters
-  const sendChat = useCallback((body: string) => {
-    const payload = { body };
-    socketRef.current?.emit('chat:send', payload);
     
-    // Optimistic update for creator's own messages
-    const optimisticMessage: ChatMessage = {
-      id: `local-${Date.now()}`,
-      from: 'You (Creator)',
-      body,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    if (channel) {
+        channel.on(handleEvent);
+    }
+    
+    return () => {
+      if (channel) {
+        channel.off(handleEvent);
+      }
+      chatClient?.disconnectUser();
     };
-    dispatch({ type: 'ADD_CHAT_MESSAGE', payload: optimisticMessage });
+  }, [channelId]);
 
-  }, []);
+  const updateChannelState = useCallback(async (newState: Partial<StudioState>) => {
+    if (!channel) return;
+    try {
+      // Use updatePartial to merge with existing state
+      await channel.updatePartial({ set: { ...newState } });
+    } catch (error) {
+      console.error('Failed to update channel state:', error);
+    }
+  }, [channel]);
 
-  const sendAttachment = useCallback((file: File) => {
-    // In a real app, you'd likely read the file into a buffer to send
-    // For this demo, we are just sending metadata to create the queue item.
-    socketRef.current?.emit('chat:attachment', {
-        name: file.name,
-        mimeType: file.type,
+  // --- ACTIONS ---
+
+  const sendChat = useCallback(async (body: string) => {
+    if (!channel || !body.trim()) return;
+    await channel.sendMessage({ text: body.trim() });
+  }, [channel]);
+
+  const sendAttachment = useCallback(async (file: File) => {
+    if (!channel) return;
+    // First, upload the file to Stream's CDN
+    const response = await channel.sendImage(file);
+    
+    // Then, send a message flagged for moderation. This won't appear in the main chat.
+    await channel.sendMessage({
+      text: `Attachment for approval: ${file.name}`,
+      attachments: [{
+          type: 'image',
+          title: file.name,
+          image_url: response.file,
+          thumb_url: response.file,
+      }],
+      for_moderation: true, // Custom flag
+      silent: true, // Don't trigger push notifications
+      show_in_channel: false, // Don't show in main channel UI
     });
-  }, []);
 
-  const setMode = useCallback((mode: 'live' | 'lobby') => {
-    socketRef.current?.emit('live:setMode', { mode });
-  }, []);
+    // We also update the local state immediately for the moderator UI
+    const newAttachment: Attachment = {
+        id: Date.now(),
+        from: 'You', // Since creator is sending it
+        type: 'image',
+        label: file.name,
+        status: 'Pending',
+        file,
+    };
+    dispatch({ type: 'ADD_ATTACHMENT', payload: newAttachment });
+
+  }, [channel]);
+
+  const setMode = useCallback((mode: Mode) => {
+    const startedAt = mode === 'live' ? Date.now() : null;
+    updateChannelState({ mode, startedAt });
+  }, [updateChannelState]);
 
   const markMoment = useCallback((label?: string) => {
-    socketRef.current?.emit('moment:mark', { label });
-  }, []);
+    const startedAt = state.startedAt;
+    if (!startedAt) return;
+
+    const elapsedSeconds = (Date.now() - startedAt) / 1000;
+    const timestamp = formatTimer(elapsedSeconds);
+    const newMarker: MomentMarker = {
+        id: crypto.randomUUID(),
+        time: timestamp,
+        label: label || `Moment @ ${timestamp}`,
+    };
+    updateChannelState({ momentMarkers: [...state.momentMarkers, newMarker] });
+  }, [state.startedAt, state.momentMarkers, updateChannelState]);
 
   const startFlashDeal = useCallback((durationSeconds: number, discountPercent: number) => {
-    socketRef.current?.emit('flash:start', { durationSeconds, discountPercent });
-  }, []);
+    const flashDeal = {
+        active: true,
+        endsAt: Date.now() + durationSeconds * 1000,
+        discountPercent,
+        durationSeconds,
+    };
+    updateChannelState({ flashDeal });
+  }, [updateChannelState]);
 
   const stopFlashDeal = useCallback(() => {
-    socketRef.current?.emit('flash:stop');
-  }, []);
-  
+    updateChannelState({ flashDeal: { ...state.flashDeal, active: false } });
+  }, [state.flashDeal, updateChannelState]);
+
   const moderateAttachment = useCallback((attachmentId: number, status: 'approved' | 'rejected') => {
-    socketRef.current?.emit('attachment:moderate', { attachmentId, status });
-  }, []);
+    // This action would typically happen on a backend for security.
+    // For the client-side simulation, we just remove it from the queue.
+    const updatedAttachments = state.attachments.filter(a => a.id !== attachmentId);
+
+    if (status === 'approved') {
+        const approvedAttachment = state.attachments.find(a => a.id === attachmentId);
+        if (approvedAttachment && channel) {
+            // If approved, send a new message to the channel that IS visible
+            channel.sendMessage({
+                text: `Attachment from ${approvedAttachment.from}:`,
+                attachments: [{
+                    type: 'image',
+                    title: approvedAttachment.label,
+                    // In a real app, you'd have the URL from the moderation event
+                    image_url: 'https://placehold.co/400x300/orange/white?text=Approved',
+                    thumb_url: 'https://placehold.co/400x300/orange/white?text=Approved'
+                }]
+            });
+        }
+    }
+    
+    updateChannelState({ attachments: updatedAttachments });
+  }, [state.attachments, updateChannelState, channel]);
 
   const actions = {
     sendChat,
@@ -156,5 +301,5 @@ export function useStudioSocket(studioId: string) {
     moderateAttachment,
   };
 
-  return { state, actions };
+  return { state, actions, isConnecting };
 }

@@ -6,7 +6,7 @@ import type {
   Product, Scene, ChatMessage, QAItem, Viewer, CoHost, Attachment, RunOfShowItem, SalesEvent,
   CommerceGoal, Mode, AudienceTab, MomentMarker
 } from '@/types/studio';
-import { useStudioSocket } from '@/hooks/useStudioSocket';
+import { useStudioStream } from '@/hooks/useStudioSocket';
 import { useToast } from "@/hooks/use-toast";
 import { formatTimer, getCountdownSeconds } from '@/lib/utils';
 import { LocalMediaPreview } from './LocalMediaPreview';
@@ -19,9 +19,9 @@ const EV_ORANGE = "#f77f00";
 type RightPanelTab = "audience" | "script" | "commerce";
 
 export default function CreatorLiveStudio() {
-  const { state, actions } = useStudioSocket('main-studio');
+  const { state, actions, isConnecting } = useStudioStream('main-studio');
   const { toast } = useToast();
-  const { mode, startedAt, chat, stats, salesEvents, commerceGoal, flashDeal, momentMarkers, aiPrompts } = state;
+  const { mode, startedAt, chat, stats, salesEvents, commerceGoal, flashDeal, momentMarkers, aiPrompts, attachments } = state;
 
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(true);
@@ -74,11 +74,6 @@ export default function CreatorLiveStudio() {
     { id: 2, name: 'Grace (Brand rep)', status: 'Pending' },
   ];
 
-  const attachments: Attachment[] = [
-    { id: 1, from: 'Viewer #238', type: 'image', label: 'Before/after photo', status: 'Pending' },
-    { id: 2, from: 'Viewer #874', type: 'question', label: 'Skin type question', status: 'Pending' },
-  ];
-
   const qaItems: QAItem[] = [
     { id: 1, question: 'How long until I see results?', from: 'Viewer #321', status: 'unanswered' },
     { id: 2, question: 'Is this safe for sensitive skin?', from: 'Viewer #119', status: 'pinned' },
@@ -120,9 +115,7 @@ export default function CreatorLiveStudio() {
     { id: 'P-103', name: 'GlowUp Night Cream', price: '$29', stock: '34 in stock', tag: 'Upsell after serum' },
   ];
 
-  const toggleLive = () => {
-    actions.setMode(mode === 'lobby' ? 'live' : 'lobby');
-  };
+  const toggleLive = () => actions.setMode(mode === 'lobby' ? 'live' : 'lobby');
   
   const handleToggleCam = () => {
     if (screenShareOn) {
@@ -174,6 +167,15 @@ export default function CreatorLiveStudio() {
 
   const typeLabel = mode === "live" ? "Live" : "Pre-live lobby";
   const rootClass = "min-h-screen flex flex-col bg-background text-foreground";
+  
+  if (isConnecting) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
+        <p>Connecting to Stream...</p>
+      </div>
+    );
+  }
+
 
   return (
     <div className={rootClass}>
@@ -211,7 +213,7 @@ export default function CreatorLiveStudio() {
         <section className="w-64 flex-shrink-0 flex flex-col gap-3">
           <ProductPanel products={products} highlightedProductId={highlightedProductId} onHighlight={setHighlightedProductId} flashDealActive={flashDeal.active} flashSeconds={flashDealSeconds} onConfigureFlash={handleOpenFlashConfig} onStopFlash={handleStopFlashDeal}/>
           <CoHostPanel coHosts={coHosts} />
-          <AttachmentsPanel attachments={state.attachments} onApprove={handleApproveAttachment} onReject={handleRejectAttachment} />
+          <AttachmentsPanel attachments={attachments} onApprove={handleApproveAttachment} onReject={handleRejectAttachment} />
         </section>
 
         <section className="flex-1 flex flex-col gap-3 min-h-0">
