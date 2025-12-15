@@ -8,6 +8,11 @@ export const c2sSendChatSchema = z.object({
   body: z.string().min(1).max(500),
 });
 
+export const c2sSendAttachmentSchema = z.object({
+    name: z.string(),
+    mimeType: z.string(),
+});
+
 export const c2sSetModeSchema = z.object({
   mode: z.enum(['lobby', 'live']),
 });

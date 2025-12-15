@@ -9,9 +9,10 @@ interface LocalMediaPreviewProps {
   camOn: boolean;
   micOn: boolean;
   screenShareOn: boolean;
+  activeFilter: string | null;
 }
 
-export function LocalMediaPreview({ camOn, micOn, screenShareOn }: LocalMediaPreviewProps) {
+export function LocalMediaPreview({ camOn, micOn, screenShareOn, activeFilter }: LocalMediaPreviewProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const [hasPermission, setHasPermission] = useState(true);
@@ -93,7 +94,7 @@ export function LocalMediaPreview({ camOn, micOn, screenShareOn }: LocalMediaPre
     return () => {
       stopCurrentStream();
     };
-  }, [camOn, screenShareOn, micOn]); // Rerun when any of these change
+  }, [camOn, screenShareOn, micOn, toast]); // Rerun when any of these change
 
   // This effect handles muting/unmuting the audio track without re-requesting the stream
   useEffect(() => {
@@ -105,6 +106,12 @@ export function LocalMediaPreview({ camOn, micOn, screenShareOn }: LocalMediaPre
     }
   }, [micOn]);
 
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.style.filter = activeFilter || 'none';
+    }
+  }, [activeFilter]);
+
 
   return (
     <>
@@ -113,7 +120,7 @@ export function LocalMediaPreview({ camOn, micOn, screenShareOn }: LocalMediaPre
         autoPlay
         playsInline
         muted // Video should always be muted to prevent feedback loop
-        className={`w-full h-full object-contain z-0 bg-secondary ${ (camOn || screenShareOn) ? '' : 'hidden'}`}
+        className={`w-full h-full object-contain z-0 bg-secondary transition-all duration-300 ${ (camOn || screenShareOn) ? '' : 'hidden'}`}
       />
       { !(camOn || screenShareOn) && (
         <div className="z-10 flex flex-col items-center text-center p-4">

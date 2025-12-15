@@ -103,20 +103,27 @@ export function useStudioSocket(studioId: string) {
 
   // C2S Emitters
   const sendChat = useCallback((body: string) => {
-    socketRef.current?.emit('chat:send', { body });
+    const payload = { body };
+    socketRef.current?.emit('chat:send', payload);
+    
+    // Optimistic update for creator's own messages
+    const optimisticMessage: ChatMessage = {
+      id: `local-${Date.now()}`,
+      from: 'You (Creator)',
+      body,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+    dispatch({ type: 'ADD_CHAT_MESSAGE', payload: optimisticMessage });
+
   }, []);
 
   const sendAttachment = useCallback((file: File) => {
-    const payload: C2S_SendChat = {
-        body: `Attachment: ${file.name}`,
-        attachment: {
-            name: file.name,
-            mimeType: file.type,
-        }
-    };
     // In a real app, you'd likely read the file into a buffer to send
     // For this demo, we are just sending metadata to create the queue item.
-    socketRef.current?.emit('chat:attachment', payload);
+    socketRef.current?.emit('chat:attachment', {
+        name: file.name,
+        mimeType: file.type,
+    });
   }, []);
 
   const setMode = useCallback((mode: 'live' | 'lobby') => {

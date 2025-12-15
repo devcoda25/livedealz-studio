@@ -42,8 +42,8 @@ export function initSocketServer(io: Server) {
 
       const newMessage = state.addChatMessage('You (Creator)', result.data.body);
 
-      // Broadcast new message to all clients in the room
-      io.to(STUDIO_ROOM).emit('chat:new', newMessage);
+      // Broadcast new message to all clients in the room (except sender for non-creator messages)
+      socket.broadcast.to(STUDIO_ROOM).emit('chat:new', newMessage);
 
       // Trigger AI prompt suggestion
       try {
@@ -70,10 +70,10 @@ export function initSocketServer(io: Server) {
     
     // --- EVENT: chat:attachment ---
     socket.on('chat:attachment', (payload) => {
-        const result = schemas.c2sSendChatSchema.safeParse(payload);
-        if (!result.success || !result.data.attachment) return;
+        const result = schemas.c2sSendAttachmentSchema.safeParse(payload);
+        if (!result.success) return;
 
-        const newAttachment = state.addAttachment('Viewer #123', result.data.attachment.name, result.data.attachment.mimeType.startsWith('image') ? 'image' : 'question');
+        const newAttachment = state.addAttachment('Viewer #123', result.data.name, result.data.mimeType.startsWith('image') ? 'image' : 'question');
         const updatedAttachments = state.getStudioState().attachments;
         
         io.to(STUDIO_ROOM).emit('attachments:update', { attachments: updatedAttachments });
