@@ -579,14 +579,14 @@ function StudioControlBar({ mode, onToggleLive, micOn, onToggleMic, camOn, onTog
 function FiltersTray({ onFilterSelect, activeFilter }: { onFilterSelect: (filter: string) => void; activeFilter: string | null; }) {
   const categories = ["Beauty", "Fun", "Background", "Brand"];
   const filters = [
-    { id: 'none', label: "No Filter", css: 'none' },
-    { id: 'soft-glam', label: "Soft Glam", css: 'brightness(1.1) contrast(1.1) saturate(1.2)' },
-    { id: 'studio-glow', label: "Studio Glow", css: 'brightness(1.2) contrast(1.05)' },
-    { id: 'neon-night', label: "Neon Night", css: 'contrast(1.2) hue-rotate(30deg) saturate(1.5)' },
-    { id: 'black-white', label: "B&W", css: 'grayscale(100%)' },
-    { id: 'sepia-tone', label: "Sepia", css: 'sepia(100%)' },
+    { id: 'none', label: "No Filter", effect: 'none' },
+    { id: 'troll', label: "Troll Grandma", effect: 'TrollGrandma' },
+    { id: 'makeup', label: "Makeup", effect: 'Makeup' },
+    { id: 'vhs', label: "VHS", effect: 'VHS' },
+    { id: 'staker', label: "Staker", effect: 'Staker' },
+    { id: 'glasses', label: "Glasses", effect: 'Glasses' },
   ];
-  return (<div className="fixed left-1/2 -translate-x-1/2 bottom-4 md:bottom-20 w-full max-w-xl rounded-2xl border border-border shadow-xl px-3 py-2 md:px-4 md:py-3 bg-background/95 z-40"><div className="flex items-center justify-between mb-2 text-[11px]"><span className="font-semibold inline-flex items-center gap-1"><span className="material-icons text-[14px] text-amber-500">auto_awesome</span>AR Filters</span><div className="flex gap-1 overflow-x-auto max-w-[60%] hide-scrollbar">{categories.map((c) => (<span key={c} className="px-2 py-0.5 rounded-full bg-secondary text-foreground text-[10px] whitespace-nowrap">{c}</span>))}</div></div><div className="flex gap-2 overflow-x-auto pb-1 hide-scrollbar">{filters.map((f) => (<div key={f.id} className={"min-w-[80px] max-w-[80px] flex-shrink-0 rounded-xl flex flex-col items-center justify-center py-2 cursor-pointer " + (activeFilter === f.css || (f.id === 'none' && activeFilter === null) ? "border-emerald-400 border-2" : "border-border border bg-muted ")} onClick={() => onFilterSelect(f.id)}><div className="h-9 w-9 rounded-full bg-secondary mb-1" /><span className="text-[10px] text-center px-1 text-foreground">{f.label}</span></div>))}</div></div>);
+  return (<div className="fixed left-1/2 -translate-x-1/2 bottom-4 md:bottom-20 w-full max-w-xl rounded-2xl border border-border shadow-xl px-3 py-2 md:px-4 md:py-3 bg-background/95 z-40"><div className="flex items-center justify-between mb-2 text-[11px]"><span className="font-semibold inline-flex items-center gap-1"><span className="material-icons text-[14px] text-amber-500">auto_awesome</span>AR Filters</span><div className="flex gap-1 overflow-x-auto max-w-[60%] hide-scrollbar">{categories.map((c) => (<span key={c} className="px-2 py-0.5 rounded-full bg-secondary text-foreground text-[10px] whitespace-nowrap">{c}</span>))}</div></div><div className="flex gap-2 overflow-x-auto pb-1 hide-scrollbar">{filters.map((f) => (<div key={f.id} className={"min-w-[80px] max-w-[80px] flex-shrink-0 rounded-xl flex flex-col items-center justify-center py-2 cursor-pointer " + (activeFilter === f.effect ? "border-emerald-400 border-2" : "border-border border bg-muted ")} onClick={() => onFilterSelect(f.effect)}><div className="h-9 w-9 rounded-full bg-secondary mb-1" /><span className="text-[10px] text-center px-1 text-foreground">{f.label}</span></div>))}</div></div>);
 }
 
 function FlashDealControl({ onClose, onStart }: { onClose: () => void; onStart: (duration: number, discount: number) => void; }) {
