@@ -10,10 +10,6 @@
   scrollbar-width: none;
 }
 
-body {
-  font-family: 'Inter', sans-serif;
-}
-
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -92,8 +88,6 @@ body {
   }
   body {
     @apply bg-background text-foreground;
-  }
-  .dark {
-     @apply bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950;
+    font-family: 'Inter', sans-serif;
   }
 }

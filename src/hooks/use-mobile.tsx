@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect } from "react";
 
 export type DeviceKind = "mobile" | "desktop";
 
@@ -8,10 +8,8 @@ export function useDeviceKind(): DeviceKind {
   useEffect(() => {
     const detect = () => {
       if (typeof window === "undefined") return;
-      const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
-      const uaMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
-      const small = window.matchMedia("(max-width: 768px)").matches;
-      setKind(uaMobile || small ? "mobile" : "desktop");
+      const small = window.matchMedia("(max-width: 767px)").matches;
+      setKind(small ? "mobile" : "desktop");
     };
 
     detect();

@@ -29,13 +29,13 @@ export default function CreatorLiveStudio() {
   const [camOn, setCamOn] = useState(true);
   const [screenShareOn, setScreenShareOn] = useState(false);
   const [activeSceneId, setActiveSceneId] = useState('intro');
+  const [activeFilter, setActiveFilter] = useState<string | null>(null);
 
   const [highlightedProductId, setHighlightedProductId] = useState('P-101');
   const [flashConfigOpen, setFlashConfigOpen] = useState(false);
 
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [languagePanelOpen, setLanguagePanelOpen] = useState(false);
-  const [activeFilter, setActiveFilter] = useState<string | null>(null);
 
   const [mobilePanel, setMobilePanel] = useState<"products" | "chat">("products");
   const [audienceTab, setAudienceTab] = useState<AudienceTab>("chat");
@@ -252,6 +252,24 @@ export default function CreatorLiveStudio() {
         </section>
       </main>
 
+      <div className="md:hidden">
+        <MobileStudio
+            mode={mode} typeLabel={typeLabel} products={products}
+            highlightedProductId={highlightedProductId} setHighlightedProductId={setHighlightedProductId}
+            flashDealActive={flashDeal.active} onOpenFlashConfig={handleOpenFlashConfig}
+            onStopFlash={handleStopFlashDeal} chatMessages={chat.messages}
+            chatDraft={chatDraft} setChatDraft={setChatDraft}
+            onSendChat={handleSendChat} mobilePanel={mobilePanel}
+            setMobilePanel={setMobilePanel} onToggleLive={toggleLive}
+            previewMode={previewMode} resolvedPreviewMode={resolvedPreviewMode}
+            setPreviewMode={setPreviewMode} cameraHint={cameraHint}
+            onExpand={() => setStageExpanded(true)}
+            activeFilter={activeFilter}
+            micOn={micOn} camOn={camOn} screenShareOn={screenShareOn}
+        />
+      </div>
+
+
        <StudioControlBar
         mode={mode} onToggleLive={toggleLive}
         micOn={micOn} onToggleMic={() => setMicOn(m => !m)}
@@ -276,20 +294,6 @@ export default function CreatorLiveStudio() {
           activeFilter={activeFilter}
         />
       )}
-      
-       <MobileStudio
-        mode={mode} typeLabel={typeLabel} products={products}
-        highlightedProductId={highlightedProductId} setHighlightedProductId={setHighlightedProductId}
-        flashDealActive={flashDeal.active} onOpenFlashConfig={handleOpenFlashConfig}
-        onStopFlash={handleStopFlashDeal} chatMessages={chat.messages}
-        chatDraft={chatDraft} setChatDraft={setChatDraft}
-        onSendChat={handleSendChat} mobilePanel={mobilePanel}
-        setMobilePanel={setMobilePanel} onToggleLive={toggleLive}
-        previewMode={previewMode} resolvedPreviewMode={resolvedPreviewMode}
-        setPreviewMode={setPreviewMode} cameraHint={cameraHint}
-        onExpand={() => setStageExpanded(true)}
-        activeFilter={activeFilter}
-      />
     </div>
   );
 }
@@ -712,7 +716,7 @@ function ChatPanel({ activeTab, onTabChange, messages, qaItems, viewers, draft, 
 
 function AiPromptsPanel({ prompts }: { prompts: string[] }) {
   return (
-    <div className="bg-card border border-border rounded-2xl p-3 flex flex-col gap-2 text-[11px] mt-3">
+    <div className="bg-card border border-border rounded-2xl p-3 flex flex-col gap-2 text-[11px] mt-auto">
       <div className="flex items-center justify-between"><div className="flex items-center gap-2"><span className="text-[13px]">💡</span><h3 className="text-xs font-semibold text-foreground">Live AI prompts</h3></div><span className="text-[10px] text-muted-foreground">Real-time hints</span></div>
       <ul className="space-y-1 max-h-40 overflow-y-auto">{prompts.map((p, idx) => (<li key={idx} className="border border-border rounded-xl px-2.5 py-1.5 bg-secondary text-[10px] text-foreground">{p}</li>))}</ul>
       <div className="mt-1 text-[10px] text-muted-foreground"><span className="font-semibold text-foreground mr-1">Sentiment:</span><span>Viewers are most engaged during visuals and pricing moments. Revisit shipping and bundles if questions keep repeating.</span></div>
@@ -783,7 +787,7 @@ function MobileStudio({
   mode, typeLabel, products, highlightedProductId, setHighlightedProductId, flashDealActive,
   onOpenFlashConfig, onStopFlash, chatMessages, chatDraft, setChatDraft, onSendChat,
   mobilePanel, setMobilePanel, onToggleLive, previewMode, resolvedPreviewMode,
-  setPreviewMode, cameraHint, onExpand, activeFilter
+  setPreviewMode, cameraHint, onExpand, activeFilter, micOn, camOn
 }: {
   mode: Mode, typeLabel: string, products: Product[], highlightedProductId: string,
   setHighlightedProductId: (id: string) => void, flashDealActive: boolean,
@@ -793,9 +797,9 @@ function MobileStudio({
   onToggleLive: () => void, previewMode: PreviewMode,
   resolvedPreviewMode: Exclude<PreviewMode, "auto">,
   setPreviewMode: (m: PreviewMode) => void, cameraHint: string, onExpand: () => void,
-  activeFilter: string | null
+  activeFilter: string | null, micOn: boolean, camOn: boolean, screenShareOn: boolean
 }) {
-  return (<div className="md:hidden fixed inset-x-0 bottom-0 top-14 flex flex-col bg-background z-30">
+  return (<div className="fixed inset-x-0 bottom-0 top-14 flex flex-col bg-background z-30">
       <div className="border-b border-border px-3 py-3">
         <div className="flex items-center justify-between mb-2">
           <div className="flex flex-col">
@@ -820,8 +824,8 @@ function MobileStudio({
               resolvedPreviewMode={resolvedPreviewMode}
               activeSceneLabel="Mobile"
               screenShareOn={false}
-              camOn={true}
-              micOn={true}
+              camOn={camOn}
+              micOn={micOn}
               onExpand={onExpand}
               activeFilter={activeFilter}
             />
