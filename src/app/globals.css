@@ -11,7 +11,7 @@
 }
 
 body {
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Inter', sans-serif;
 }
 
 @layer base {
@@ -51,24 +51,24 @@ body {
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
   .dark {
-    --background: 215 30% 18%;
+    --background: 215 30% 12%;
     --foreground: 0 0% 98%;
-    --card: 215 30% 18%;
+    --card: 216 28% 14%;
     --card-foreground: 0 0% 98%;
-    --popover: 215 30% 18%;
+    --popover: 216 28% 14%;
     --popover-foreground: 0 0% 98%;
     --primary: 30 100% 49%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 222 47% 11%;
+    --secondary: 220 20% 18%;
     --secondary-foreground: 0 0% 98%;
-    --muted: 222 47% 11%;
+    --muted: 220 20% 18%;
     --muted-foreground: 0 0% 63.9%;
-    --accent: 222 47% 11%;
+    --accent: 220 20% 22%;
     --accent-foreground: 0 0% 98%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
-    --border: 222 47% 11%;
-    --input: 222 47% 11%;
+    --border: 216 15% 22%;
+    --input: 216 15% 22%;
     --ring: 30 100% 49%;
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
@@ -92,5 +92,8 @@ body {
   }
   body {
     @apply bg-background text-foreground;
+  }
+  .dark {
+     @apply bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950;
   }
 }

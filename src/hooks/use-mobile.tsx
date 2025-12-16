@@ -1,19 +1,28 @@
-import * as React from "react"
+import { useState, useEffect } from "react"
 
-const MOBILE_BREAKPOINT = 768
+export type DeviceKind = "mobile" | "desktop";
+
+export function useDeviceKind(): DeviceKind {
+  const [kind, setKind] = useState<DeviceKind>("desktop");
+
+  useEffect(() => {
+    const detect = () => {
+      if (typeof window === "undefined") return;
+      const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
+      const uaMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+      const small = window.matchMedia("(max-width: 768px)").matches;
+      setKind(uaMobile || small ? "mobile" : "desktop");
+    };
+
+    detect();
+    window.addEventListener("resize", detect);
+    return () => window.removeEventListener("resize", detect);
+  }, []);
+
+  return kind;
+}
 
 export function useIsMobile() {
-  const [isMobile, setIsMobile] = React.useState<boolean | undefined>(undefined)
-
-  React.useEffect(() => {
-    const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`)
-    const onChange = () => {
-      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
-    }
-    mql.addEventListener("change", onChange)
-    setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
-    return () => mql.removeEventListener("change", onChange)
-  }, [])
-
-  return !!isMobile
+    const kind = useDeviceKind();
+    return kind === 'mobile';
 }
