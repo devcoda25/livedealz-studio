@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -1396,12 +1397,15 @@ function InventoryPanel(props: {
           const { price, applies } = getPriceForProduct(p);
 
           return (
-            <button
+            <div
               key={p.id}
-              className={`w-full text-left border rounded-xl px-2.5 py-1.5 flex flex-col gap-0.5 ${
+              role="button"
+              tabIndex={0}
+              className={`w-full text-left border rounded-xl px-2.5 py-1.5 flex flex-col gap-0.5 cursor-pointer ${
                 active ? "bg-[#f77f00]/10 border-[#f77f00] text-slate-50" : "bg-slate-950 border-slate-800 text-slate-200 hover:border-slate-600"
               }`}
               onClick={() => onSelectProduct(p.id)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onSelectProduct(p.id); }}
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[11px] font-semibold truncate">{p.name}</span>
@@ -1445,7 +1449,7 @@ function InventoryPanel(props: {
                 </button>
                 <span className="text-[9px] text-slate-500">ID: {p.id}</span>
               </div>
-            </button>
+            </div>
           );
         })}
       </div>
