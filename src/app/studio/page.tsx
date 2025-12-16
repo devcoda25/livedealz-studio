@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -319,58 +318,23 @@ export default function MyLiveDealzLiveStudioFullPage() {
   const [audienceTab, setAudienceTab] = useState<AudienceTab>("chat");
   const [chatDraft, setChatDraft] = useState("");
 
-  const [viewers, setViewers] = useState<LiveViewer[]>(() => createInitialViewers());
-  const [viewerCount, setViewerCount] = useState(842);
+  const [viewers, setViewers] = useState<LiveViewer[]>([]);
+  const [viewerCount, setViewerCount] = useState(0);
 
   // Multi-buyer simulation (per-buyer carts + reminders)
-  const [buyers, setBuyers] = useState<BuyerAgent[]>(INITIAL_BUYERS);
-  const [selectedBuyerId, setSelectedBuyerId] = useState<string>(INITIAL_BUYERS[0].id);
+  const [buyers, setBuyers] = useState<BuyerAgent[]>([]);
+  const [selectedBuyerId, setSelectedBuyerId] = useState<string | null>(null);
 
   // KPI stats
-  const [liveSeconds, setLiveSeconds] = useState(18 * 60 + 24);
-  const [salesCount, setSalesCount] = useState(37);
-  const [last5MinSales, setLast5MinSales] = useState(5);
+  const [liveSeconds, setLiveSeconds] = useState(0);
+  const [salesCount, setSalesCount] = useState(0);
+  const [last5MinSales, setLast5MinSales] = useState(0);
 
   // Streams
-  const [chatMessages, setChatMessages] = useState<ChatMsg[]>([
-    {
-      id: uid("m"),
-      from: "System",
-      body: "Live simulation is running. Buyer preview simulates multiple buyers with per-buyer carts and reminders.",
-      time: nowTimeLabel(),
-      system: true,
-    },
-  ]);
-
-  const [salesEvents, setSalesEvents] = useState<SaleEvent[]>([
-    {
-      id: uid("s"),
-      label: "Buyer A bought GlowUp Serum",
-      time: nowTimeLabel(),
-      amount: "$24.00",
-      langTag: "FR audio",
-    },
-  ]);
-
-  const [aiHints, setAiHints] = useState<AiHint[]>([
-    {
-      id: uid("ai"),
-      text: "Mobile buyers dominate. Keep pinned product CTAs simple and visible.",
-      time: nowTimeLabel(),
-      severity: "info",
-    },
-  ]);
-
-  const [qaItems, setQaItems] = useState<QaItem[]>([
-    {
-      id: uid("q"),
-      question: "Is this safe for sensitive skin?",
-      from: "Viewer #119",
-      status: "pinned",
-      langTag: "FR audio",
-      createdAt: Date.now() - 60000,
-    },
-  ]);
+  const [chatMessages, setChatMessages] = useState<ChatMsg[]>([]);
+  const [salesEvents, setSalesEvents] = useState<SaleEvent[]>([]);
+  const [aiHints, setAiHints] = useState<AiHint[]>([]);
+  const [qaItems, setQaItems] = useState<QaItem[]>([]);
 
   // Flash deal (real countdown)
   const [flash, setFlash] = useState<FlashDealState>({
@@ -404,6 +368,57 @@ export default function MyLiveDealzLiveStudioFullPage() {
   useEffect(() => { buyersRef.current = buyers; }, [buyers]);
   useEffect(() => { flashRef.current = flash; }, [flash]);
 
+  // Client-side only data initialization to prevent hydration errors
+  useEffect(() => {
+    setLiveSeconds(18 * 60 + 24);
+    setViewerCount(842);
+    setSalesCount(37);
+    setLast5MinSales(5);
+    setViewers(createInitialViewers());
+    setBuyers(INITIAL_BUYERS);
+    setSelectedBuyerId(INITIAL_BUYERS[0].id);
+
+    setChatMessages([
+      {
+        id: uid("m"),
+        from: "System",
+        body: "Live simulation is running. Buyer preview simulates multiple buyers with per-buyer carts and reminders.",
+        time: nowTimeLabel(),
+        system: true,
+      },
+    ]);
+
+    setSalesEvents([
+      {
+        id: uid("s"),
+        label: "Buyer A bought GlowUp Serum",
+        time: nowTimeLabel(),
+        amount: "$24.00",
+        langTag: "FR audio",
+      },
+    ]);
+
+    setAiHints([
+      {
+        id: uid("ai"),
+        text: "Mobile buyers dominate. Keep pinned product CTAs simple and visible.",
+        time: nowTimeLabel(),
+        severity: "info",
+      },
+    ]);
+
+    setQaItems([
+      {
+        id: uid("q"),
+        question: "Is this safe for sensitive skin?",
+        from: "Viewer #119",
+        status: "pinned",
+        langTag: "FR audio",
+        createdAt: Date.now() - 60000,
+      },
+    ]);
+  }, []);
+
   // keep active source synced to production mode/tool
   useEffect(() => {
     if (productionMode === "external") {
@@ -419,6 +434,7 @@ export default function MyLiveDealzLiveStudioFullPage() {
   }, [products, highlightedProductId]);
 
   const selectedBuyer = useMemo(() => {
+    if (!selectedBuyerId) return null;
     return buyers.find((b) => b.id === selectedBuyerId) ?? buyers[0];
   }, [buyers, selectedBuyerId]);
 
@@ -934,18 +950,31 @@ export default function MyLiveDealzLiveStudioFullPage() {
   const typeLabel = mode === "live" ? "Live" : "Pre-live";
   const cameraHint = previewMode === "auto" ? `Auto (${deviceKind})` : previewMode === "mobile" ? "Mobile" : "Desktop";
 
-  const flashOnFeatured = flash.active && flash.productId === featuredProduct.id;
-  const featuredOOS = featuredProduct.stock <= 0;
-  const featuredLow = featuredProduct.stock > 0 && featuredProduct.stock <= 5;
+  const flashOnFeatured = featuredProduct && flash.active && flash.productId === featuredProduct.id;
+  const featuredOOS = featuredProduct && featuredProduct.stock <= 0;
+  const featuredLow = featuredProduct && featuredProduct.stock > 0 && featuredProduct.stock <= 5;
 
-  const selectedBuyerHasReminder = !!selectedBuyer?.reminders[featuredProduct.id];
-  const selectedBuyerCartQty = selectedBuyer?.carts[featuredProduct.id] || 0;
+  const selectedBuyerHasReminder = !!(selectedBuyer && featuredProduct && selectedBuyer.reminders[featuredProduct.id]);
+  const selectedBuyerCartQty = (selectedBuyer && featuredProduct && selectedBuyer.carts[featuredProduct.id]) || 0;
 
-  const featuredPriceInfo = useMemo(() => getPriceForProduct(featuredProduct), [featuredProduct, flash.active, flash.discountPct, flash.productId, flash.secondsLeft]);
+  const featuredPriceInfo = useMemo(() => {
+    if (!featuredProduct) return { price: 0, applies: false };
+    return getPriceForProduct(featuredProduct)
+  }, [featuredProduct, flash.active, flash.discountPct, flash.productId, flash.secondsLeft]);
 
   const rootClass = darkMode
     ? "min-h-screen flex flex-col bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-50"
     : "min-h-screen flex flex-col bg-slate-50 text-slate-900";
+
+  if (!selectedBuyer) {
+    return (
+      <div className={rootClass}>
+        <div className="flex-1 flex items-center justify-center">
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   // -------------------- render --------------------
   return (
@@ -1172,8 +1201,10 @@ export default function MyLiveDealzLiveStudioFullPage() {
         <FlashDealDialog
           onClose={() => setFlashConfigOpen(false)}
           onStart={(durationMin, discountPct) => {
-            startFlashDeal(durationMin, discountPct, highlightedProductId);
-            setFlashConfigOpen(false);
+            if (featuredProduct) {
+              startFlashDeal(durationMin, discountPct, highlightedProductId);
+              setFlashConfigOpen(false);
+            }
           }}
         />
       )}
@@ -1189,7 +1220,7 @@ export default function MyLiveDealzLiveStudioFullPage() {
           resolvedPreviewMode={resolvedPreviewMode}
           liveTimerLabel={liveTimerLabel}
           viewerCount={viewerCount}
-          langMix={langMix}
+          langMix={liveLangMix}
           productionMode={productionMode}
           externalTool={externalTool}
           activeSourceId={activeSourceId}
@@ -1767,11 +1798,11 @@ function StagePreview(props: {
             <span className="text-[10px] text-slate-200">Viewer languages (sample)</span>
             <span className="text-[10px] text-slate-300">Source: {source}</span>
           </div>
-          <div className="h-2 w-full rounded-full bg-slate-900/70 border border-white/10 overflow-hidden">
+          <div className="h-2 w-full rounded-full bg-slate-900/70 border border-white/10 overflow-hidden flex">
             {langMix.map((seg, idx) => (
               <div
                 key={seg.label}
-                className="h-full float-left"
+                className="h-full"
                 style={{ width: `${seg.pct}%`, backgroundColor: idx % 2 === 0 ? EV_ORANGE : EV_GREEN, opacity: 0.8 }}
                 title={`${seg.label} · ${seg.pct}%`}
               />
