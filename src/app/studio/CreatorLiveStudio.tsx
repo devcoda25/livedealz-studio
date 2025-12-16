@@ -227,7 +227,7 @@ export default function CreatorLiveStudio({ streamApiKey }: { streamApiKey: stri
         </div>
       </header>
       
-      {showDesktopView && (
+      {showDesktopView ? (
         <main className="flex flex-1 p-3 md:p-4 gap-3 overflow-hidden">
             <section className="w-64 flex-shrink-0 flex flex-col gap-3">
             <ProductPanel
@@ -285,9 +285,7 @@ export default function CreatorLiveStudio({ streamApiKey }: { streamApiKey: stri
             <AiPromptsPanel prompts={aiPrompts} />
             </section>
         </main>
-      )}
-      
-      {!showDesktopView && (
+      ) : (
         <MobileStudio
             mode={mode}
             typeLabel={typeLabel}
