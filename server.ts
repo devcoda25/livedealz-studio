@@ -1,6 +1,10 @@
 import { createServer } from 'http';
 import { parse } from 'url';
 import next from 'next';
+import { config } from 'dotenv';
+
+// Load environment variables from .env file
+config();
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = 'localhost';
