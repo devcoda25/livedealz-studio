@@ -21,6 +21,10 @@ export async function POST(request: Request) {
     // Initialize Stream Chat with your API key and secret
     const serverClient = StreamChat.getInstance(apiKey, apiSecret);
     
+    // Assign 'admin' role if the user is the creator
+    const role = userId === 'live-dealz-creator' ? 'admin' : 'user';
+    await serverClient.upsertUser({ id: userId, role });
+
     // Create a token for the user
     const token = serverClient.createToken(userId);
 
