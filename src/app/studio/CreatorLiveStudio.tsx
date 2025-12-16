@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
@@ -60,8 +61,8 @@ const runOfShow: RunOfShowItem[] = [
 ];
 
 
-export default function CreatorLiveStudio() {
-  const { state, actions, isConnecting } = useStudioStream('live-dealz-studio');
+export default function CreatorLiveStudio({ streamApiKey }: { streamApiKey: string }) {
+  const { state, actions, isConnecting } = useStudioStream('live-dealz-studio', streamApiKey);
   
   const [darkMode, setDarkMode] = useState(true);
   
