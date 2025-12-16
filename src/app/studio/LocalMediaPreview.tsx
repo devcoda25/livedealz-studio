@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
@@ -71,20 +72,28 @@ export function LocalMediaPreview({ camOn, micOn, screenShareOn, activeFilter }:
 
   }, [camOn, micOn, screenShareOn, toast]);
 
+  const showVideo = camOn || screenShareOn;
+
   return (
     <>
-        <div className={`w-full h-full object-cover z-0 bg-secondary transition-all duration-300 absolute inset-0`}>
-            <video ref={videoRef} className={`w-full h-full object-cover ${camOn || screenShareOn ? '' : 'hidden'}`} autoPlay muted playsInline />
-        </div>
+      <div className={`absolute inset-0 w-full h-full bg-slate-900 transition-all duration-300 ${showVideo ? 'opacity-100' : 'opacity-0'}`}>
+        <video 
+            ref={videoRef} 
+            className="w-full h-full object-cover" 
+            autoPlay 
+            muted 
+            playsInline 
+        />
+      </div>
       
-      { !(camOn || screenShareOn) && (
-        <div className="z-10 flex flex-col items-center text-center p-4 absolute">
+      { !showVideo && (
+        <div className="z-10 flex flex-col items-center text-center p-4">
              <span className="material-icons text-6xl text-muted-foreground">videocam_off</span>
              <p className="mt-2 text-muted-foreground">Camera is off</p>
         </div>
       )}
 
-      { !hasPermission && (camOn || screenShareOn) && (
+      { !hasPermission && showVideo && (
           <Alert variant="destructive" className="absolute bottom-4 left-4 right-4 w-auto z-20">
               <AlertTitle>Media Access Required</AlertTitle>
               <AlertDescription>

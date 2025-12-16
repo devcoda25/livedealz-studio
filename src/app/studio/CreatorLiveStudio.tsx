@@ -361,6 +361,9 @@ export default function CreatorLiveStudio({ streamApiKey }: { streamApiKey: stri
           cameraHint={cameraHint}
           onClose={() => setStageExpanded(false)}
           activeFilter={activeFilter}
+          camOn={camOn}
+          micOn={micOn}
+          screenShareOn={screenShareOn}
         />
       )}
     </div>
@@ -649,7 +652,12 @@ function StagePreview({
         }
         style={{ aspectRatio: aspect }}
       >
-        <div className="absolute inset-0 bg-gradient-to-tr from-slate-900 via-slate-800 to-slate-600" />
+        <LocalMediaPreview
+            camOn={camOn}
+            micOn={micOn}
+            screenShareOn={screenShareOn}
+            activeFilter={activeFilter}
+        />
 
         <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-20">
           <span className="text-[10px] px-2 py-0.5 rounded-full bg-black/55 border border-white/10 text-slate-100">
@@ -673,15 +681,14 @@ function StagePreview({
 
         {isMobile && <div className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-white/10 z-10" />}
         
-        <div className="relative h-full w-full flex items-center justify-center">
-            <div className="text-center px-6">
-                <div className="text-xs text-slate-200">Live preview</div>
-                <div className="text-sm font-semibold text-white mt-1">Viewer-facing camera</div>
-                <div className="text-[11px] text-slate-300 mt-2">
-                This preview adapts to mobile vs desktop.
+        {!(camOn || screenShareOn) && (
+            <div className="relative h-full w-full flex items-center justify-center">
+                <div className="text-center px-6">
+                    <div className="text-xs text-slate-200">Live preview</div>
+                    <div className="text-sm font-semibold text-white mt-1">Camera is off</div>
                 </div>
             </div>
-        </div>
+        )}
       </div>
     </button>
   );
@@ -728,7 +735,10 @@ function StageModal({
   setPreviewMode,
   cameraHint,
   onClose,
-  activeFilter
+  activeFilter,
+  camOn,
+  micOn,
+  screenShareOn,
 }: any) {
   return (
     <div className="fixed inset-0 z-[80] bg-black/70 flex items-center justify-center p-4">
@@ -754,9 +764,9 @@ function StageModal({
           <StagePreview
             resolvedPreviewMode={resolvedPreviewMode}
             activeSceneLabel="Expanded"
-            screenShareOn={false}
-            camOn={true}
-            micOn={true}
+            screenShareOn={screenShareOn}
+            camOn={camOn}
+            micOn={micOn}
             onExpand={() => {}}
             activeFilter={activeFilter}
           />
