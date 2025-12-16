@@ -9,7 +9,6 @@ import type {
 import { format } from 'date-fns';
 import { formatTimer } from '@/lib/utils';
 
-const STREAM_API_KEY = process.env.NEXT_PUBLIC_STREAM_API_KEY || 'your_stream_api_key';
 const USER_ID_CREATOR = 'live-dealz-creator';
 
 
@@ -23,7 +22,7 @@ const initialState: StudioState = {
   mode: 'lobby',
   startedAt: null,
   chat: { messages: [] },
-  stats: { viewers: 842, sales: 37, connection: 'Excellent', bitrate: '4.5 Mbps' },
+  stats: { viewers: 842, sales: 37, connection: 'Excellent', bitrate: '4.5 Mbps', timer: '00:00:00' },
   salesEvents: [
     { id: 1, label: 'Mary (Kampala) bought GlowUp Serum', time: '18:41' },
     { id: 2, label: '2x GlowUp bundles sold', time: '18:39' },
@@ -97,7 +96,7 @@ async function fetchStreamToken(userId: string) {
 }
 
 
-export function useStudioStream(channelId: string) {
+export function useStudioStream(channelId: string, apiKey: string) {
   const [state, dispatch] = useReducer(studioReducer, initialState);
   const [channel, setChannel] = useState<Channel | null>(null);
   const [isConnecting, setIsConnecting] = useState(true);
@@ -108,13 +107,13 @@ export function useStudioStream(channelId: string) {
 
     async function initStream() {
       try {
-        if (!STREAM_API_KEY || STREAM_API_KEY === 'your_stream_api_key') {
-            console.error("Stream API key is not set. Please add it to your environment variables or replace the placeholder.");
+        if (!apiKey) {
+            console.error("Stream API key was not provided to useStudioStream hook.");
             setIsConnecting(false); 
             return;
         }
 
-        chatClient = StreamChat.getInstance(STREAM_API_KEY);
+        chatClient = StreamChat.getInstance(apiKey);
         
         const userToken = await fetchStreamToken(USER_ID_CREATOR);
         if (!userToken) {
@@ -129,8 +128,6 @@ export function useStudioStream(channelId: string) {
         
         currentChannel = chatClient.channel('livestream', channelId, {
             name: 'Live Dealz Studio',
-            // Set initial state for new channels. Stream persists this.
-            ...initialState
         });
         
         // Using watch() is key to getting real-time updates and state
@@ -205,7 +202,7 @@ export function useStudioStream(channelId: string) {
       }
       chatClient?.disconnectUser();
     };
-  }, [channelId]);
+  }, [channelId, apiKey, channel]);
 
   const updateChannelState = useCallback(async (newState: Partial<StudioState>) => {
     if (!channel) return;
