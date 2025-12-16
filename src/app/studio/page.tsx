@@ -992,7 +992,7 @@ export default function MyLiveDealzLiveStudioFullPage() {
       {/* Top bar */}
       <header
         className={
-          "h-14 flex items-center justify-between px-4 md:px-6 border-b backdrop-blur-sm " +
+          "h-14 flex items-center justify-between px-4 md:px-6 border-b backdrop-blur-sm sticky top-0 z-50 " +
           (darkMode ? "border-slate-800/80 bg-slate-950/80 shadow-[0_8px_30px_rgba(15,23,42,0.7)]" : "border-slate-200 bg-white shadow-sm")
         }
       >
@@ -1002,7 +1002,7 @@ export default function MyLiveDealzLiveStudioFullPage() {
           </div>
           <div className="flex flex-col leading-tight min-w-0">
             <span className="text-sm font-semibold truncate">Live Dealz Studio</span>
-            <span className="text-[10px] text-slate-500 truncate">Multi-buyer preview + stock-aware CTAs + flash urgency</span>
+            <span className="text-[10px] text-slate-500 truncate hidden sm:block">Multi-buyer preview + stock-aware CTAs + flash urgency</span>
           </div>
         </div>
 
@@ -1048,7 +1048,7 @@ export default function MyLiveDealzLiveStudioFullPage() {
             }
           >
             <span className="text-sm" role="img" aria-label="theme">{darkMode ? "🌙" : "☀️"}</span>
-            <span>{darkMode ? "Dark" : "Light"}</span>
+            <span className="hidden sm:inline">{darkMode ? "Dark" : "Light"}</span>
           </button>
 
           <div className="h-8 w-8 rounded-full bg-slate-400 flex items-center justify-center text-xs font-semibold text-white">
@@ -1057,10 +1057,11 @@ export default function MyLiveDealzLiveStudioFullPage() {
         </div>
       </header>
 
-      {/* Desktop layout */}
-      <main className="hidden md:flex flex-1 p-3 md:p-4 gap-3 overflow-hidden">
-        {/* Left column */}
-        <section className="w-72 flex-shrink-0 flex flex-col gap-3 overflow-hidden">
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+
+        {/* Left Column (Desktop) */}
+        <section className="w-72 flex-shrink-0 hidden lg:flex flex-col gap-3 p-3 overflow-y-auto">
           <ProductionPanel
             productionMode={productionMode}
             externalTool={externalTool}
@@ -1069,7 +1070,6 @@ export default function MyLiveDealzLiveStudioFullPage() {
             onChangeExternalTool={setExternalTool}
             onChangeSource={setActiveSourceId}
           />
-
           <InventoryPanel
             products={products}
             highlightedId={highlightedProductId}
@@ -1081,9 +1081,7 @@ export default function MyLiveDealzLiveStudioFullPage() {
             onRestock={restockProduct}
             getPriceForProduct={getPriceForProduct}
           />
-
           <CoHostsPanel coHosts={coHosts} onInvite={(name) => setCoHosts((p) => [...p, { id: p.length + 1, name, status: "Invited" }])} />
-
           <AttachmentsPanel
             attachments={attachments}
             onApprove={(id) => pushSystem(`Approved attachment ${id} (demo).`)}
@@ -1091,68 +1089,87 @@ export default function MyLiveDealzLiveStudioFullPage() {
           />
         </section>
 
-        {/* Center column */}
-        <section className="flex-1 flex flex-col gap-3 min-w-0 overflow-auto">
-          <StagePanel
-            mode={mode}
-            activeSceneId={activeSceneId}
-            onChangeScene={setActiveSceneId}
-            previewMode={previewMode}
-            onChangePreviewMode={setPreviewMode}
-            resolvedPreviewMode={resolvedPreviewMode}
-            cameraHint={cameraHint}
-            liveTimerLabel={liveTimerLabel}
-            viewerCount={viewerCount}
-            langMix={liveLangMix}
-            productionMode={productionMode}
-            externalTool={externalTool}
-            activeSourceId={activeSourceId}
-            flash={flash}
-            flashUrgency={flashUrgency}
-            micOn={micOn}
-            camOn={camOn}
-            screenShareOn={screenShareOn}
-            currentSpeaker={currentSpeaker}
-            speakerSecondsLeft={speakerSecondsLeft}
-            onExpand={() => setStageExpanded(true)}
-          />
+        {/* Main Content Area (All Screens) */}
+        <main className="flex-1 p-3 flex flex-col gap-3 min-w-0 overflow-y-auto">
 
-          {featuredProduct && selectedBuyer && (
-            <BuyerSimulatorPanel
-              buyers={buyers}
-              selectedBuyerId={selectedBuyerId}
-              onSelectBuyer={setSelectedBuyerId}
-              featuredProduct={featuredProduct}
-              featuredPrice={featuredPriceInfo}
-              flashOnFeatured={flashOnFeatured}
-              flashDiscountPct={flash.discountPct}
-              flashSecondsLeft={flash.secondsLeft}
+          {/* Center column content */}
+          <div className="flex-1 flex flex-col gap-3 min-w-0">
+             <StagePanel
+              mode={mode}
+              activeSceneId={activeSceneId}
+              onChangeScene={setActiveSceneId}
+              previewMode={previewMode}
+              onChangePreviewMode={setPreviewMode}
+              resolvedPreviewMode={resolvedPreviewMode}
+              cameraHint={cameraHint}
+              liveTimerLabel={liveTimerLabel}
+              viewerCount={viewerCount}
+              langMix={liveLangMix}
+              productionMode={productionMode}
+              externalTool={externalTool}
+              activeSourceId={activeSourceId}
+              flash={flash}
               flashUrgency={flashUrgency}
-              selectedBuyerHasReminder={selectedBuyerHasReminder}
-              selectedBuyerCartQty={selectedBuyerCartQty}
-              outOfStock={featuredOOS}
-              lowStock={featuredLow}
-              onBuyNow={() => buyerBuyNow(selectedBuyer.id, featuredProduct!.id, 1)}
-              onAddToCart={() => buyerAddToCart(selectedBuyer.id, featuredProduct!.id, 1)}
-              onRemindMe={() => buyerSetReminder(selectedBuyer.id, featuredProduct!.id)}
+              micOn={micOn}
+              camOn={camOn}
+              screenShareOn={screenShareOn}
+              currentSpeaker={currentSpeaker}
+              speakerSecondsLeft={speakerSecondsLeft}
+              onExpand={() => setStageExpanded(true)}
             />
-          )}
 
-          <TeleprompterPanel />
+            {featuredProduct && selectedBuyer && (
+              <BuyerSimulatorPanel
+                buyers={buyers}
+                selectedBuyerId={selectedBuyerId}
+                onSelectBuyer={setSelectedBuyerId}
+                featuredProduct={featuredProduct}
+                featuredPrice={featuredPriceInfo}
+                flashOnFeatured={flashOnFeatured}
+                flashDiscountPct={flash.discountPct}
+                flashSecondsLeft={flash.secondsLeft}
+                flashUrgency={flashUrgency}
+                selectedBuyerHasReminder={selectedBuyerHasReminder}
+                selectedBuyerCartQty={selectedBuyerCartQty}
+                outOfStock={featuredOOS}
+                lowStock={featuredLow}
+                onBuyNow={() => buyerBuyNow(selectedBuyer.id, featuredProduct!.id, 1)}
+                onAddToCart={() => buyerAddToCart(selectedBuyer.id, featuredProduct!.id, 1)}
+                onRemindMe={() => buyerSetReminder(selectedBuyer.id, featuredProduct!.id)}
+              />
+            )}
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="lg:hidden">
+                 <InventoryPanel
+                  products={products}
+                  highlightedId={highlightedProductId}
+                  onSelectProduct={setHighlightedProductId}
+                  flash={flash}
+                  flashUrgency={flashUrgency}
+                  onOpenFlash={() => setFlashConfigOpen(true)}
+                  onStopFlash={stopFlashDeal}
+                  onRestock={restockProduct}
+                  getPriceForProduct={getPriceForProduct}
+                />
+              </div>
 
-          <CommercePanel
-            targetUnits={50}
-            soldUnits={salesCount}
-            cartCount={totalCartItems}
-            last5MinSales={last5MinSales}
-            flash={flash}
-            flashUrgency={flashUrgency}
-            salesEvents={salesEvents}
-          />
-        </section>
-
-        {/* Right column */}
-        <section className="w-80 flex-shrink-0 flex flex-col gap-3 overflow-hidden">
+              <CommercePanel
+                targetUnits={50}
+                soldUnits={salesCount}
+                cartCount={totalCartItems}
+                last5MinSales={last5MinSales}
+                flash={flash}
+                flashUrgency={flashUrgency}
+                salesEvents={salesEvents}
+              />
+            </div>
+            <TeleprompterPanel />
+          </div>
+        </main>
+        
+        {/* Right Column (Tablet and up) */}
+        <section className="w-full md:w-80 lg:w-96 flex-shrink-0 flex flex-col gap-3 p-3 overflow-y-auto">
           <AudiencePanel
             activeTab={audienceTab}
             onTabChange={setAudienceTab}
@@ -1177,34 +1194,46 @@ export default function MyLiveDealzLiveStudioFullPage() {
           />
 
           <AiPanel prompts={aiHints} />
+           <div className="lg:hidden">
+            <ProductionPanel
+              productionMode={productionMode}
+              externalTool={externalTool}
+              activeSourceId={activeSourceId}
+              onChangeProductionMode={setProductionMode}
+              onChangeExternalTool={setExternalTool}
+              onChangeSource={setActiveSourceId}
+            />
+          </div>
         </section>
-      </main>
+      </div>
 
-      {/* Desktop bottom control bar */}
-      <ControlBar
-        mode={mode}
-        onToggleLive={() => setMode((m) => (m === "live" ? "lobby" : "live"))}
-        micOn={micOn}
-        onToggleMic={() => setMicOn((v) => !v)}
-        camOn={camOn}
-        onToggleCam={() => setCamOn((v) => !v)}
-        screenShareOn={screenShareOn}
-        onToggleScreenShare={() => setScreenShareOn((v) => !v)}
-        activeSceneId={activeSceneId}
-        onChangeScene={setActiveSceneId}
-        previewMode={previewMode}
-        onCyclePreviewMode={() => {
-          const order: PreviewMode[] = ["auto", "desktop", "mobile"];
-          const idx = order.indexOf(previewMode);
-          setPreviewMode(order[(idx + 1) % order.length]);
-        }}
-        cameraHint={cameraHint}
-        flashActive={flash.active}
-        onOpenFlashConfig={() => setFlashConfigOpen(true)}
-        onStopFlash={stopFlashDeal}
-        onOpenLanguage={() => setLanguagePanelOpen(true)}
-        onToggleFilters={() => setFiltersOpen((v) => !v)}
-      />
+      {/* Bottom control bar */}
+      <div className="sticky bottom-0 z-40">
+        <ControlBar
+          mode={mode}
+          onToggleLive={() => setMode((m) => (m === "live" ? "lobby" : "live"))}
+          micOn={micOn}
+          onToggleMic={() => setMicOn((v) => !v)}
+          camOn={camOn}
+          onToggleCam={() => setCamOn((v) => !v)}
+          screenShareOn={screenShareOn}
+          onToggleScreenShare={() => setScreenShareOn((v) => !v)}
+          activeSceneId={activeSceneId}
+          onChangeScene={setActiveSceneId}
+          previewMode={previewMode}
+          onCyclePreviewMode={() => {
+            const order: PreviewMode[] = ["auto", "desktop", "mobile"];
+            const idx = order.indexOf(previewMode);
+            setPreviewMode(order[(idx + 1) % order.length]);
+          }}
+          cameraHint={cameraHint}
+          flashActive={flash.active}
+          onOpenFlashConfig={() => setFlashConfigOpen(true)}
+          onStopFlash={stopFlashDeal}
+          onOpenLanguage={() => setLanguagePanelOpen(true)}
+          onToggleFilters={() => setFiltersOpen((v) => !v)}
+        />
+      </div>
 
       {/* Overlays */}
       {filtersOpen && <FiltersTray onClose={() => setFiltersOpen(false)} />}
@@ -1232,7 +1261,7 @@ export default function MyLiveDealzLiveStudioFullPage() {
           resolvedPreviewMode={resolvedPreviewMode}
           liveTimerLabel={liveTimerLabel}
           viewerCount={viewerCount}
-          langMix={liveLangMix}
+          langMix={langMix}
           productionMode={productionMode}
           externalTool={externalTool}
           activeSourceId={activeSourceId}
@@ -1242,26 +1271,6 @@ export default function MyLiveDealzLiveStudioFullPage() {
           speakerSecondsLeft={speakerSecondsLeft}
         />
       )}
-
-      {/* Mobile fallback (minimal, page remains responsive) */}
-      <div className="md:hidden flex-1 p-3 text-slate-200">
-        <div className="rounded-2xl border border-slate-800 bg-slate-950 p-3">
-          <div className="text-sm font-semibold">Mobile view</div>
-          <div className="text-[11px] text-slate-400 mt-1">
-            This page is optimized for desktop studio workflows. Buyer preview is mobile-first inside the desktop center panel.
-          </div>
-          <div className="mt-3 grid grid-cols-2 gap-2 text-[11px]">
-            <div className="rounded-xl border border-slate-800 bg-slate-900 p-2">
-              <div className="text-slate-400 text-[10px]">Sales</div>
-              <div className="text-slate-100 font-semibold">{salesCount}</div>
-            </div>
-            <div className="rounded-xl border border-slate-800 bg-slate-900 p-2">
-              <div className="text-slate-400 text-[10px]">Carts</div>
-              <div className="text-slate-100 font-semibold">{totalCartItems}</div>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
@@ -2381,7 +2390,7 @@ function AudiencePanel(props: {
           </div>
         )}
 
-        <div className="mt-2 space-y-1">
+        <div className="mt-2 space-y-1 max-h-24 overflow-y-auto">
           {pending.length === 0 ? (
             <div className="text-[10px] text-slate-500">No pending requests right now.</div>
           ) : (
@@ -2498,7 +2507,7 @@ function ControlBar(props: {
   } = props;
 
   return (
-    <div className="hidden md:flex items-center justify-between px-3 md:px-6 py-2 border-t border-slate-800 bg-slate-950/95 text-[11px]">
+    <div className="flex flex-wrap items-center justify-between gap-2 px-3 md:px-6 py-2 border-t border-slate-800 bg-slate-950/95 text-[11px]">
       <div className="flex items-center gap-2">
         <button
           className={`px-4 py-1.5 rounded-full text-[11px] font-semibold ${mode === "live" ? "bg-red-600 hover:bg-red-700 text-white" : "bg-[#f77f00] hover:bg-[#e26f00] text-white"}`}
@@ -2514,17 +2523,20 @@ function ControlBar(props: {
         <button className={`px-3 py-1.5 rounded-full border text-[10px] ${camOn ? "bg-slate-900 border-slate-600 text-slate-100" : "bg-slate-950 border-slate-800 text-slate-400"}`} onClick={onToggleCam}>
           {camOn ? "Cam on" : "Cam off"}
         </button>
+      </div>
 
-        <button className={`px-3 py-1.5 rounded-full border text-[10px] ${screenShareOn ? "bg-slate-900 border-slate-600 text-slate-100" : "bg-slate-950 border-slate-800 text-slate-400"}`} onClick={onToggleScreenShare}>
+      <div className="flex items-center gap-2 text-[10px]">
+        
+        <button className={`px-3 py-1.5 rounded-full border text-[10px] hidden sm:inline-flex ${screenShareOn ? "bg-slate-900 border-slate-600 text-slate-100" : "bg-slate-950 border-slate-800 text-slate-400"}`} onClick={onToggleScreenShare}>
           Screen share
         </button>
 
-        <button className="px-3 py-1.5 rounded-full border border-slate-600 text-[10px] text-slate-100 hover:bg-slate-900 inline-flex items-center gap-1.5" onClick={onToggleFilters}>
+        <button className="px-3 py-1.5 rounded-full border border-slate-600 text-[10px] text-slate-100 hover:bg-slate-900 hidden sm:inline-flex items-center gap-1.5" onClick={onToggleFilters}>
           <span className="material-icons text-[14px]">auto_awesome</span>
           AR Filters
         </button>
 
-        <button className="px-3 py-1.5 rounded-full border border-slate-700 text-[10px] text-slate-100 hover:bg-slate-900 inline-flex items-center gap-1.5" onClick={onOpenLanguage}>
+        <button className="px-3 py-1.5 rounded-full border border-slate-700 text-[10px] text-slate-100 hover:bg-slate-900 hidden sm:inline-flex items-center gap-1.5" onClick={onOpenLanguage}>
           <span className="material-icons text-[14px]">translate</span>
           Language
         </button>
@@ -2540,17 +2552,8 @@ function ControlBar(props: {
             Start deal
           </button>
         )}
-      </div>
-
-      <div className="flex items-center gap-2 text-[10px]">
-        <span className="text-slate-400">Preview:</span>
-        <button className="px-2 py-0.5 rounded-full border border-slate-700 text-slate-200 hover:bg-slate-900" onClick={onCyclePreviewMode}>
-          {cameraHint}
-        </button>
-
-        <span className="text-slate-400">Scene:</span>
         <select
-          className="border border-slate-700 rounded-full px-2 py-0.5 bg-slate-950 text-slate-100"
+          className="border border-slate-700 rounded-full px-2 py-0.5 bg-slate-950 text-slate-100 hidden sm:block"
           value={activeSceneId}
           onChange={(e) => onChangeScene(e.target.value as SceneId)}
         >
