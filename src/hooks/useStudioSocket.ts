@@ -22,7 +22,7 @@ const initialState: StudioState = {
   mode: 'lobby',
   startedAt: null,
   chat: { messages: [] },
-  stats: { viewers: 842, sales: 37, connection: 'Excellent', bitrate: '4.5 Mbps' },
+  stats: { viewers: 842, sales: 37, connection: 'Excellent', bitrate: '4.5 Mbps', timer: '00:00:00' },
   salesEvents: [
     { id: 1, label: 'Mary (Kampala) bought GlowUp Serum', time: '18:41' },
     { id: 2, label: '2x GlowUp bundles sold', time: '18:39' },
@@ -114,7 +114,7 @@ export function useStudioStream(channelId: string, apiKey: string) {
           return;
         }
 
-        chatClient = StreamChat.getInstance(apiKey);
+        chatClient = StreamChat.getInstance(apiKey, { timeout: 10000 });
 
         // Disconnect any existing user to ensure a clean connection
         if (chatClient.activeUser) {
