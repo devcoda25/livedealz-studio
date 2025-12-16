@@ -1,109 +1,126 @@
 
 'use client';
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import type {
-  Product, Scene, ChatMessage, QAItem, Viewer, CoHost, Attachment, RunOfShowItem, SalesEvent,
-  CommerceGoal, Mode, AudienceTab, MomentMarker
-} from '@/types/studio';
-import { useStudioStream } from '@/hooks/useStudioSocket';
-import { useToast } from "@/hooks/use-toast";
-import { formatTimer, getCountdownSeconds } from '@/lib/utils';
-import { LocalMediaPreview } from './LocalMediaPreview';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import React, { useEffect, useMemo, useState } from "react";
 import { useDeviceKind, type DeviceKind } from '@/hooks/use-mobile';
+import { useToast } from "@/hooks/use-toast";
+import { LocalMediaPreview } from "./LocalMediaPreview";
 
 
+const EV_GREEN = "#03cd8c";
 const EV_ORANGE = "#f77f00";
 
-type RightPanelTab = "audience" | "script" | "commerce";
+type Mode = "lobby" | "live";
+
 type PreviewMode = "auto" | "desktop" | "mobile";
 
-export default function CreatorLiveStudio() {
-  const { state, actions, isConnecting } = useStudioStream('main-studio');
-  const { toast } = useToast();
-  const { mode, startedAt, chat, stats, salesEvents, commerceGoal, flashDeal, momentMarkers, aiPrompts, attachments } = state;
+type AudienceTab = "chat" | "qa" | "viewers";
 
+export default function CreatorLiveStudio() {
+  const [darkMode, setDarkMode] = useState(true);
+
+  const [mode, setMode] = useState<Mode>("lobby");
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(true);
   const [screenShareOn, setScreenShareOn] = useState(false);
-  const [activeSceneId, setActiveSceneId] = useState('intro');
+  const [activeSceneId, setActiveSceneId] = useState("intro");
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
 
-  const [highlightedProductId, setHighlightedProductId] = useState('P-101');
+  const [highlightedProductId, setHighlightedProductId] = useState("P-101");
+  const [flashDealActive, setFlashDealActive] = useState(false);
+  const [flashDealSeconds, setFlashDealSeconds] = useState(120);
   const [flashConfigOpen, setFlashConfigOpen] = useState(false);
 
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [languagePanelOpen, setLanguagePanelOpen] = useState(false);
 
-  const [mobilePanel, setMobilePanel] = useState<"products" | "chat">("products");
   const [audienceTab, setAudienceTab] = useState<AudienceTab>("chat");
-  const [rightPanelTab, setRightPanelTab] = useState<RightPanelTab>("audience");
-
-  const [chatDraft, setChatDraft] = useState("");
-  
-  const [liveTimer, setLiveTimer] = useState("–:–:–");
-  const [flashDealSeconds, setFlashDealSeconds] = useState(0);
 
   // Camera preview sizing logic
   const [previewMode, setPreviewMode] = useState<PreviewMode>("auto");
-  const deviceKind = useDeviceKind();
+  const deviceKind = useDeviceKind(); // "mobile" | "desktop"
   const resolvedPreviewMode: Exclude<PreviewMode, "auto"> =
     previewMode === "auto" ? deviceKind : previewMode;
-  
+
+  // Tap-to-expand camera preview
   const [stageExpanded, setStageExpanded] = useState(false);
 
-  const cameraHint = useMemo(() => {
-    if (previewMode === "auto") {
-      return `Auto (${deviceKind === "mobile" ? "mobile" : "desktop"})`;
-    }
-    return previewMode === "mobile" ? "Mobile" : "Desktop";
-  }, [previewMode, deviceKind]);
+  const [mobilePanel, setMobilePanel] = useState<"products" | "chat">("products");
 
-  useEffect(() => {
-    const timerInterval = setInterval(() => {
-      if (mode === 'live' && startedAt) {
-        const elapsedSeconds = (Date.now() - startedAt) / 1000;
-        setLiveTimer(formatTimer(elapsedSeconds));
-      } else {
-        setLiveTimer("–:–:–");
-      }
-    }, 1000);
+  const [coHosts, setCoHosts] = useState(
+    [
+      { id: 1, name: "Dacy (Producer)", status: "Accepted" },
+      { id: 2, name: "Grace (Brand rep)", status: "Pending" },
+    ]
+  );
 
-    return () => clearInterval(timerInterval);
-  }, [mode, startedAt]);
+  const [attachments] = useState([
+    {
+      id: 1,
+      from: "Viewer #238",
+      type: "image",
+      label: "Before/after photo",
+      status: "Pending",
+    },
+    {
+      id: 2,
+      from: "Viewer #874",
+      type: "question",
+      label: "Skin type question",
+      status: "Pending",
+    },
+  ]);
 
-  useEffect(() => {
-    const flashInterval = setInterval(() => {
-      if (flashDeal.active && flashDeal.endsAt) {
-        setFlashDealSeconds(getCountdownSeconds(flashDeal.endsAt));
-      } else {
-        setFlashDealSeconds(0);
-      }
-    }, 1000);
-    return () => clearInterval(flashInterval);
-  }, [flashDeal]);
+  const [chatMessages, setChatMessages] = useState([
+    {
+      id: 1,
+      from: "Viewer #238",
+      body: "Is this serum okay for oily skin?",
+      time: "18:42",
+    },
+    {
+      id: 2,
+      from: "Viewer #102",
+      body: "Can you show the texture again?",
+      time: "18:43",
+    },
+    {
+      id: 3,
+      from: "System",
+      body: "5 new viewers joined from Nairobi.",
+      time: "18:44",
+      system: true,
+    },
+  ]);
 
+  const [chatDraft, setChatDraft] = useState("");
 
-  const coHosts: CoHost[] = [
-    { id: 1, name: 'Dacy (Producer)', status: 'Accepted' },
-    { id: 2, name: 'Grace (Brand rep)', status: 'Pending' },
+  // Moment markers for clipping / replay
+  const [momentMarkers, setMomentMarkers] = useState<{ id: number; time: string; label: string }[]>([]);
+
+  const qaItems = [
+    {
+      id: 1,
+      question: "How long until I see results?",
+      from: "Viewer #321",
+      status: "unanswered",
+    },
+    {
+      id: 2,
+      question: "Is this safe for sensitive skin?",
+      from: "Viewer #119",
+      status: "pinned",
+    },
   ];
 
-  const qaItems: QAItem[] = [
-    { id: 1, question: 'How long until I see results?', from: 'Viewer #321', status: 'unanswered' },
-    { id: 2, question: 'Is this safe for sensitive skin?', from: 'Viewer #119', status: 'pinned' },
+  const viewersList = [
+    { id: 1, name: "Dacy (Producer)", tag: "Moderator" },
+    { id: 2, name: "Grace (Brand rep)", tag: "VIP" },
+    { id: 3, name: "Viewer #238", tag: "" },
+    { id: 4, name: "Viewer #874", tag: "" },
   ];
 
-  const viewersList: Viewer[] = [
-    { id: 1, name: 'Dacy (Producer)', tag: 'Moderator' },
-    { id: 2, name: 'Grace (Brand rep)', tag: 'VIP' },
-    { id: 3, name: 'Viewer #238', tag: '' },
-    { id: 4, name: 'Viewer #874', tag: '' },
-  ];
-
-  const scriptCues: string[] = [
+  const scriptCues = [
     "Welcome + short intro (name, theme of show).",
     "Explain key benefits in plain language.",
     "Mention discount code + flash window.",
@@ -112,178 +129,327 @@ export default function CreatorLiveStudio() {
     "Close with CTA + follow reminder.",
   ];
 
-  const runOfShow: RunOfShowItem[] = [
-    { id: 'shot-1', label: 'Intro + hook', window: '00:00–03:00', scene: 'intro' },
-    { id: 'shot-2', label: 'Hero demo: Serum texture', window: '03:00–08:00', scene: 'product' },
-    { id: 'shot-3', label: 'Before / After slides', window: '08:00–12:00', scene: 'offer' },
-    { id: 'shot-4', label: 'Q&A + objections', window: '12:00–18:00', scene: 'split' },
+  const runOfShow = [
+    { id: "shot-1", label: "Intro + hook", window: "00:00-03:00", scene: "intro" },
+    { id: "shot-2", label: "Hero demo: Serum texture", window: "03:00-08:00", scene: "product" },
+    { id: "shot-3", label: "Before / After slides", window: "08:00-12:00", scene: "offer" },
+    { id: "shot-4", label: "Q&A + objections", window: "12:00-18:00", scene: "split" },
   ];
 
-  const scenes: Scene[] = [
-    { id: 'intro', label: 'Intro + host', desc: 'Single camera, no overlay' },
-    { id: 'product', label: 'Product close-up', desc: 'Camera 2 or crop, hero overlay' },
-    { id: 'split', label: 'Split screen', desc: 'Host + product / co-host' },
-    { id: 'offer', label: 'Flash offer', desc: 'Full-screen offer graphic + timer' },
+  const aiPrompts = [
+    "Chat asking about skin type match. Address oily vs dry quickly.",
+    "Viewers reacted strongly when you mentioned 'glow in 7 days'. Lean into that angle.",
+    "Consider a quick poll: Serum vs Cream. What do you want to see next?",
+    "Watch time spikes during before/after. Keep visuals on screen.",
   ];
 
-  const products: Product[] = [
-    { id: 'P-101', name: 'GlowUp Serum – 30ml', price: '$24', stock: '52 in stock', tag: 'Hero product' },
-    { id: 'P-102', name: 'GlowUp Cleanser', price: '$14', stock: '86 in stock', tag: 'Bundle with serum' },
-    { id: 'P-103', name: 'GlowUp Night Cream', price: '$29', stock: '34 in stock', tag: 'Upsell after serum' },
+  const scenes = [
+    { id: "intro", label: "Intro + host", desc: "Single camera, no overlay" },
+    { id: "product", label: "Product close-up", desc: "Camera 2 or crop, hero overlay" },
+    { id: "split", label: "Split screen", desc: "Host + product / co-host" },
+    { id: "offer", label: "Flash offer", desc: "Full-screen offer graphic + timer" },
   ];
 
-  const toggleLive = () => actions.setMode(mode === 'lobby' ? 'live' : 'lobby');
-  
-  const handleToggleCam = () => {
-    if (screenShareOn) {
-      setScreenShareOn(false);
-    }
-    setCamOn(c => !c);
+  const products = [
+    { id: "P-101", name: "GlowUp Serum - 30ml", price: "$24", stock: "52 in stock", tag: "Hero product" },
+    { id: "P-102", name: "GlowUp Cleanser", price: "$14", stock: "86 in stock", tag: "Bundle with serum" },
+    { id: "P-103", name: "GlowUp Night Cream", price: "$29", stock: "34 in stock", tag: "Upsell after serum" },
+  ];
+
+  const liveStats = {
+    timer: mode === "live" ? "00:18:24" : "--:--",
+    viewers: 842,
+    sales: 37,
+    connection: "Excellent",
+    bitrate: "4.5 Mbps",
   };
 
-  const handleToggleScreenShare = async () => {
-    if (camOn) {
-        setCamOn(false);
-    }
-    setScreenShareOn(s => !s);
-};
+  const salesEvents = [
+    { id: 1, label: "Mary (Kampala) bought GlowUp Serum", time: "18:41" },
+    { id: 2, label: "2x GlowUp bundles sold", time: "18:39" },
+    { id: 3, label: "Viewer from Nairobi added Serum to cart", time: "18:38" },
+  ];
 
+  const commerceGoal = {
+    targetUnits: 50,
+    soldUnits: liveStats.sales,
+    cartCount: 12,
+    last5MinSales: 5,
+  };
+
+  const toggleLive = () => {
+    if (mode === "lobby") {
+      setMode("live");
+      setFlashDealActive(false);
+      setFlashDealSeconds(120);
+    } else {
+      setMode("lobby");
+      setFlashDealActive(false);
+    }
+  };
 
   const handleSendChat = () => {
     const txt = chatDraft.trim();
     if (!txt) return;
-    actions.sendChat(txt);
-    setChatDraft('');
+    setChatMessages((prev) => [
+      ...prev,
+      { id: prev.length + 1, from: "You", body: txt, time: "Now", system: false },
+    ]);
+    setChatDraft("");
   };
 
-  const handleSendAudioMessage = () => {
-    actions.sendChat("[Audio message]");
-    toast({
-        title: "Audio Message Sent",
-        description: "Your simulated audio message was added to the chat.",
-    });
-  }
+  const handleApproveAttachment = (id: number) => {
+    alert(`Approved attachment ${id} to show on stream (demo only).`);
+  };
 
-  const handleApproveAttachment = (id: number) => actions.moderateAttachment(id, 'approved');
-  const handleRejectAttachment = (id: number) => actions.moderateAttachment(id, 'rejected');
-  const handleOpenFlashConfig = () => setFlashConfigOpen(true);
-  
+  const handleRejectAttachment = (id: number) => {
+    alert(`Rejected attachment ${id} (demo only).`);
+  };
+
+  const handleOpenFlashConfig = () => {
+    setFlashConfigOpen(true);
+  };
+
   const handleApplyFlashDeal = (durationMinutes: number, extraDiscount: number) => {
-    actions.startFlashDeal(durationMinutes * 60, extraDiscount);
+    setFlashDealActive(true);
+    setFlashDealSeconds(durationMinutes * 60);
     setFlashConfigOpen(false);
+    console.log("Flash deal:", durationMinutes, "min", extraDiscount, "%");
   };
-  
-  const handleStopFlashDeal = () => actions.stopFlashDeal();
-  const handleMarkMoment = () => actions.markMoment();
 
-  const handleFilterChange = (filter: string | null) => {
+  const handleStopFlashDeal = () => {
+    setFlashDealActive(false);
+  };
+
+  const handleMarkMoment = () => {
+    setMomentMarkers((prev) => [
+      ...prev,
+      { id: prev.length + 1, time: liveStats.timer, label: "Marked moment" },
+    ]);
+  };
+    const handleFilterChange = (filter: string | null) => {
     const newFilter = filter === 'none' ? null : filter;
     setActiveFilter(activeFilter === newFilter ? null : newFilter);
   };
 
+  const typeLabel = mode === "live" ? "Live" : "Pre-live";
 
-  const typeLabel = mode === "live" ? "Live" : "Pre-live lobby";
-  const rootClass = "min-h-screen flex flex-col bg-background text-foreground";
-  
-  if (isConnecting) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
-        <p>Connecting to Stream...</p>
-      </div>
-    );
-  }
+  const rootClass = darkMode
+    ? "min-h-screen flex flex-col bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-50"
+    : "min-h-screen flex flex-col bg-slate-50 text-slate-900";
 
+  const cameraHint = useMemo(() => {
+    if (previewMode === "auto") {
+      return `Auto (${deviceKind === "mobile" ? "mobile" : "desktop"})`;
+    }
+    return previewMode === "mobile" ? "Mobile" : "Desktop";
+  }, [previewMode, deviceKind]);
 
   return (
     <div className={rootClass}>
-      <header className="h-14 flex items-center justify-between px-4 md:px-6 border-b backdrop-blur-sm border-border bg-background/80 shadow-lg">
+      {/* Top bar */}
+      <header
+        className={
+          "h-14 flex items-center justify-between px-4 md:px-6 border-b backdrop-blur-sm " +
+          (darkMode
+            ? "border-slate-800/80 bg-slate-950/80 shadow-[0_8px_30px_rgba(15,23,42,0.7)]"
+            : "border-slate-200 bg-white shadow-sm")
+        }
+      >
         <div className="flex items-center gap-2 md:gap-3 min-w-0">
-          <div className="h-8 w-8 rounded-xl flex items-center justify-center text-white font-bold text-sm" style={{ backgroundColor: EV_ORANGE }}>LD</div>
+          <div
+            className="h-8 w-8 rounded-xl flex items-center justify-center text-white font-bold text-sm"
+            style={{ backgroundColor: EV_ORANGE }}
+          >
+            LD
+          </div>
           <div className="flex flex-col leading-tight min-w-0">
-            <span className="text-sm font-semibold truncate text-foreground">Live Dealz Studio</span>
-            <span className="text-[10px] text-muted-foreground truncate">Autumn Beauty Flash · GlowUp Hub</span>
+            <span className="text-sm font-semibold truncate">Live Dealz Studio</span>
+            <span className="text-[10px] text-slate-500 truncate">
+              Autumn Beauty Flash · GlowUp Hub
+            </span>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="hidden sm:flex items-center gap-2 text-[10px] mr-2">
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground border border-border">
-              <span className={`h-1.5 w-1.5 rounded-full ${mode === 'live' ? 'bg-emerald-500 animate-pulse' : 'bg-muted-foreground'}`} />
-              <span>{typeLabel} · {liveTimer}</span>
+
+        <div className="flex items-center gap-2">
+          <div className="hidden sm:flex items-center gap-2 text-[10px]">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-900 text-slate-50 border border-slate-700">
+              <span className={`h-1.5 w-1.5 rounded-full ${mode === 'live' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-500'}`} />
+              <span>
+                {typeLabel} · {liveStats.timer}
+              </span>
             </span>
-            <TopStat label="Viewers" value={stats.viewers.toLocaleString()} />
-            <TopStat label="Sales" value={stats.sales.toString()} />
-            <TopStat label="Connection" value={stats.connection} />
-            <TopStat label="Bitrate" value={stats.bitrate} />
+            <TopStat label="Viewers" value={liveStats.viewers.toLocaleString()} />
+            <TopStat label="Sales" value={String(liveStats.sales)} />
+            <TopStat label="Conn" value={liveStats.connection} />
+            <TopStat label="Bitrate" value={liveStats.bitrate} />
           </div>
-          <ThemeToggle />
-          <div className="flex items-center gap-2">
-            <button className="inline-flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-full border border-border bg-secondary text-secondary-foreground">
-              <span className="material-icons text-sm">help_outline</span>
-              Studio tips
-            </button>
-            <div className="h-8 w-8 rounded-full bg-muted-foreground flex items-center justify-center text-xs font-semibold text-background">CR</div>
+
+          <button
+            onClick={() => setDarkMode((v) => !v)}
+            className={
+              "inline-flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-full border " +
+              (darkMode
+                ? "border-slate-700 bg-slate-900 text-slate-100"
+                : "border-slate-300 bg-white text-slate-700")
+            }
+          >
+            <span className="text-sm" role="img" aria-label="theme">
+              {darkMode ? "🌙" : "☀️"}
+            </span>
+            <span>{darkMode ? "Dark" : "Light"}</span>
+          </button>
+
+          <button
+            onClick={() => setLanguagePanelOpen(true)}
+            className={
+              "hidden md:inline-flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-full border " +
+              (darkMode
+                ? "border-slate-700 bg-slate-900 text-slate-100"
+                : "border-slate-300 bg-white text-slate-700")
+            }
+            title="Language and AI audio"
+          >
+            <span className="material-icons text-sm">translate</span>
+            Language
+          </button>
+
+          <div className="h-8 w-8 rounded-full bg-slate-400 flex items-center justify-center text-xs font-semibold text-white">
+            CR
           </div>
         </div>
       </header>
 
+      {/* Desktop layout */}
       <main className="hidden md:grid flex-1 p-3 md:p-4 gap-3 overflow-hidden grid-cols-[256px_1fr_384px]">
+        {/* Left */}
         <section className="w-64 flex-shrink-0 flex flex-col gap-3">
-          <ProductPanel products={products} highlightedProductId={highlightedProductId} onHighlight={setHighlightedProductId} flashDealActive={flashDeal.active} flashSeconds={flashDealSeconds} onConfigureFlash={handleOpenFlashConfig} onStopFlash={handleStopFlashDeal}/>
-          <CoHostPanel coHosts={coHosts} />
-          <AttachmentsPanel attachments={attachments} onApprove={handleApproveAttachment} onReject={handleRejectAttachment} />
+          <ProductPanel
+            products={products}
+            highlightedProductId={highlightedProductId}
+            onHighlight={setHighlightedProductId}
+            flashDealActive={flashDealActive}
+            flashSeconds={flashDealSeconds}
+            onConfigureFlash={handleOpenFlashConfig}
+            onStopFlash={handleStopFlashDeal}
+          />
+          <CoHostPanel coHosts={coHosts} setCoHosts={setCoHosts} />
+          <AttachmentsPanel
+            attachments={attachments}
+            onApprove={handleApproveAttachment}
+            onReject={handleRejectAttachment}
+          />
         </section>
 
+        {/* Center */}
         <section className="flex-1 flex flex-col gap-3 min-h-0">
           <LiveVideoPanel
-            mode={mode} micOn={micOn} camOn={camOn} screenShareOn={screenShareOn}
-            activeSceneId={activeSceneId} scenes={scenes} setActiveSceneId={setActiveSceneId}
+            mode={mode}
+            micOn={micOn}
+            camOn={camOn}
+            screenShareOn={screenShareOn}
+            activeSceneId={activeSceneId}
+            scenes={scenes}
+            setActiveSceneId={setActiveSceneId}
             activeFilter={activeFilter}
-            previewMode={previewMode} resolvedPreviewMode={resolvedPreviewMode}
-            setPreviewMode={setPreviewMode} cameraHint={cameraHint}
+            previewMode={previewMode}
+            resolvedPreviewMode={resolvedPreviewMode}
+            setPreviewMode={setPreviewMode}
+            cameraHint={cameraHint}
             onExpand={() => setStageExpanded(true)}
           />
-           <TeleprompterPanel scriptCues={scriptCues} runOfShow={runOfShow} />
-           <CommerceHudPanel commerceGoal={commerceGoal} salesEvents={salesEvents} momentMarkers={momentMarkers} />
+          <TeleprompterPanel scriptCues={scriptCues} runOfShow={runOfShow} />
+          <CommerceHudPanel
+            commerceGoal={commerceGoal}
+            salesEvents={salesEvents}
+            momentMarkers={momentMarkers}
+          />
         </section>
 
+        {/* Right */}
         <section className="flex-shrink-0 flex flex-col gap-3 min-h-0">
-            <ChatPanel activeTab={audienceTab} onTabChange={setAudienceTab} messages={chat.messages} qaItems={qaItems} viewers={viewersList} draft={chatDraft} onDraftChange={setChatDraft} onSend={handleSendChat} onAttachment={actions.sendAttachment} onSendAudio={handleSendAudioMessage} />
-            <AiPromptsPanel prompts={aiPrompts} />
+          <AudiencePanel
+            activeTab={audienceTab}
+            onTabChange={setAudienceTab}
+            messages={chatMessages}
+            qaItems={qaItems}
+            viewers={viewersList}
+            draft={chatDraft}
+            onDraftChange={setChatDraft}
+            onSend={handleSendChat}
+          />
+          <AiPromptsPanel prompts={aiPrompts} />
         </section>
       </main>
-
+      
+      {/* Mobile studio */}
       <div className="md:hidden">
         <MobileStudio
-            mode={mode} typeLabel={typeLabel} products={products}
-            highlightedProductId={highlightedProductId} setHighlightedProductId={setHighlightedProductId}
-            flashDealActive={flashDeal.active} onOpenFlashConfig={handleOpenFlashConfig}
-            onStopFlash={handleStopFlashDeal} chatMessages={chat.messages}
-            chatDraft={chatDraft} setChatDraft={setChatDraft}
-            onSendChat={handleSendChat} mobilePanel={mobilePanel}
-            setMobilePanel={setMobilePanel} onToggleLive={toggleLive}
-            previewMode={previewMode} resolvedPreviewMode={resolvedPreviewMode}
-            setPreviewMode={setPreviewMode} cameraHint={cameraHint}
+            mode={mode}
+            typeLabel={typeLabel}
+            products={products}
+            highlightedProductId={highlightedProductId}
+            setHighlightedProductId={setHighlightedProductId}
+            flashDealActive={flashDealActive}
+            onOpenFlashConfig={handleOpenFlashConfig}
+            onStopFlash={handleStopFlashDeal}
+            chatMessages={chatMessages}
+            chatDraft={chatDraft}
+            setChatDraft={setChatDraft}
+            onSendChat={handleSendChat}
+            mobilePanel={mobilePanel}
+            setMobilePanel={setMobilePanel}
+            onToggleLive={toggleLive}
+            previewMode={previewMode}
+            resolvedPreviewMode={resolvedPreviewMode}
+            setPreviewMode={setPreviewMode}
+            cameraHint={cameraHint}
             onExpand={() => setStageExpanded(true)}
             activeFilter={activeFilter}
-            micOn={micOn} camOn={camOn} screenShareOn={screenShareOn}
+            micOn={micOn} 
+            camOn={camOn} 
+            screenShareOn={screenShareOn}
         />
       </div>
 
-
-       <StudioControlBar
-        mode={mode} onToggleLive={toggleLive}
-        micOn={micOn} onToggleMic={() => setMicOn(m => !m)}
-        camOn={camOn} onToggleCam={handleToggleCam}
-        screenShareOn={screenShareOn} onToggleScreenShare={handleToggleScreenShare}
-        activeSceneId={activeSceneId} scenes={scenes} setActiveSceneId={setActiveSceneId}
-        onMarkMoment={handleMarkMoment} onToggleFilters={() => setFiltersOpen(v => !v)}
+      {/* Desktop bottom control bar */}
+      <StudioControlBar
+        mode={mode}
+        onToggleLive={toggleLive}
+        micOn={micOn}
+        onToggleMic={() => setMicOn((m) => !m)}
+        camOn={camOn}
+        onToggleCam={() => setCamOn((c) => !c)}
+        screenShareOn={screenShareOn}
+        onToggleScreenShare={() => setScreenShareOn((s) => !s)}
+        activeSceneId={activeSceneId}
+        scenes={scenes}
+        setActiveSceneId={setActiveSceneId}
+        onMarkMoment={handleMarkMoment}
+        onToggleFilters={() => setFiltersOpen((v) => !v)}
         onOpenLanguagePanel={() => setLanguagePanelOpen(true)}
-        previewMode={previewMode} setPreviewMode={setPreviewMode} cameraHint={cameraHint}
+        previewMode={previewMode}
+        setPreviewMode={setPreviewMode}
+        cameraHint={cameraHint}
       />
 
+      {/* AR filters tray overlay */}
       {filtersOpen && <FiltersTray onFilterSelect={handleFilterChange} activeFilter={activeFilter} onClose={() => setFiltersOpen(false)} />}
-      {flashConfigOpen && <FlashDealControl onClose={() => setFlashConfigOpen(false)} onStart={handleApplyFlashDeal} />}
-      {languagePanelOpen && <LanguagePanel onClose={() => setLanguagePanelOpen(false)} />}
+
+      {/* Flash deal configuration overlay */}
+      {flashConfigOpen && (
+        <FlashDealControl
+          onClose={() => setFlashConfigOpen(false)}
+          onStart={handleApplyFlashDeal}
+        />
+      )}
+
+      {/* Language selection overlay */}
+      {languagePanelOpen && (
+        <LanguagePanel onClose={() => setLanguagePanelOpen(false)} />
+      )}
+
+      {/* Stage expand modal */}
       {stageExpanded && (
         <StageModal
           resolvedPreviewMode={resolvedPreviewMode}
@@ -298,32 +464,51 @@ export default function CreatorLiveStudio() {
   );
 }
 
+
+/* Header stat pill */
 function TopStat({ label, value }: { label: string; value: string }) {
   return (
-    <span className="inline-flex flex-col items-start px-2 py-0.5 rounded-lg bg-secondary border border-border text-[10px]">
-      <span className="text-[9px] text-muted-foreground">{label}</span>
-      <span className="text-[11px] font-semibold text-foreground">{value}</span>
+    <span className="inline-flex flex-col items-start px-2 py-0.5 rounded-lg bg-slate-900 border border-slate-700 text-[10px]">
+      <span className="text-[9px] text-slate-400">{label}</span>
+      <span className="text-[11px] font-semibold text-slate-50">{value}</span>
     </span>
   );
 }
 
-function ProductPanel({ products, highlightedProductId, onHighlight, flashDealActive, flashSeconds, onConfigureFlash, onStopFlash }: { products: Product[], highlightedProductId: string, onHighlight: (id: string) => void, flashDealActive: boolean, flashSeconds: number, onConfigureFlash: () => void, onStopFlash: () => void}) {
+/* Left column panels */
+function ProductPanel({
+  products,
+  highlightedProductId,
+  onHighlight,
+  flashDealActive,
+  flashSeconds,
+  onConfigureFlash,
+  onStopFlash,
+}: any) {
   return (
-    <div className="bg-card border border-border rounded-2xl p-3 flex flex-col gap-2 text-[11px]">
+    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 flex flex-col gap-2 text-[11px]">
       <div className="flex items-center justify-between mb-1">
-        <h3 className="text-xs font-semibold text-foreground">Products on this live</h3>
-        <span className="text-[10px] text-muted-foreground">{products.length} items</span>
+        <h3 className="text-xs font-semibold">Products on this live</h3>
+        <span className="text-[10px] text-slate-400">{products.length} items</span>
       </div>
       <div className="space-y-1.5 max-h-52 overflow-y-auto">
-        {products.map((p) => {
+        {products.map((p: any) => {
           const active = p.id === highlightedProductId;
           return (
-            <button key={p.id} className={"w-full text-left border rounded-xl px-2.5 py-1.5 flex flex-col gap-0.5 " + (active ? "bg-primary/10 border-primary text-foreground" : "bg-secondary border-border text-foreground hover:border-muted-foreground")} onClick={() => onHighlight(p.id)}>
+            <button
+              key={p.id}
+              className={`w-full text-left border rounded-xl px-2.5 py-1.5 flex flex-col gap-0.5 ${
+                active
+                  ? "bg-[#f77f00]/10 border-[#f77f00] text-slate-50"
+                  : "bg-slate-950 border-slate-800 text-slate-200 hover:border-slate-600"
+              }`}
+              onClick={() => onHighlight(p.id)}
+            >
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[11px] font-semibold truncate">{p.name}</span>
-                <span className="text-[10px] text-emerald-500">{p.price}</span>
+                <span className="text-[10px] text-emerald-400">{p.price}</span>
               </div>
-              <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+              <div className="flex items-center justify-between text-[10px] text-slate-400">
                 <span>{p.stock}</span>
                 <span>{p.tag}</span>
               </div>
@@ -331,23 +516,40 @@ function ProductPanel({ products, highlightedProductId, onHighlight, flashDealAc
           );
         })}
       </div>
-      <div className="mt-1 border-t border-border pt-2 flex flex-col gap-1">
+
+      <div className="mt-1 border-t border-slate-800 pt-2 flex flex-col gap-1">
         <div className="flex items-center justify-between text-[10px]">
-          <span className="text-foreground">Pinned product overlay</span>
-          <span className="text-muted-foreground text-[9px]">{highlightedProductId ? "Active" : "None"}</span>
+          <span className="text-slate-300">Pinned product overlay</span>
+          <span className="text-slate-400 text-[9px]">{highlightedProductId ? "Active" : "None"}</span>
         </div>
         <div className="flex items-center gap-1 text-[10px]">
-          <button className="px-2.5 py-1 rounded-full bg-secondary text-secondary-foreground border border-border hover:bg-muted">Highlight now</button>
-          <button className="px-2.5 py-1 rounded-full bg-card text-foreground border border-border hover:bg-secondary">Remove overlay</button>
+          <button className="px-2.5 py-1 rounded-full bg-slate-800 text-slate-100 border border-slate-700 hover:bg-slate-700">
+            Highlight now
+          </button>
+          <button className="px-2.5 py-1 rounded-full bg-slate-950 text-slate-200 border border-slate-800 hover:bg-slate-800">
+            Remove overlay
+          </button>
         </div>
+
         <div className="flex items-center justify-between mt-2">
-          <div className="flex flex-col text-[10px] text-foreground">
+          <div className="flex flex-col text-[10px] text-slate-300">
             <span>Flash deal</span>
-            <span className="text-[9px] text-muted-foreground">Limited-time discount overlay with timer.</span>
+            <span className="text-[9px] text-slate-500">Limited-time discount overlay with timer.</span>
           </div>
           <div className="flex items-center gap-1">
-            {flashDealActive && (<span className="px-2 py-0.5 rounded-full bg-red-500 text-white text-[9px]">{flashSeconds}s left</span>)}
-            <button className={"px-2.5 py-1 rounded-full text-[10px] text-white " + (flashDealActive ? "bg-red-500 hover:bg-red-600" : "bg-primary hover:bg-primary/90")} onClick={flashDealActive ? onStopFlash : onConfigureFlash}>
+            {flashDealActive && (
+              <span className="px-2 py-0.5 rounded-full bg-red-500 text-white text-[9px]">
+                {flashSeconds}s left
+              </span>
+            )}
+            <button
+              className={`px-2.5 py-1 rounded-full text-[10px] ${
+                flashDealActive
+                  ? "bg-red-500 hover:bg-red-600"
+                  : "bg-[#f77f00] hover:bg-[#e26f00]"
+              } text-white`}
+              onClick={flashDealActive ? onStopFlash : onConfigureFlash}
+            >
               {flashDealActive ? "Stop flash deal" : "Start flash deal"}
             </button>
           </div>
@@ -357,99 +559,152 @@ function ProductPanel({ products, highlightedProductId, onHighlight, flashDealAc
   );
 }
 
-function CoHostPanel({ coHosts }: { coHosts: CoHost[] }) {
+function CoHostPanel({ coHosts, setCoHosts }: any) {
+  const addCoHost = () => {
+    const name = window.prompt("Enter co-host name (demo only):");
+    if (!name) return;
+    setCoHosts((prev: any[]) => [...prev, { id: prev.length + 1, name, status: "Invited" }]);
+  };
+
+  const updateStatus = (id: number, status: string) => {
+    setCoHosts((prev: any[]) => prev.map((c:any) => (c.id === id ? { ...c, status } : c)));
+  };
+
   return (
-    <div className="bg-card border border-border rounded-2xl p-3 flex flex-col gap-2 text-[11px]">
+    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 flex flex-col gap-2 text-[11px]">
       <div className="flex items-center justify-between">
-        <h3 className="text-xs font-semibold text-foreground">Co-host & crew</h3>
-        <button className="text-[10px] text-primary hover:underline">Invite</button>
+        <h3 className="text-xs font-semibold">Co-host & crew</h3>
+        <button className="text-[10px] text-[#f77f00] hover:underline" onClick={addCoHost}>
+          Invite
+        </button>
       </div>
       <div className="space-y-1 max-h-32 overflow-y-auto">
-        {coHosts.map((c) => (
+        {coHosts.map((c: any) => (
           <div key={c.id} className="flex items-center justify-between text-[10px]">
             <div className="flex items-center gap-2">
-              <span className="h-6 w-6 rounded-full bg-secondary flex items-center justify-center text-[10px]">{c.name.split(" ").map((w: string) => w[0]).join("")}</span>
+              <span className="h-6 w-6 rounded-full bg-slate-800 flex items-center justify-center text-[10px]">
+                {c.name
+                  .split(" ")
+                  .map((w: string) => w[0])
+                  .join("")}
+              </span>
               <div className="flex flex-col">
-                <span className="text-foreground">{c.name}</span>
-                <span className="text-muted-foreground">{c.status}</span>
+                <span className="text-slate-100">{c.name}</span>
+                <span className="text-slate-500">{c.status}</span>
               </div>
             </div>
             <div className="flex items-center gap-1">
-              <button className="px-2 py-0.5 rounded-full border border-border text-foreground text-[9px]">Accept</button>
-              <button className="px-2 py-0.5 rounded-full border border-border text-muted-foreground text-[9px]">Remove</button>
+              <button className="px-2 py-0.5 rounded-full border border-slate-700 text-slate-100 text-[9px]" onClick={() => updateStatus(c.id, "Accepted")}>
+                Accept
+              </button>
+              <button className="px-2 py-0.5 rounded-full border border-slate-700 text-slate-400 text-[9px]" onClick={() => updateStatus(c.id, "Removed")}>
+                Remove
+              </button>
             </div>
           </div>
         ))}
+        {coHosts.length === 0 && <p className="text-[10px] text-slate-500">No co-hosts invited yet.</p>}
       </div>
     </div>
   );
 }
 
-function AttachmentsPanel({ attachments, onApprove, onReject }: { attachments: Attachment[]; onApprove: (id: number) => void; onReject: (id: number) => void; }) {
-  const pending = attachments.filter((a) => a.status === "Pending");
+function AttachmentsPanel({ attachments, onApprove, onReject }: any) {
+  const pending = attachments.filter((a: any) => a.status === "Pending");
   return (
-    <div className="bg-card border border-border rounded-2xl p-3 flex flex-col gap-2 text-[11px]">
-      <h3 className="text-xs font-semibold text-foreground">Attachments queue</h3>
-      <p className="text-[10px] text-muted-foreground">Viewers can send images or questions. Nothing appears on screen until you approve.</p>
+    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 flex flex-col gap-2 text-[11px]">
+      <h3 className="text-xs font-semibold">Attachments queue</h3>
+      <p className="text-[10px] text-slate-500">
+        Viewers can send images or questions. Nothing appears on screen until you approve.
+      </p>
       <div className="space-y-1 max-h-28 overflow-y-auto">
-        {pending.map((a) => (
-          <div key={a.id} className="flex items-center justify-between text-[10px] border border-border rounded-lg px-2 py-1">
+        {pending.map((a: any) => (
+          <div key={a.id} className="flex items-center justify-between text-[10px] border border-slate-800 rounded-lg px-2 py-1">
             <div className="flex flex-col">
-              <span className="text-foreground">{a.label}</span>
-              <span className="text-muted-foreground">{a.type.toUpperCase()} · {a.from}</span>
+              <span className="text-slate-100">{a.label}</span>
+              <span className="text-slate-500">{a.type.toUpperCase()} · {a.from}</span>
             </div>
             <div className="flex items-center gap-1">
-              <button className="px-2 py-0.5 rounded-full bg-emerald-500 text-white text-[9px]" onClick={() => onApprove(a.id)}>Approve</button>
-              <button className="px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground text-[9px]" onClick={() => onReject(a.id)}>Reject</button>
+              <button className="px-2 py-0.5 rounded-full bg-emerald-500 text-white text-[9px]" onClick={() => onApprove(a.id)}>
+                Approve
+              </button>
+              <button className="px-2 py-0.5 rounded-full bg-slate-800 text-slate-200 text-[9px]" onClick={() => onReject(a.id)}>
+                Reject
+              </button>
             </div>
           </div>
         ))}
-        {pending.length === 0 && <p className="text-[10px] text-muted-foreground">No pending attachments.</p>}
+        {pending.length === 0 && <p className="text-[10px] text-slate-500">No pending attachments.</p>}
       </div>
     </div>
   );
 }
 
+/* Center camera panel */
 function LiveVideoPanel({
-  mode, micOn, camOn, screenShareOn, activeSceneId, scenes, setActiveSceneId, activeFilter,
-  previewMode, resolvedPreviewMode, setPreviewMode, cameraHint, onExpand
-}: {
-  mode: Mode, micOn: boolean, camOn: boolean, screenShareOn: boolean,
-  activeSceneId: string, scenes: Scene[], setActiveSceneId: (id: string) => void,
-  activeFilter: string | null,
-  previewMode: PreviewMode, resolvedPreviewMode: Exclude<PreviewMode, 'auto'>,
-  setPreviewMode: (m: PreviewMode) => void, cameraHint: string, onExpand: () => void
-}) {
-  const activeScene = scenes.find((s) => s.id === activeSceneId) || scenes[0];
+  mode,
+  micOn,
+  camOn,
+  screenShareOn,
+  activeSceneId,
+  scenes,
+  setActiveSceneId,
+  previewMode,
+  resolvedPreviewMode,
+  setPreviewMode,
+  cameraHint,
+  onExpand,
+  activeFilter
+}: any) {
+  const activeScene = scenes.find((s: any) => s.id === activeSceneId) || scenes[0];
 
   return (
-    <div className="bg-card border border-border rounded-3xl p-3 md:p-4 flex flex-col gap-3 h-full">
+    <div className="bg-slate-900 border border-slate-800 rounded-3xl p-3 md:p-4 flex flex-col gap-3 h-full">
+      {/* Preview mode toggle (Auto/Desktop/Mobile) */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <span className="text-[11px] text-foreground">Camera preview</span>
-          <span className="text-[10px] text-muted-foreground">{cameraHint}</span>
+          <span className="text-[11px] text-slate-300">Camera preview</span>
+          <span className="text-[10px] text-slate-500">{cameraHint}</span>
         </div>
         <PreviewModeToggle previewMode={previewMode} setPreviewMode={setPreviewMode} />
       </div>
 
-      {mode === 'lobby' ? (
-        <LobbyPanel micOn={micOn} camOn={camOn} screenShareOn={screenShareOn} activeFilter={activeFilter} />
+      {mode === "lobby" ? (
+        <LobbyPanel
+          micOn={micOn}
+          camOn={camOn}
+          screenShareOn={screenShareOn}
+          activeFilter={activeFilter}
+        />
       ) : (
         <div className="flex flex-col gap-3 h-full">
           <StagePreview
-            resolvedPreviewMode={resolvedPreviewMode} activeSceneLabel={activeScene.label}
-            screenShareOn={screenShareOn} camOn={camOn} micOn={micOn} onExpand={onExpand} activeFilter={activeFilter}
+            resolvedPreviewMode={resolvedPreviewMode}
+            activeSceneLabel={activeScene.label}
+            screenShareOn={screenShareOn}
+            camOn={camOn}
+            micOn={micOn}
+            onExpand={onExpand}
+            activeFilter={activeFilter}
           />
           <div className="flex flex-col gap-1">
-            <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+            <div className="flex items-center justify-between text-[10px] text-slate-400">
               <span>Scene presets</span>
               <span>Active: {activeScene.label}</span>
             </div>
             <div className="flex gap-1 overflow-x-auto pb-1">
-              {scenes.map((s) => (
-                <button key={s.id} className={"px-2.5 py-1 rounded-xl border text-[10px] min-w-[120px] text-left " + (s.id === activeSceneId ? "bg-primary border-primary text-primary-foreground" : "bg-secondary border-border text-foreground hover:bg-muted")} onClick={() => setActiveSceneId(s.id)}>
+              {scenes.map((s: any) => (
+                <button
+                  key={s.id}
+                  className={`px-2.5 py-1 rounded-xl border text-[10px] min-w-[120px] text-left ${
+                    s.id === activeSceneId
+                      ? "bg-[#f77f00] border-[#f77f00] text-white"
+                      : "bg-slate-950 border-slate-800 text-slate-200 hover:bg-slate-900"
+                  }`}
+                  onClick={() => setActiveSceneId(s.id)}
+                >
                   <span className="font-semibold">{s.label}</span>
-                  <span className="block text-[9px] text-muted-foreground">{s.desc}</span>
+                  <span className="block text-[9px] text-slate-400">{s.desc}</span>
                 </button>
               ))}
             </div>
@@ -461,7 +716,13 @@ function LiveVideoPanel({
 }
 
 function StagePreview({
-  resolvedPreviewMode, activeSceneLabel, screenShareOn, camOn, micOn, onExpand, activeFilter
+  resolvedPreviewMode,
+  activeSceneLabel,
+  screenShareOn,
+  camOn,
+  micOn,
+  onExpand,
+  activeFilter
 }: {
   resolvedPreviewMode: "desktop" | "mobile";
   activeSceneLabel: string;
@@ -482,7 +743,10 @@ function StagePreview({
       title="Tap to expand preview"
     >
       <div
-        className={"relative rounded-2xl border overflow-hidden shadow-2xl bg-secondary border-border " + (isMobile ? "w-[340px] max-w-[75%]" : "w-full")}
+        className={
+          "relative rounded-2xl border overflow-hidden shadow-[0_24px_80px_rgba(15,23,42,0.7)] bg-slate-950 border-slate-800 " +
+          (isMobile ? "w-[340px] max-w-[75%]" : "w-full")
+        }
         style={{ aspectRatio: aspect }}
       >
         <LocalMediaPreview camOn={camOn} micOn={micOn} screenShareOn={screenShareOn} activeFilter={activeFilter} />
@@ -513,18 +777,24 @@ function StagePreview({
   );
 }
 
-
-function PreviewModeToggle({ previewMode, setPreviewMode }: { previewMode: PreviewMode; setPreviewMode: (m: PreviewMode) => void; }) {
+function PreviewModeToggle({
+  previewMode,
+  setPreviewMode,
+}: {
+  previewMode: PreviewMode;
+  setPreviewMode: (m: PreviewMode) => void;
+}) {
   const chip = (id: PreviewMode, label: string, icon: string) => {
     const active = previewMode === id;
     return (
       <button
         key={id}
         onClick={() => setPreviewMode(id)}
-        className={"inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] border transition " +
+        className={
+          "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] border transition " +
           (active
-            ? "bg-background text-foreground shadow-sm"
-            : "bg-secondary text-muted-foreground border-border hover:bg-muted")
+            ? "bg-white text-slate-900 border-white shadow-sm"
+            : "bg-slate-950 text-slate-200 border-slate-700 hover:bg-slate-900")
         }
       >
         <span className="material-icons text-[13px]">{icon}</span>
@@ -542,9 +812,16 @@ function PreviewModeToggle({ previewMode, setPreviewMode }: { previewMode: Previ
   );
 }
 
-function StageModal({ resolvedPreviewMode, previewMode, setPreviewMode, cameraHint, onClose, activeFilter }: any) {
+function StageModal({
+  resolvedPreviewMode,
+  previewMode,
+  setPreviewMode,
+  cameraHint,
+  onClose,
+  activeFilter
+}: any) {
   return (
-    <div className="fixed inset-0 z-[80] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[80] bg-black/70 flex items-center justify-center p-4">
       <div className="w-full max-w-5xl">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
@@ -562,7 +839,8 @@ function StageModal({ resolvedPreviewMode, previewMode, setPreviewMode, cameraHi
             </button>
           </div>
         </div>
-        <div className="bg-card border border-border rounded-3xl p-3 shadow-2xl">
+
+        <div className="bg-slate-950 border border-slate-800 rounded-3xl p-3 shadow-[0_24px_80px_rgba(0,0,0,0.7)]">
           <StagePreview
             resolvedPreviewMode={resolvedPreviewMode}
             activeSceneLabel="Expanded"
@@ -581,173 +859,374 @@ function StageModal({ resolvedPreviewMode, previewMode, setPreviewMode, cameraHi
 function LobbyPanel({ micOn, camOn, screenShareOn, activeFilter }: { micOn: boolean, camOn: boolean, screenShareOn: boolean, activeFilter: string | null }) {
     return (
         <div className="flex flex-col gap-3 h-full">
-            <div className="relative flex-1 rounded-2xl bg-secondary border border-border flex flex-col items-center justify-center gap-2 overflow-hidden">
+            <div className="relative flex-1 rounded-2xl bg-slate-950 border border-slate-800 flex flex-col items-center justify-center gap-2 overflow-hidden">
                 <LocalMediaPreview camOn={camOn} micOn={micOn} screenShareOn={screenShareOn} activeFilter={activeFilter} />
+
                 <div className="z-10 flex flex-col items-center justify-center gap-2">
-                    <span className="text-[11px] text-foreground mb-1">Pre-live lobby · Device & scene check</span>
-                    <div className="flex gap-2 text-[10px] text-foreground">
+                    <span className="text-[11px] text-slate-300 mb-1">Pre-live lobby · Device & scene check</span>
+                    <div className="flex gap-2 text-[10px] text-slate-200">
                         <LobbyToggle label="Camera" on={camOn} />
                         <LobbyToggle label="Microphone" on={micOn} />
                         <LobbyToggle label="Screen share" on={screenShareOn} disabled />
                     </div>
-                    <p className="text-[10px] text-muted-foreground mt-2 max-w-xs text-center">Check your framing, lighting and audio levels. You’re not live yet – only you and crew can see this.</p>
+                    <p className="text-[10px] text-slate-500 mt-2 max-w-xs text-center">
+                        Check your framing, lighting and audio levels. You’re not live yet – only you and crew can see this.
+                    </p>
                 </div>
             </div>
         </div>
     );
 }
 
-function LobbyToggle({ label, on, disabled }: { label: string; on: boolean; disabled?: boolean; }) {
-  return (<button className={"px-2.5 py-1 rounded-full border text-[10px] " + (disabled ? "border-border text-muted-foreground cursor-not-allowed" : on ? "bg-emerald-500 border-emerald-500 text-white" : "bg-muted border-border text-foreground")} disabled={disabled}>{label}: {on ? "On" : "Off"}</button>);
+function LobbyToggle({ label, on, disabled }: { label: string, on: boolean, disabled?: boolean }) {
+  return (
+    <button
+      className={`px-2.5 py-1 rounded-full border text-[10px] ${
+        disabled
+          ? "border-slate-700 text-slate-500 cursor-not-allowed"
+          : on
+          ? "bg-emerald-500 border-emerald-500 text-white"
+          : "bg-slate-900 border-slate-700 text-slate-300"
+      }`}
+      disabled={disabled}
+    >
+      {label}: {on ? "On" : "Off"}
+    </button>
+  );
 }
 
-function TeleprompterPanel({ scriptCues, runOfShow }: { scriptCues: string[], runOfShow: RunOfShowItem[] }) {
+/* Teleprompter + run-of-show */
+function TeleprompterPanel({ scriptCues, runOfShow }: any) {
   return (
-    <div className="bg-card border border-border rounded-2xl p-3 flex flex-col gap-2 text-[11px] max-h-48">
+    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 flex flex-col gap-2 text-[11px] max-h-48">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2"><span className="text-[13px]">📜</span><h3 className="text-xs font-semibold text-foreground">Script teleprompter</h3></div>
-        <span className="text-[10px] text-muted-foreground">Dynamic cues</span>
+        <div className="flex items-center gap-2">
+          <span className="text-[13px]">📜</span>
+          <h3 className="text-xs font-semibold">Script teleprompter</h3>
+        </div>
+        <span className="text-[10px] text-slate-500">Dynamic cues</span>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] gap-2 flex-1 min-h-0">
         <div className="space-y-1 overflow-y-auto">
-          {scriptCues.map((cue: string, idx: number) => (<div key={idx} className={"text-[10px] px-2 py-1 rounded-lg " + (idx === 1 ? "bg-primary/20 text-foreground" : "bg-secondary text-foreground")}>
-            {idx === 1 && <span className="mr-1 text-[9px] uppercase tracking-wide text-primary">Up next:</span>}
-            {cue}
-          </div>))}
+          {scriptCues.map((cue: string, idx: number) => (
+            <div
+              key={idx}
+              className={`text-[10px] px-2 py-1 rounded-lg ${
+                idx === 1
+                  ? "bg-[#f77f00]/20 text-slate-50"
+                  : "bg-slate-950 text-slate-200"
+              }`}
+            >
+              {idx === 1 && (
+                <span className="mr-1 text-[9px] uppercase tracking-wide text-[#f77f00]">
+                  Up next:
+                </span>
+              )}
+              {cue}
+            </div>
+          ))}
         </div>
-        <div className="border border-border rounded-xl p-2 bg-secondary text-[10px] text-foreground overflow-y-auto">
-          <div className="flex items-center justify-between mb-1"><span>Run-of-show</span><span className="text-[9px] text-muted-foreground">Shot list</span></div>
-          <ul className="space-y-1">{runOfShow.map((shot: any) => (<li key={shot.id} className="flex items-center justify-between gap-2">
-            <div className="flex flex-col"><span className="font-medium">{shot.label}</span><span className="text-muted-foreground">Scene: {shot.scene}</span></div>
-            <span className="text-muted-foreground text-[9px]">{shot.window}</span>
-          </li>))}</ul>
+        <div className="border border-slate-800 rounded-xl p-2 bg-slate-950 text-[10px] text-slate-200 overflow-y-auto">
+          <div className="flex items-center justify-between mb-1">
+            <span>Run-of-show</span>
+            <span className="text-[9px] text-slate-500">Shot list</span>
+          </div>
+          <ul className="space-y-1">
+            {runOfShow.map((shot: any) => (
+              <li key={shot.id} className="flex items-center justify-between gap-2">
+                <div className="flex flex-col">
+                  <span className="font-medium">{shot.label}</span>
+                  <span className="text-slate-500">Scene: {shot.scene}</span>
+                </div>
+                <span className="text-slate-400 text-[9px]">{shot.window}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
     </div>
   );
 }
 
-function CommerceHudPanel({ commerceGoal, salesEvents, momentMarkers }: { commerceGoal: CommerceGoal, salesEvents: SalesEvent[], momentMarkers: MomentMarker[] }) {
+function CommerceHudPanel({ commerceGoal, salesEvents, momentMarkers }: any) {
   const progress = Math.min(commerceGoal.soldUnits / (commerceGoal.targetUnits || 1), 1);
   return (
-    <div className="bg-card border border-border rounded-2xl p-3 flex flex-col gap-2 text-[11px]">
+    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 flex flex-col gap-2 text-[11px]">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2"><span className="text-[13px]">💰</span><div><h3 className="text-xs font-semibold text-foreground">Commerce HUD</h3><p className="text-[10px] text-muted-foreground">Live sales, goal tracking and marked moments.</p></div></div>
-        <span className="text-[10px] text-muted-foreground">Goal: {commerceGoal.targetUnits} units</span>
+        <div className="flex items-center gap-2">
+          <span className="text-[13px]">💰</span>
+          <div>
+            <h3 className="text-xs font-semibold">Commerce HUD</h3>
+            <p className="text-[10px] text-slate-500">Live sales, goal tracking and marked moments.</p>
+          </div>
+        </div>
+        <span className="text-[10px] text-slate-400">Goal: {commerceGoal.targetUnits} units</span>
       </div>
+
       <div className="flex items-center justify-between gap-3 text-[10px]">
         <div className="flex-1">
-          <div className="flex items-center justify-between mb-1"><span className="text-muted-foreground">Progress</span><span className="text-foreground">{commerceGoal.soldUnits}/{commerceGoal.targetUnits} sold</span></div>
-          <div className="h-1.5 w-full rounded-full bg-secondary overflow-hidden"><div className="h-full rounded-full bg-primary" style={{ width: `${progress * 100}%` }} /></div>
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-slate-400">Progress</span>
+            <span className="text-slate-100">{commerceGoal.soldUnits}/{commerceGoal.targetUnits} sold</span>
+          </div>
+          <div className="h-1.5 w-full rounded-full bg-slate-800 overflow-hidden">
+            <div className="h-full rounded-full" style={{ width: `${progress * 100}%`, backgroundColor: EV_ORANGE }} />
+          </div>
         </div>
-        <div className="flex flex-col items-end text-[10px]"><span className="text-muted-foreground">In carts</span><span className="text-foreground font-semibold">{commerceGoal.cartCount}</span><span className="text-muted-foreground">{commerceGoal.last5MinSales} sales · 5 min</span></div>
+        <div className="flex flex-col items-end text-[10px]">
+          <span className="text-slate-400">In carts</span>
+          <span className="text-slate-100 font-semibold">{commerceGoal.cartCount}</span>
+          <span className="text-slate-500">{commerceGoal.last5MinSales} sales · 5 min</span>
+        </div>
       </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2 flex-1 min-h-0">
-        <div className="border border-border rounded-xl p-2 bg-secondary flex flex-col"><h4 className="text-[10px] font-semibold mb-1 text-foreground">Live sales feed</h4>
-          <ul className="space-y-1 overflow-y-auto text-[10px] text-foreground flex-1">{salesEvents.map((e) => (<li key={e.id} className="flex items-center justify-between gap-2"><span>{e.label}</span><span className="text-muted-foreground text-[9px]">{e.time}</span></li>))}</ul>
+        <div className="border border-slate-800 rounded-xl p-2 bg-slate-950 flex flex-col">
+            <h4 className="text-[10px] font-semibold mb-1 text-slate-200">Live sales feed</h4>
+            <ul className="space-y-1 overflow-y-auto text-[10px] text-slate-200 flex-1">
+                {salesEvents.map((e: any) => (
+                <li key={e.id} className="flex items-center justify-between gap-2">
+                    <span>{e.label}</span>
+                    <span className="text-slate-500 text-[9px]">{e.time}</span>
+                </li>
+                ))}
+            </ul>
         </div>
-        <div className="border border-border rounded-xl p-2 bg-secondary flex flex-col"><h4 className="text-[10px] font-semibold mb-1 text-foreground">Moments for replay</h4>
-          {momentMarkers.length === 0 ? <p className="text-[10px] text-muted-foreground flex-1">Use “Mark moment” to flag highlights for clipping.</p> : <ul className="space-y-1 overflow-y-auto text-[10px] text-foreground flex-1">{momentMarkers.map((m) => (<li key={m.id} className="flex items-center justify-between gap-2"><span>{m.label}</span><span className="text-muted-foreground text-[9px]">{m.time}</span></li>))}</ul>}
+        <div className="border border-slate-800 rounded-xl p-2 bg-slate-950 flex flex-col">
+            <h4 className="text-[10px] font-semibold mb-1 text-slate-200">Moments for replay</h4>
+            {momentMarkers.length === 0 ? <p className="text-[10px] text-slate-500 flex-1">Use “Mark moment” to flag highlights for clipping.</p> : <ul className="space-y-1 overflow-y-auto text-[10px] text-slate-200 flex-1">{momentMarkers.map((m: any) => (<li key={m.id} className="flex items-center justify-between gap-2"><span>{m.label}</span><span className="text-slate-500 text-[9px]">{m.time}</span></li>))}</ul>}
         </div>
       </div>
     </div>
   );
 }
 
-function ChatPanel({ activeTab, onTabChange, messages, qaItems, viewers, draft, onDraftChange, onSend, onAttachment, onSendAudio }: { activeTab: AudienceTab; onTabChange: (tab: AudienceTab) => void; messages: ChatMessage[]; qaItems: QAItem[]; viewers: Viewer[]; draft: string; onDraftChange: (v: string) => void; onSend: () => void; onAttachment: (file: File) => void; onSendAudio: () => void; }) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const {toast} = useToast();
-
-  const handleAttachmentClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      onAttachment(file);
-      toast({
-          title: "Attachment Sent",
-          description: `"${file.name}" was sent for approval.`,
-      });
-    }
-    // Reset file input
-    if(event.target) event.target.value = '';
-  };
-
+/* Right audience panel */
+function AudiencePanel({ activeTab, onTabChange, messages, qaItems, viewers, draft, onDraftChange, onSend }: any) {
   const renderBody = () => {
     if (activeTab === "qa") {
-      return (<div className="space-y-2">{qaItems.map((q) => (<div key={q.id} className="rounded-xl px-3 py-2 bg-background/50 border border-border">
-        <div className="flex items-center justify-between gap-2 mb-1"><span className="font-semibold truncate text-[11px] text-foreground">{q.question}</span><span className="text-[10px] text-muted-foreground truncate">{q.from}</span></div>
-        <div className="flex items-center justify-between text-[10px]"><span className={"inline-flex items-center gap-1 px-2 py-0.5 rounded-full " + (q.status === "pinned" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/50" : "bg-secondary text-foreground border border-border")}><span className="material-icons text-[13px]">{q.status === "pinned" ? "push_pin" : "help_outline"}</span>{q.status === "pinned" ? "Pinned" : "Waiting"}</span><button className="text-[10px] text-muted-foreground hover:text-foreground">Answer live</button></div>
-      </div>))}</div>);
-    } if (activeTab === "viewers") {
-      return (<div className="space-y-1.5">{viewers.map((v) => (<div key={v.id} className="flex items-center justify-between gap-3 px-2 py-1 rounded-lg hover:bg-muted">
-        <div className="flex items-center gap-2 min-w-0"><div className="h-7 w-7 rounded-full bg-muted flex items-center justify-center text-[11px] font-semibold text-foreground">{v.name.split(" ").map((p: string) => p[0]).join("")}</div>
-          <div className="flex flex-col min-w-0"><span className="truncate text-[11px] text-foreground">{v.name}</span>{v.tag && <span className="text-[10px] text-emerald-400">{v.tag}</span>}</div>
+      return (
+        <div className="space-y-2">
+          {qaItems.map((q: any) => (
+            <div key={q.id} className="rounded-xl px-3 py-2 bg-slate-950 border border-slate-800">
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <span className="font-semibold truncate text-[11px] text-slate-100">{q.question}</span>
+                <span className="text-[10px] text-slate-500 truncate">{q.from}</span>
+              </div>
+              <div className="flex items-center justify-between text-[10px]">
+                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border ${
+                  q.status === "pinned" ? "bg-emerald-100/10 text-emerald-300 border-emerald-500/50" : "bg-slate-900 text-slate-300 border-slate-700"
+                }`}>
+                  <span className="material-icons text-[13px]">{q.status === "pinned" ? "push_pin" : "help_outline"}</span>
+                  {q.status === "pinned" ? "Pinned" : "Waiting"}
+                </span>
+                <button className="text-[10px] text-slate-400 hover:text-slate-100">Answer live</button>
+              </div>
+            </div>
+          ))}
         </div>
-        <div className="flex items-center gap-1 text-[10px]"><button className="px-2 py-0.5 rounded-full border border-border text-foreground hover:bg-secondary">Mute</button><button className="px-2 py-0.5 rounded-full border border-destructive/70 text-destructive hover:bg-destructive/10">Ban</button></div>
-      </div>))}</div>);
-    } return (<div className="space-y-1.5">{messages.map((m) => (<div key={m.id} className="text-[10px]"><span className={"font-semibold " + (m.system ? "text-muted-foreground" : "text-foreground")}>{m.system ? "System" : m.from}</span><span className="text-muted-foreground ml-1">· {m.time}</span><p className="text-foreground whitespace-pre-line">{m.body}</p></div>))}</div>);
+      );
+    }
+
+    if (activeTab === "viewers") {
+      return (
+        <div className="space-y-1.5">
+          {viewers.map((v: any) => (
+            <div key={v.id} className="flex items-center justify-between gap-3 px-2 py-1 rounded-lg hover:bg-slate-900">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="h-7 w-7 rounded-full bg-slate-700 flex items-center justify-center text-[11px] font-semibold text-slate-100">
+                  {v.name.split(" ").map((p: string) => p[0]).join("")}
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <span className="truncate text-[11px] text-slate-100">{v.name}</span>
+                  {v.tag && <span className="text-[10px] text-emerald-400">{v.tag}</span>}
+                </div>
+              </div>
+              <div className="flex items-center gap-1 text-[10px]">
+                <button className="px-2 py-0.5 rounded-full border border-slate-700 text-slate-200 hover:bg-slate-900">Mute</button>
+                <button className="px-2 py-0.5 rounded-full border border-rose-500/70 text-rose-300 hover:bg-rose-900/40">Ban</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-1.5">
+        {messages.map((m: any) => (
+          <div key={m.id} className="text-[10px]">
+            <span className={`font-semibold ${m.system ? "text-slate-400" : "text-slate-100"}`}>
+              {m.system ? "System" : m.from}
+            </span>
+            <span className="text-slate-500 ml-1">· {m.time}</span>
+            <p className="text-slate-200 whitespace-pre-line">{m.body}</p>
+          </div>
+        ))}
+      </div>
+    );
   };
+
   return (
-    <div className="bg-card border border-border rounded-2xl p-3 flex flex-col h-full">
-      <div className="mb-2"><h3 className="text-xs font-semibold mb-1 text-foreground">Live audience &amp; chat</h3>
-        <div className="inline-flex rounded-full bg-secondary p-0.5 text-[10px]">
-          <button className={"px-3 py-1 rounded-full " + (activeTab === 'chat' ? 'bg-background text-foreground shadow-sm' : 'bg-transparent text-muted-foreground')} onClick={() => onTabChange("chat")}>Chat</button>
-          <button className={"px-3 py-1 rounded-full " + (activeTab === 'qa' ? 'bg-background text-foreground shadow-sm' : 'bg-transparent text-muted-foreground')} onClick={() => onTabChange("qa")}>Q&amp;A</button>
-          <button className={"px-3 py-1 rounded-full " + (activeTab === 'viewers' ? 'bg-background text-foreground shadow-sm' : 'bg-transparent text-muted-foreground')} onClick={() => onTabChange("viewers")}>Viewers</button>
+    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 flex flex-col h-full">
+      <div className="mb-2">
+        <h3 className="text-xs font-semibold mb-1">Live audience & chat</h3>
+        <div className="inline-flex rounded-full bg-slate-950 p-0.5 text-[10px]">
+          <button
+            className={`px-3 py-1 rounded-full ${activeTab === "chat" ? "bg-slate-800 text-slate-50 shadow-sm" : "bg-transparent text-slate-400"}`}
+            onClick={() => onTabChange("chat")}
+          >
+            Chat
+          </button>
+          <button
+            className={`px-3 py-1 rounded-full ${activeTab === "qa" ? "bg-slate-800 text-slate-50 shadow-sm" : "bg-transparent text-slate-400"}`}
+            onClick={() => onTabChange("qa")}
+          >
+            Q&amp;A
+          </button>
+          <button
+            className={`px-3 py-1 rounded-full ${activeTab === "viewers" ? "bg-slate-800 text-slate-50 shadow-sm" : "bg-transparent text-slate-400"}`}
+            onClick={() => onTabChange("viewers")}
+          >
+            Viewers
+          </button>
         </div>
       </div>
-      <div className="flex-1 border border-border rounded-xl p-2.5 bg-secondary overflow-y-auto">{renderBody()}</div>
+
+      <div className="flex-1 border border-slate-800 rounded-xl p-2.5 bg-slate-950 overflow-y-auto">{renderBody()}</div>
+
       <div className="mt-2 flex items-center gap-1 text-[10px]">
-        <button className="h-7 w-7 rounded-full border border-border text-foreground flex items-center justify-center" onClick={onSendAudio}><span className="material-icons text-[16px]">mic</span></button>
-        <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*,video/*" />
-        <button className="h-7 w-7 rounded-full border border-border text-foreground flex items-center justify-center" onClick={handleAttachmentClick}>
+        <button className="h-7 w-7 rounded-full border border-slate-700 text-slate-200 flex items-center justify-center" title="Audio">
+          <span className="material-icons text-[16px]">mic</span>
+        </button>
+        <button className="h-7 w-7 rounded-full border border-slate-700 text-slate-200 flex items-center justify-center" title="Attach">
           <span className="material-icons text-[16px]">attach_file</span>
         </button>
-        <input className="flex-1 border border-border rounded-full px-2 py-1 bg-secondary text-foreground outline-none" placeholder="Type a reply or pin a highlight…" value={draft} onChange={(e) => onDraftChange(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && onSend()}/>
-        <button className="px-2.5 py-1 rounded-full text-[10px] font-semibold text-primary-foreground bg-primary" onClick={onSend}>Send</button>
+        <input
+          className="flex-1 border border-slate-700 rounded-full px-2 py-1 bg-slate-950 text-slate-100 outline-none"
+          placeholder="Type a reply or pin a highlight…"
+          value={draft}
+          onChange={(e) => onDraftChange(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && onSend()}
+        />
+        <button
+          className="px-2.5 py-1 rounded-full text-[10px] font-semibold text-white"
+          style={{ backgroundColor: EV_ORANGE }}
+          onClick={onSend}
+        >
+          Send
+        </button>
       </div>
-      <div className="mt-2 flex flex-wrap gap-1 text-[10px]"><button className="px-2.5 py-1 rounded-full bg-secondary border border-border text-foreground hover:bg-muted">Poll</button><button className="px-2.5 py-1 rounded-full bg-secondary border border-border text-foreground hover:bg-muted">Giveaway</button><button className="px-2.5 py-1 rounded-full bg-secondary border border-border text-foreground hover:bg-muted">Pinned message</button></div>
+
+      <div className="mt-2 flex flex-wrap gap-1 text-[10px]">
+        <button className="px-2.5 py-1 rounded-full bg-slate-950 border border-slate-700 text-slate-200 hover:bg-slate-900">Poll</button>
+        <button className="px-2.5 py-1 rounded-full bg-slate-950 border border-slate-700 text-slate-200 hover:bg-slate-900">Giveaway</button>
+        <button className="px-2.5 py-1 rounded-full bg-slate-950 border border-slate-700 text-slate-200 hover:bg-slate-900">Pinned message</button>
+      </div>
     </div>
   );
 }
 
 function AiPromptsPanel({ prompts }: { prompts: string[] }) {
   return (
-    <div className="bg-card border border-border rounded-2xl p-3 flex flex-col gap-2 text-[11px] mt-auto">
-      <div className="flex items-center justify-between"><div className="flex items-center gap-2"><span className="text-[13px]">💡</span><h3 className="text-xs font-semibold text-foreground">Live AI prompts</h3></div><span className="text-[10px] text-muted-foreground">Real-time hints</span></div>
-      <ul className="space-y-1 max-h-40 overflow-y-auto">{prompts.map((p, idx) => (<li key={idx} className="border border-border rounded-xl px-2.5 py-1.5 bg-secondary text-[10px] text-foreground">{p}</li>))}</ul>
-      <div className="mt-1 text-[10px] text-muted-foreground"><span className="font-semibold text-foreground mr-1">Sentiment:</span><span>Viewers are most engaged during visuals and pricing moments. Revisit shipping and bundles if questions keep repeating.</span></div>
+    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 flex flex-col gap-2 text-[11px] mt-auto">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-[13px]">💡</span>
+          <h3 className="text-xs font-semibold">Live AI prompts</h3>
+        </div>
+        <span className="text-[10px] text-slate-500">Real-time hints</span>
+      </div>
+      <ul className="space-y-1 max-h-40 overflow-y-auto">
+        {prompts.map((p, idx) => (
+          <li key={idx} className="border border-slate-800 rounded-xl px-2.5 py-1.5 bg-slate-950 text-[10px] text-slate-200">
+            {p}
+          </li>
+        ))}
+      </ul>
+      <div className="mt-1 text-[10px] text-slate-500">
+        <span className="font-semibold text-slate-300 mr-1">Sentiment:</span>
+        <span>Viewers are most engaged during visuals and pricing moments. Revisit shipping and bundles if questions keep repeating.</span>
+      </div>
     </div>
   );
 }
 
+/* Bottom control bar */
 function StudioControlBar({
-  mode, onToggleLive, micOn, onToggleMic, camOn, onToggleCam, screenShareOn, onToggleScreenShare,
-  activeSceneId, scenes, setActiveSceneId, onMarkMoment, onToggleFilters, onOpenLanguagePanel,
-  previewMode, setPreviewMode, cameraHint
-}: {
-  mode: Mode; onToggleLive: () => void; micOn: boolean; onToggleMic: () => void; camOn: boolean; onToggleCam: () => void;
-  screenShareOn: boolean; onToggleScreenShare: () => void; activeSceneId: string; scenes: Scene[]; setActiveSceneId: (id: string) => void;
-  onMarkMoment: () => void; onToggleFilters: () => void; onOpenLanguagePanel: () => void;
-  previewMode: PreviewMode, setPreviewMode: (m: PreviewMode) => void, cameraHint: string
-}) {
+  mode,
+  onToggleLive,
+  micOn,
+  onToggleMic,
+  camOn,
+  onToggleCam,
+  screenShareOn,
+  onToggleScreenShare,
+  activeSceneId,
+  scenes,
+  setActiveSceneId,
+  onMarkMoment,
+  onToggleFilters,
+  onOpenLanguagePanel,
+  previewMode,
+  setPreviewMode,
+  cameraHint,
+}: any) {
   return (
-    <div className="hidden md:flex items-center justify-between px-3 md:px-6 py-2 border-t border-border bg-background/95 text-[11px]">
+    <div className="hidden md:flex items-center justify-between px-3 md:px-6 py-2 border-t border-slate-800 bg-slate-950/95 text-[11px]">
       <div className="flex items-center gap-2">
-        <button className={"px-4 py-1.5 rounded-full text-[11px] font-semibold text-white " + (mode === "live" ? "bg-red-600 hover:bg-red-700" : "bg-primary hover:bg-primary/90")} onClick={onToggleLive}>{mode === "live" ? "End live" : "Go live"}</button>
-        <button className={"px-3 py-1.5 rounded-full border text-[10px] " + (micOn ? "bg-secondary border-border text-foreground" : "bg-card border-border text-muted-foreground")} onClick={onToggleMic}>{micOn ? "Mic on" : "Mic off"}</button>
-        <button className={"px-3 py-1.5 rounded-full border text-[10px] " + (camOn ? "bg-secondary border-border text-foreground" : "bg-card border-border text-muted-foreground")} onClick={onToggleCam}>{camOn ? "Cam on" : "Cam off"}</button>
-        <button className={"px-3 py-1.5 rounded-full border text-[10px] " + (screenShareOn ? "bg-secondary border-border text-foreground" : "bg-card border-border text-muted-foreground")} onClick={onToggleScreenShare}>Screen share</button>
-        <button className="px-3 py-1.5 rounded-full border border-border text-[10px] text-foreground hover:bg-secondary" onClick={onMarkMoment}>Mark moment</button>
-        <button className="px-3 py-1.5 rounded-full border border-border text-[10px] text-foreground hover:bg-secondary inline-flex items-center gap-1.5" onClick={onToggleFilters}><span className="material-icons text-[14px]">auto_awesome</span>AR Filters</button>
-      </div>
-      <div className="flex items-center gap-2 text-[10px]">
-        <span className="text-muted-foreground">Preview:</span>
         <button
-          className="px-2 py-0.5 rounded-full border border-border text-foreground hover:bg-secondary"
+          className={`px-4 py-1.5 rounded-full text-[11px] font-semibold ${
+            mode === "live" ? "bg-red-600 hover:bg-red-700 text-white" : "bg-[#f77f00] hover:bg-[#e26f00] text-white"
+          }`}
+          onClick={onToggleLive}
+        >
+          {mode === "live" ? "End live" : "Go live"}
+        </button>
+
+        <button
+          className={`px-3 py-1.5 rounded-full border text-[10px] ${
+            micOn ? "bg-slate-900 border-slate-600 text-slate-100" : "bg-slate-950 border-slate-800 text-slate-400"
+          }`}
+          onClick={onToggleMic}
+        >
+          {micOn ? "Mic on" : "Mic off"}
+        </button>
+
+        <button
+          className={`px-3 py-1.5 rounded-full border text-[10px] ${
+            camOn ? "bg-slate-900 border-slate-600 text-slate-100" : "bg-slate-950 border-slate-800 text-slate-400"
+          }`}
+          onClick={onToggleCam}
+        >
+          {camOn ? "Cam on" : "Cam off"}
+        </button>
+
+        <button
+          className={`px-3 py-1.5 rounded-full border text-[10px] ${
+            screenShareOn ? "bg-slate-900 border-slate-600 text-slate-100" : "bg-slate-950 border-slate-800 text-slate-400"
+          }`}
+          onClick={onToggleScreenShare}
+        >
+          Screen share
+        </button>
+
+        <button className="px-3 py-1.5 rounded-full border border-slate-700 text-[10px] text-slate-100 hover:bg-slate-900" onClick={onMarkMoment}>
+          Mark moment
+        </button>
+
+        <button
+          className="px-3 py-1.5 rounded-full border border-slate-700 text-[10px] text-slate-100 hover:bg-slate-900 inline-flex items-center gap-1.5"
+          onClick={onToggleFilters}
+        >
+          <span className="material-icons text-[14px]">auto_awesome</span>AR Filters
+        </button>
+      </div>
+
+      <div className="flex items-center gap-2 text-[10px]">
+        <span className="text-slate-400">Preview:</span>
+        <button
+          className="px-2 py-0.5 rounded-full border border-slate-700 text-slate-200 hover:bg-slate-900"
           title="Cycle preview mode"
           onClick={() => {
             const order: PreviewMode[] = ["auto", "desktop", "mobile"];
@@ -757,57 +1236,200 @@ function StudioControlBar({
         >
           {cameraHint}
         </button>
-        <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border text-foreground hover:bg-secondary" onClick={onOpenLanguagePanel}><span className="material-icons text-[14px]">translate</span>Language &amp; AI audio</button><span className="text-muted-foreground">Scene:</span>
-        <select className="border border-border rounded-full px-2 py-0.5 bg-secondary text-foreground" value={activeSceneId} onChange={(e) => setActiveSceneId(e.target.value)}>{scenes.map((s) => (<option key={s.id} value={s.id}>{s.label}</option>))}</select>
+        <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-700 text-slate-100 hover:bg-slate-900" onClick={onOpenLanguagePanel}><span className="material-icons text-[14px]">translate</span>Language &amp; AI audio</button>
+        <span className="text-slate-400">Scene:</span>
+        <select
+          className="border border-slate-700 rounded-full px-2 py-0.5 bg-slate-950 text-slate-100"
+          value={activeSceneId}
+          onChange={(e) => setActiveSceneId(e.target.value)}
+        >
+          {scenes.map((s: any) => (
+            <option key={s.id} value={s.id}>
+              {s.label}
+            </option>
+          ))}
+        </select>
       </div>
     </div>
   );
 }
 
+/* AR filters tray */
 function FiltersTray({ onFilterSelect, activeFilter, onClose }: { onFilterSelect: (filter: string) => void; activeFilter: string | null; onClose: () => void; }) {
   const categories = ["Beauty", "Fun", "Background", "Brand"];
   const filters = [
-    { id: 'none', label: "No Filter", effect: 'none' }, { id: 'troll', label: "Troll Grandma", effect: 'TrollGrandma' },
-    { id: 'makeup', label: "Makeup", effect: 'Makeup' }, { id: 'vhs', label: "VHS", effect: 'VHS' },
-    { id: 'staker', label: "Staker", effect: 'Staker' }, { id: 'glasses', label: "Glasses", effect: 'Glasses' },
+    { id: 'none', label: "No Filter", effect: 'none' },
+    { id: 'troll', label: "Troll Grandma", effect: 'TrollGrandma' },
+    { id: 'makeup', label: "Makeup", effect: 'Makeup' },
+    { id: 'vhs', label: "VHS", effect: 'VHS' },
+    { id: 'staker', label: "Staker", effect: 'Staker' },
+    { id: 'glasses', label: "Glasses", effect: 'Glasses' },
   ];
-  return (<div className="fixed inset-x-0 bottom-4 z-[70] flex justify-center px-3"><div className="w-full max-w-xl rounded-2xl border border-border shadow-xl px-3 py-2 md:px-4 md:py-3 bg-background/95"><div className="flex items-center justify-between mb-2 text-[11px]"><span className="font-semibold inline-flex items-center gap-1"><span className="material-icons text-[14px] text-amber-500">auto_awesome</span>AR Filters</span><div className="flex items-center gap-2"><div className="flex gap-1 overflow-x-auto max-w-[60%] hide-scrollbar">{categories.map((c) => (<span key={c} className="px-2 py-0.5 rounded-full bg-secondary text-foreground text-[10px] whitespace-nowrap">{c}</span>))}</div><button className="text-[10px] text-muted-foreground hover:text-foreground" onClick={onClose}>Close</button></div></div><div className="flex gap-2 overflow-x-auto pb-1 hide-scrollbar">{filters.map((f) => (<div key={f.id} className={"min-w-[80px] max-w-[80px] flex-shrink-0 rounded-xl flex flex-col items-center justify-center py-2 cursor-pointer " + (activeFilter === f.effect ? "border-emerald-400 border-2" : "border-border border bg-muted ")} onClick={() => onFilterSelect(f.effect)}><div className="h-9 w-9 rounded-full bg-secondary mb-1" /><span className="text-[10px] text-center px-1 text-foreground">{f.label}</span></div>))}</div></div></div>);
+  return (
+    <div className="fixed inset-x-0 bottom-4 z-[70] flex justify-center px-3">
+        <div className="w-full max-w-xl rounded-2xl border border-slate-800 shadow-xl px-3 py-2 md:px-4 md:py-3 bg-slate-950/95">
+            <div className="flex items-center justify-between mb-2 text-[11px]">
+                <span className="font-semibold inline-flex items-center gap-1"><span className="material-icons text-[14px] text-amber-500">auto_awesome</span>AR Filters</span>
+                <div className="flex items-center gap-2">
+                    <div className="flex gap-1 overflow-x-auto max-w-[60%] hide-scrollbar">
+                        {categories.map((c) => (
+                            <span key={c} className="px-2 py-0.5 rounded-full bg-slate-900 text-slate-200 text-[10px] whitespace-nowrap">{c}</span>
+                        ))}
+                    </div>
+                    <button className="text-[10px] text-slate-300 hover:text-white" onClick={onClose}>Close</button>
+                </div>
+            </div>
+            <div className="flex gap-2 overflow-x-auto pb-1 hide-scrollbar">
+                {filters.map((f) => (
+                    <div key={f.id} className={`min-w-[80px] max-w-[80px] flex-shrink-0 rounded-xl flex flex-col items-center justify-center py-2 cursor-pointer ${activeFilter === f.effect ? "border-emerald-400 border-2" : "border-slate-800 border bg-slate-800 "}`} onClick={() => onFilterSelect(f.effect)}>
+                        <div className="h-9 w-9 rounded-full bg-slate-700 mb-1" />
+                        <span className="text-[10px] text-center px-1 text-slate-100">{f.label}</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    </div>);
 }
 
-function FlashDealControl({ onClose, onStart }: { onClose: () => void; onStart: (duration: number, discount: number) => void; }) {
-  const [duration, setDuration] = useState<number>(5); const [discount, setDiscount] = useState<number>(15); const durationOptions = [5, 10, 15];
-  return (<div className="fixed right-4 top-20 z-50"><div className="w-72 rounded-2xl border border-border bg-card shadow-xl px-3.5 py-3 text-[11px]"><div className="flex items-start justify-between mb-2"><div className="flex items-center gap-1.5"><span className="material-icons text-[16px] text-primary">bolt</span><div className="flex flex-col"><span className="text-[12px] font-semibold text-foreground">Flash Deal Control</span></div></div><span className="text-[10px] text-muted-foreground">Live-only</span></div><p className="text-[11px] text-foreground mb-2">Configure a limited-time offer with a countdown overlay for viewers.</p><div className="mb-2"><span className="text-[10px] text-muted-foreground mr-2">Duration</span>{durationOptions.map((d) => (<button key={d} className={"px-2 py-0.5 rounded-full text-[10px] mr-1 " + (duration === d ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground")} onClick={() => setDuration(d)}>{d} min</button>))}</div><div className="flex items-center gap-2 mb-3"><span className="text-[10px] text-muted-foreground">Extra discount</span><input className="w-12 px-1 py-0.5 rounded border border-border bg-secondary text-[11px] text-foreground" value={discount} onChange={(e) => setDiscount(Number(e.target.value) || 0)} /><span className="text-[10px] text-muted-foreground">%</span></div><button className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold text-primary-foreground bg-primary" onClick={() => onStart(duration, discount)}><span className="material-icons text-[14px]">play_arrow</span>Start flash deal</button><button className="mt-2 text-[10px] text-muted-foreground hover:text-foreground w-full text-center" onClick={onClose}>Cancel</button></div></div>);
+/* Flash Deal Control */
+function FlashDealControl({ onClose, onStart }: any) {
+  const [duration, setDuration] = useState(5);
+  const [discount, setDiscount] = useState(15);
+  const durationOptions = [5, 10, 15];
+
+  return (
+    <div className="fixed right-4 top-20 z-[70]">
+      <div className="w-72 rounded-2xl border border-slate-800 bg-slate-950 shadow-xl px-3.5 py-3 text-[11px]">
+        <div className="flex items-start justify-between mb-2">
+          <div className="flex items-center gap-1.5">
+            <span className="material-icons text-[16px]" style={{ color: EV_ORANGE }}>bolt</span>
+            <div className="flex flex-col">
+              <span className="text-[12px] font-semibold text-white">Flash Deal Control</span>
+            </div>
+          </div>
+          <span className="text-[10px] text-slate-400">Live-only</span>
+        </div>
+
+        <p className="text-[11px] text-slate-300 mb-2">
+          Configure a limited-time offer with a countdown overlay for viewers.
+        </p>
+
+        <div className="mb-2">
+            <span className="text-[10px] text-slate-400 mr-2">Duration</span>
+            {durationOptions.map((d) => (
+              <button
+                key={d}
+                className={`px-2 py-0.5 rounded-full text-[10px] mr-1 ${
+                  duration === d
+                    ? "bg-white text-slate-900"
+                    : "bg-slate-900 text-slate-200"
+                }`}
+                onClick={() => setDuration(d)}
+              >
+                {d} min
+              </button>
+            ))}
+        </div>
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-[10px] text-slate-400">Extra discount</span>
+          <input
+            className="w-12 px-1 py-0.5 rounded border border-slate-700 bg-slate-900 text-slate-100"
+            value={discount}
+            onChange={(e) => setDiscount(Number(e.target.value) || 0)}
+          />
+          <span className="text-[10px] text-slate-400">%</span>
+        </div>
+
+        <button
+          className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold text-white"
+          style={{ backgroundColor: EV_ORANGE }}
+          onClick={() => onStart(duration, discount)}
+        >
+          <span className="material-icons text-[14px]">play_arrow</span>
+          Start flash deal
+        </button>
+        <button className="mt-2 text-[10px] text-slate-400 hover:text-white w-full text-center" onClick={onClose}>Cancel</button>
+      </div>
+    </div>
+  );
 }
 
+/* Language panel */
 function LanguagePanel({ onClose }: { onClose: () => void }) {
-  return (<div className="fixed right-4 top-20 z-50"><div className="w-80 rounded-2xl border border-border bg-card shadow-xl px-4 py-3 text-[11px] text-foreground"><div className="flex items-start justify-between mb-2"><div className="flex items-center gap-1.5"><span className="material-icons text-[16px] text-muted-foreground">translate</span><span className="text-[12px] font-semibold">Language &amp; AI audio</span></div><button className="text-[10px] text-muted-foreground hover:text-foreground" onClick={onClose}>Close</button></div><div className="mb-2"><span className="block text-[10px] font-semibold text-foreground mb-1">Stream language (creator)</span><div className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-secondary text-[10px] text-foreground"><span className="material-icons text-[13px] text-muted-foreground">record_voice_over</span>English (source)</div></div><div className="mb-2"><span className="block text-[10px] font-semibold text-foreground mb-1">AI audio languages for viewers</span><div className="flex flex-wrap gap-1">{["French", "Arabic", "Swahili"].map((l) => (<span key={l} className="px-2 py-0.5 rounded-full bg-secondary text-[10px] text-foreground">{l}</span>))}</div></div><div className="mb-2"><span className="block text-[10px] font-semibold text-foreground mb-1">Captions</span><label className="inline-flex items-center gap-1 text-[10px] text-foreground"><input type="checkbox" defaultChecked /> Auto-enable captions</label></div><p className="text-[10px] text-muted-foreground">Viewers can still change their own language and choose between AI audio and captions in their app.</p></div></div>);
+  return (
+    <div className="fixed right-4 top-20 z-[70]">
+      <div className="w-80 rounded-2xl border border-slate-800 bg-slate-950 shadow-xl px-4 py-3 text-[11px] text-white">
+        <div className="flex items-start justify-between mb-2">
+            <div className="flex items-center gap-1.5">
+                <span className="material-icons text-[16px] text-slate-400">translate</span>
+                <span className="text-[12px] font-semibold">Language & AI audio</span>
+            </div>
+            <button className="text-[10px] text-slate-400 hover:text-white" onClick={onClose}>Close</button>
+        </div>
+        <div className="mb-2">
+            <span className="block text-[10px] font-semibold text-slate-300 mb-1">Stream language (creator)</span>
+            <div className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-slate-900 text-[10px] text-slate-100">
+                <span className="material-icons text-[13px] text-slate-400">record_voice_over</span>English (source)
+            </div>
+        </div>
+        <div className="mb-2">
+            <span className="block text-[10px] font-semibold text-slate-300 mb-1">AI audio languages for viewers</span>
+            <div className="flex flex-wrap gap-1">
+                {["French", "Arabic", "Swahili"].map((l) => (
+                    <span key={l} className="px-2 py-0.5 rounded-full bg-slate-900 text-[10px] text-slate-100">{l}</span>
+                ))}
+            </div>
+        </div>
+        <div className="mb-2">
+            <span className="block text-[10px] font-semibold text-slate-300 mb-1">Captions</span>
+            <label className="inline-flex items-center gap-1 text-[10px] text-slate-100">
+                <input type="checkbox" defaultChecked /> Auto-enable captions
+            </label>
+        </div>
+        <p className="text-[10px] text-slate-500">Viewers can still change their own language and choose between AI audio and captions in their app.</p>
+      </div>
+    </div>
+  );
 }
 
+/* Mobile studio: improved responsive camera preview and manual switch */
 function MobileStudio({
-  mode, typeLabel, products, highlightedProductId, setHighlightedProductId, flashDealActive,
-  onOpenFlashConfig, onStopFlash, chatMessages, chatDraft, setChatDraft, onSendChat,
-  mobilePanel, setMobilePanel, onToggleLive, previewMode, resolvedPreviewMode,
-  setPreviewMode, cameraHint, onExpand, activeFilter, micOn, camOn
-}: {
-  mode: Mode, typeLabel: string, products: Product[], highlightedProductId: string,
-  setHighlightedProductId: (id: string) => void, flashDealActive: boolean,
-  onOpenFlashConfig: () => void, onStopFlash: () => void, chatMessages: ChatMessage[],
-  chatDraft: string, setChatDraft: (d: string) => void, onSendChat: () => void,
-  mobilePanel: "products" | "chat", setMobilePanel: (p: "products" | "chat") => void,
-  onToggleLive: () => void, previewMode: PreviewMode,
-  resolvedPreviewMode: Exclude<PreviewMode, "auto">,
-  setPreviewMode: (m: PreviewMode) => void, cameraHint: string, onExpand: () => void,
-  activeFilter: string | null, micOn: boolean, camOn: boolean, screenShareOn: boolean
-}) {
-  return (<div className="fixed inset-x-0 bottom-0 top-14 flex flex-col bg-background z-30">
-      <div className="border-b border-border px-3 py-3">
+  mode,
+  typeLabel,
+  products,
+  highlightedProductId,
+  setHighlightedProductId,
+  flashDealActive,
+  onOpenFlashConfig,
+  onStopFlash,
+  chatMessages,
+  chatDraft,
+  setChatDraft,
+  onSendChat,
+  mobilePanel,
+  setMobilePanel,
+  onToggleLive,
+  previewMode,
+  resolvedPreviewMode,
+  setPreviewMode,
+  cameraHint,
+  onExpand,
+  activeFilter,
+  micOn,
+  camOn,
+  screenShareOn
+}: any) {
+  return (
+    <div className="fixed inset-x-0 bottom-0 top-14 flex flex-col bg-slate-950 z-30">
+      {/* Mobile camera preview - adapts to mobile or desktop preview */}
+      <div className="border-b border-slate-800 px-3 py-3">
         <div className="flex items-center justify-between mb-2">
           <div className="flex flex-col">
-            <span className="text-[11px] text-foreground font-semibold">{typeLabel} preview</span>
-            <span className="text-[10px] text-muted-foreground">{cameraHint}</span>
+            <span className="text-[11px] text-slate-100 font-semibold">{typeLabel} preview</span>
+            <span className="text-[10px] text-slate-400">{cameraHint}</span>
           </div>
           <button
-            className="px-2 py-1 rounded-full border border-border text-[10px] text-foreground"
+            className="px-2 py-1 rounded-full border border-slate-700 text-[10px] text-slate-200"
             onClick={() => {
               const order: PreviewMode[] = ["auto", "desktop", "mobile"];
               const idx = order.indexOf(previewMode);
@@ -823,7 +1445,7 @@ function MobileStudio({
             <StagePreview
               resolvedPreviewMode={resolvedPreviewMode}
               activeSceneLabel="Mobile"
-              screenShareOn={false}
+              screenShareOn={screenShareOn}
               camOn={camOn}
               micOn={micOn}
               onExpand={onExpand}
@@ -832,6 +1454,96 @@ function MobileStudio({
           </div>
         </div>
       </div>
-    
-    <div className="flex-1 flex flex-col min-h-0"><div className="flex items-center justify-between px-3 py-1 bg-secondary border-b border-border text-[10px]"><div className="flex gap-1"><button className={"px-2.5 py-0.5 rounded-full " + (mobilePanel === "products" ? "bg-background text-foreground" : "bg-secondary text-muted-foreground")} onClick={() => setMobilePanel("products")}>Products</button><button className={"px-2.5 py-0.5 rounded-full " + (mobilePanel === "chat" ? "bg-background text-foreground" : "bg-secondary text-muted-foreground")} onClick={() => setMobilePanel("chat")}>Chat</button></div><span className="text-muted-foreground">Swipe up to browse</span></div><div className="flex-1 overflow-y-auto px-3 py-2">{mobilePanel === "products" ? (<div className="space-y-1">{products.map((p) => (<button key={p.id} className={"w-full text-left border rounded-xl px-2.5 py-1.5 text-[10px] mb-1 " + (p.id === highlightedProductId ? "bg-primary/20 border-primary text-foreground" : "bg-secondary border-border text-foreground")} onClick={() => setHighlightedProductId(p.id)}><div className="flex items-center justify-between"><span className="font-semibold">{p.name}</span><span className="text-emerald-400">{p.price}</span></div><div className="text-[9px] text-muted-foreground">{p.stock} · {p.tag}</div></button>))}</div>) : (<div className="space-y-1 max-h-full">{chatMessages.map((m) => (<div key={m.id} className="text-[10px] mb-1"><span className={"font-semibold " + (m.system ? "text-muted-foreground" : "text-foreground")}>{m.system ? "System" : m.from}</span><span className="text-muted-foreground ml-1">· {m.time}</span><p className="text-foreground whitespace-pre-line">{m.body}</p></div>))}</div>)}</div></div><div className="border-t border-border bg-background px-3 py-2 flex items-center justify-between gap-2 text-[10px]"><button className="px-2.5 py-1 rounded-full border border-border text-foreground flex-1">Highlight product</button><button className={"px-2.5 py-1 rounded-full flex-1 text-white " + (flashDealActive ? "bg-red-600" : "bg-primary")} onClick={flashDealActive ? onStopFlash : onOpenFlashConfig}>{flashDealActive ? "Stop flash deal" : "Flash deal"}</button><button className={"px-2.5 py-1 rounded-full flex-1 " + (mode === "live" ? "bg-red-600 text-white" : "bg-secondary text-foreground border border-border")} onClick={onToggleLive}>{mode === "live" ? "End live" : "Go live"}</button></div><div className="bg-background border-t border-border px-3 py-1 flex items-center gap-1 text-[10px]"><input className="flex-1 border border-border rounded-full px-2 py-1 bg-secondary text-foreground outline-none" placeholder="Reply to viewers…" value={chatDraft} onChange={(e) => setChatDraft(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && onSendChat()} /><button className="px-2.5 py-1 rounded-full bg-primary text-primary-foreground text-[10px]" onClick={onSendChat}>Send</button></div></div>);
+
+      {/* Mobile panels */}
+      <div className="flex-1 flex flex-col min-h-0">
+        <div className="flex items-center justify-between px-3 py-1 bg-slate-900 border-b border-slate-800 text-[10px]">
+            <div className="flex gap-1">
+                <button
+                className={`px-2.5 py-0.5 rounded-full ${
+                    mobilePanel === "products" ? "bg-slate-50 text-slate-900" : "bg-slate-950 text-slate-300"
+                }`}
+                onClick={() => setMobilePanel("products")}
+                >
+                Products
+                </button>
+                <button
+                className={`px-2.5 py-0.5 rounded-full ${
+                    mobilePanel === "chat" ? "bg-slate-50 text-slate-900" : "bg-slate-950 text-slate-300"
+                }`}
+                onClick={() => setMobilePanel("chat")}
+                >
+                Chat
+                </button>
+            </div>
+            <span className="text-slate-400">Swipe up to browse</span>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-3 py-2">
+          {mobilePanel === "products" ? (
+            <div className="space-y-1">
+              {products.map((p: any) => (
+                <button
+                  key={p.id}
+                  className={`w-full text-left border rounded-xl px-2.5 py-1.5 text-[10px] mb-1 ${
+                    p.id === highlightedProductId
+                      ? "bg-[#f77f00]/20 border-[#f77f00] text-slate-50"
+                      : "bg-slate-950 border-slate-800 text-slate-200"
+                  }`}
+                  onClick={() => setHighlightedProductId(p.id)}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold">{p.name}</span>
+                    <span className="text-emerald-400">{p.price}</span>
+                  </div>
+                  <div className="text-[9px] text-slate-400">{p.stock} · {p.tag}</div>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-1 max-h-full">
+              {chatMessages.map((m: any) => (
+                <div key={m.id} className="text-[10px] mb-1">
+                  <span className={`font-semibold ${m.system ? "text-slate-400" : "text-slate-100"}`}>
+                    {m.system ? "System" : m.from}
+                  </span>
+                  <span className="text-slate-500 ml-1">· {m.time}</span>
+                  <p className="text-slate-200 whitespace-pre-line">{m.body}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Mobile footer actions */}
+      <div className="border-t border-slate-800 bg-slate-950 px-3 py-2 flex items-center justify-between gap-2 text-[10px]">
+        <button className="px-2.5 py-1 rounded-full border border-slate-700 text-slate-100 flex-1">Highlight product</button>
+        <button
+          className={`px-2.5 py-1 rounded-full flex-1 ${flashDealActive ? "bg-red-600 text-white" : "bg-[#f77f00] text-white"}`}
+          onClick={flashDealActive ? onStopFlash : onOpenFlashConfig}
+        >
+          {flashDealActive ? "Stop deal" : "Flash deal"}
+        </button>
+        <button
+          className={`px-2.5 py-1 rounded-full flex-1 ${mode === "live" ? "bg-red-600 text-white" : "bg-slate-900 text-slate-100 border border-slate-700"}`}
+          onClick={onToggleLive}
+        >
+          {mode === "live" ? "End live" : "Go live"}
+        </button>
+      </div>
+
+      <div className="bg-slate-950 border-t border-slate-800 px-3 py-1 flex items-center gap-1 text-[10px]">
+        <input
+          className="flex-1 border border-slate-700 rounded-full px-2 py-1 bg-slate-950 text-slate-100 outline-none"
+          placeholder="Reply to viewers..."
+          value={chatDraft}
+          onChange={(e) => setChatDraft(e.target.value)}
+        />
+        <button className="px-2.5 py-1 rounded-full bg-[#f77f00] text-white text-[10px]" onClick={onSendChat}>
+          Send
+        </button>
+      </div>
+    </div>
+  );
 }
