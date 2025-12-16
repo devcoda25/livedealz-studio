@@ -2401,7 +2401,7 @@ function AudiencePanel(props: {
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 border border-slate-800 rounded-xl p-2.5 bg-slate-950 overflow-y-auto">
+      <div className="flex-1 min-h-0 border border-slate-800 rounded-xl p-2.5 bg-slate-950 overflow-y-auto max-h-96">
         {renderBody()}
       </div>
 
