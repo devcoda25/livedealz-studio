@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -274,8 +275,8 @@ function createInitialViewers(): LiveViewer[] {
 export default function MyLiveDealzLiveStudioFullPage() {
   // Defaults
   const [darkMode, setDarkMode] = useState(true);
-  const [mode, setMode] = useState<Mode>("live");
-  const [simulate, setSimulate] = useState(true);
+  const [mode, setMode] = useState<Mode>("lobby");
+  const [simulate, setSimulate] = useState(false);
 
   // Controls
   const [micOn, setMicOn] = useState(true);
@@ -301,18 +302,12 @@ export default function MyLiveDealzLiveStudioFullPage() {
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   // Left panels
-  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
-  const [highlightedProductId, setHighlightedProductId] = useState<string>(INITIAL_PRODUCTS[0].id);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [highlightedProductId, setHighlightedProductId] = useState<string | null>(null);
 
-  const [coHosts, setCoHosts] = useState<{ id: number; name: string; status: string }[]>([
-    { id: 1, name: "Dacy (Producer)", status: "Accepted" },
-    { id: 2, name: "Grace (Brand rep)", status: "Pending" },
-  ]);
+  const [coHosts, setCoHosts] = useState<{ id: number; name: string; status: string }[]>([]);
 
-  const [attachments] = useState<{ id: number; from: string; type: string; label: string; status: string }[]>([
-    { id: 1, from: "Viewer #238", type: "image", label: "Before/after photo", status: "Pending" },
-    { id: 2, from: "Viewer #874", type: "question", label: "Skin type question", status: "Pending" },
-  ]);
+  const [attachments] = useState<{ id: number; from: string; type: string; label: string; status: string }[]>([]);
 
   // Audience state
   const [audienceTab, setAudienceTab] = useState<AudienceTab>("chat");
@@ -370,13 +365,25 @@ export default function MyLiveDealzLiveStudioFullPage() {
 
   // Client-side only data initialization to prevent hydration errors
   useEffect(() => {
+    setProducts(INITIAL_PRODUCTS);
+    setHighlightedProductId(INITIAL_PRODUCTS[0].id);
+    setCoHosts([
+      { id: 1, name: "Dacy (Producer)", status: "Accepted" },
+      { id: 2, name: "Grace (Brand rep)", status: "Pending" },
+    ]);
+    
+    setSimulate(true);
+    setMode("live");
     setLiveSeconds(18 * 60 + 24);
     setViewerCount(842);
     setSalesCount(37);
     setLast5MinSales(5);
     setViewers(createInitialViewers());
     setBuyers(INITIAL_BUYERS);
-    setSelectedBuyerId(INITIAL_BUYERS[0].id);
+    if(INITIAL_BUYERS.length > 0) {
+      setSelectedBuyerId(INITIAL_BUYERS[0].id);
+    }
+
 
     setChatMessages([
       {
@@ -430,6 +437,7 @@ export default function MyLiveDealzLiveStudioFullPage() {
 
   // derived: featured product + selected buyer
   const featuredProduct = useMemo(() => {
+    if (!highlightedProductId) return null;
     return products.find((p) => p.id === highlightedProductId) ?? products[0];
   }, [products, highlightedProductId]);
 
@@ -886,18 +894,20 @@ export default function MyLiveDealzLiveStudioFullPage() {
       const productsNow = productsRef.current;
       const f = flashRef.current;
 
-      if (!buyersNow.length || !productsNow.length) return;
+      if (!buyersNow.length || !productsNow.length || !highlightedProductId) return;
 
       const buyer = pick(buyersNow);
 
       // Choose product to act on: prefer flash product when active, else featured, else random
-      const inStock = productsNow.filter((p) => p.stock > 0);
       const flashTarget = f.active && f.productId ? productsNow.find((p) => p.id === f.productId) : null;
 
       let targetProduct: Product | undefined;
-      if (flashTarget && flashTarget.stock > 0 && Math.random() < 0.65) targetProduct = flashTarget;
-      else targetProduct = productsNow.find((p) => p.id === highlightedProductId) ?? pick(productsNow);
-
+      if (flashTarget && flashTarget.stock > 0 && Math.random() < 0.65) {
+        targetProduct = flashTarget;
+      } else {
+        targetProduct = productsNow.find((p) => p.id === highlightedProductId) ?? pick(productsNow);
+      }
+      
       if (!targetProduct) return;
 
       // If out of stock: set reminder (per buyer)
@@ -950,9 +960,9 @@ export default function MyLiveDealzLiveStudioFullPage() {
   const typeLabel = mode === "live" ? "Live" : "Pre-live";
   const cameraHint = previewMode === "auto" ? `Auto (${deviceKind})` : previewMode === "mobile" ? "Mobile" : "Desktop";
 
-  const flashOnFeatured = featuredProduct && flash.active && flash.productId === featuredProduct.id;
-  const featuredOOS = featuredProduct && featuredProduct.stock <= 0;
-  const featuredLow = featuredProduct && featuredProduct.stock > 0 && featuredProduct.stock <= 5;
+  const flashOnFeatured = !!(featuredProduct && flash.active && flash.productId === featuredProduct.id);
+  const featuredOOS = !!(featuredProduct && featuredProduct.stock <= 0);
+  const featuredLow = !!(featuredProduct && featuredProduct.stock > 0 && featuredProduct.stock <= 5);
 
   const selectedBuyerHasReminder = !!(selectedBuyer && featuredProduct && selectedBuyer.reminders[featuredProduct.id]);
   const selectedBuyerCartQty = (selectedBuyer && featuredProduct && selectedBuyer.carts[featuredProduct.id]) || 0;
@@ -966,11 +976,11 @@ export default function MyLiveDealzLiveStudioFullPage() {
     ? "min-h-screen flex flex-col bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-50"
     : "min-h-screen flex flex-col bg-slate-50 text-slate-900";
 
-  if (!selectedBuyer) {
+  if (!products.length || !highlightedProductId) {
     return (
       <div className={rootClass}>
         <div className="flex-1 flex items-center justify-center">
-          <p>Loading...</p>
+          <p>Loading studio...</p>
         </div>
       </div>
     );
@@ -999,7 +1009,7 @@ export default function MyLiveDealzLiveStudioFullPage() {
         <div className="flex items-center gap-2">
           <div className="hidden lg:flex items-center gap-2 text-[10px] mr-2">
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-900 text-slate-50 border border-slate-700">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span className={`h-1.5 w-1.5 rounded-full ${mode === 'live' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-500'}`} />
               <span>
                 {typeLabel} · {liveTimerLabel}
               </span>
@@ -1107,24 +1117,26 @@ export default function MyLiveDealzLiveStudioFullPage() {
             onExpand={() => setStageExpanded(true)}
           />
 
-          <BuyerSimulatorPanel
-            buyers={buyers}
-            selectedBuyerId={selectedBuyerId}
-            onSelectBuyer={setSelectedBuyerId}
-            featuredProduct={featuredProduct}
-            featuredPrice={featuredPriceInfo}
-            flashOnFeatured={flashOnFeatured}
-            flashDiscountPct={flash.discountPct}
-            flashSecondsLeft={flash.secondsLeft}
-            flashUrgency={flashUrgency}
-            selectedBuyerHasReminder={selectedBuyerHasReminder}
-            selectedBuyerCartQty={selectedBuyerCartQty}
-            outOfStock={featuredOOS}
-            lowStock={featuredLow}
-            onBuyNow={() => buyerBuyNow(selectedBuyer.id, featuredProduct.id, 1)}
-            onAddToCart={() => buyerAddToCart(selectedBuyer.id, featuredProduct.id, 1)}
-            onRemindMe={() => buyerSetReminder(selectedBuyer.id, featuredProduct.id)}
-          />
+          {featuredProduct && selectedBuyer && (
+            <BuyerSimulatorPanel
+              buyers={buyers}
+              selectedBuyerId={selectedBuyerId}
+              onSelectBuyer={setSelectedBuyerId}
+              featuredProduct={featuredProduct}
+              featuredPrice={featuredPriceInfo}
+              flashOnFeatured={flashOnFeatured}
+              flashDiscountPct={flash.discountPct}
+              flashSecondsLeft={flash.secondsLeft}
+              flashUrgency={flashUrgency}
+              selectedBuyerHasReminder={selectedBuyerHasReminder}
+              selectedBuyerCartQty={selectedBuyerCartQty}
+              outOfStock={featuredOOS}
+              lowStock={featuredLow}
+              onBuyNow={() => buyerBuyNow(selectedBuyer.id, featuredProduct!.id, 1)}
+              onAddToCart={() => buyerAddToCart(selectedBuyer.id, featuredProduct!.id, 1)}
+              onRemindMe={() => buyerSetReminder(selectedBuyer.id, featuredProduct!.id)}
+            />
+          )}
 
           <TeleprompterPanel />
 
@@ -1201,7 +1213,7 @@ export default function MyLiveDealzLiveStudioFullPage() {
         <FlashDealDialog
           onClose={() => setFlashConfigOpen(false)}
           onStart={(durationMin, discountPct) => {
-            if (featuredProduct) {
+            if (highlightedProductId) {
               startFlashDeal(durationMin, discountPct, highlightedProductId);
               setFlashConfigOpen(false);
             }
@@ -1365,7 +1377,7 @@ function ProductionPanel(props: {
 
 function InventoryPanel(props: {
   products: Product[];
-  highlightedId: string;
+  highlightedId: string | null;
   onSelectProduct: (id: string) => void;
   flash: FlashDealState;
   flashUrgency: string;
@@ -1876,7 +1888,7 @@ function PreviewModeToggle({ previewMode, onChange }: { previewMode: PreviewMode
 
 function BuyerSimulatorPanel(props: {
   buyers: BuyerAgent[];
-  selectedBuyerId: string;
+  selectedBuyerId: string | null;
   onSelectBuyer: (id: string) => void;
   featuredProduct: Product;
   featuredPrice: { price: number; applies: boolean };
@@ -1912,6 +1924,8 @@ function BuyerSimulatorPanel(props: {
   } = props;
 
   const selected = buyers.find((b) => b.id === selectedBuyerId) ?? buyers[0];
+  if (!selected) return null; // Should not happen if buyers are initialized
+
   const modeLabel = selected.listenMode === "ai_audio" ? "AI audio" : selected.listenMode === "ai_captions" ? "Captions" : "Original";
 
   const primaryLabel = outOfStock ? "Out of stock" : "Buy now";
@@ -2387,7 +2401,7 @@ function AudiencePanel(props: {
         </div>
       </div>
 
-      <div className="flex-1 border border-slate-800 rounded-xl p-2.5 bg-slate-950 overflow-y-auto">
+      <div className="flex-1 min-h-0 border border-slate-800 rounded-xl p-2.5 bg-slate-950 overflow-y-auto">
         {renderBody()}
       </div>
 
@@ -2403,6 +2417,12 @@ function AudiencePanel(props: {
           placeholder="Type a reply or pin a highlight..."
           value={draft}
           onChange={(e) => onDraftChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              onSend();
+            }
+          }}
         />
         <button className="px-2.5 py-1 rounded-full text-[10px] font-semibold text-white" style={{ backgroundColor: EV_ORANGE }} onClick={onSend}>
           Send
@@ -2625,6 +2645,7 @@ function FlashDealDialog(props: { onClose: () => void; onStart: (durationMin: nu
           <span className="text-[10px] text-slate-400">Extra discount</span>
           <div className="flex items-center gap-2">
             <input
+              type="number"
               className="w-14 px-2 py-1 rounded-lg border border-slate-700 bg-slate-900 text-slate-100 text-[11px] outline-none"
               value={discount}
               onChange={(e) => setDiscount(Number(e.target.value) || 0)}
