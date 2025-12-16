@@ -2,10 +2,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from "react";
-import { useDeviceKind, type DeviceKind } from '@/hooks/use-mobile';
-import { useToast } from "@/hooks/use-toast";
-import { LocalMediaPreview } from "./LocalMediaPreview";
-
+import { useDeviceKind } from '@/hooks/use-mobile';
 
 const EV_GREEN = "#03cd8c";
 const EV_ORANGE = "#f77f00";
@@ -36,13 +33,11 @@ export default function CreatorLiveStudio() {
 
   const [audienceTab, setAudienceTab] = useState<AudienceTab>("chat");
 
-  // Camera preview sizing logic
   const [previewMode, setPreviewMode] = useState<PreviewMode>("auto");
-  const deviceKind = useDeviceKind(); // "mobile" | "desktop"
+  const deviceKind = useDeviceKind();
   const resolvedPreviewMode: Exclude<PreviewMode, "auto"> =
     previewMode === "auto" ? deviceKind : previewMode;
 
-  // Tap-to-expand camera preview
   const [stageExpanded, setStageExpanded] = useState(false);
 
   const [mobilePanel, setMobilePanel] = useState<"products" | "chat">("products");
@@ -77,12 +72,14 @@ export default function CreatorLiveStudio() {
       from: "Viewer #238",
       body: "Is this serum okay for oily skin?",
       time: "18:42",
+      system: false,
     },
     {
       id: 2,
       from: "Viewer #102",
       body: "Can you show the texture again?",
       time: "18:43",
+      system: false,
     },
     {
       id: 3,
@@ -95,7 +92,6 @@ export default function CreatorLiveStudio() {
 
   const [chatDraft, setChatDraft] = useState("");
 
-  // Moment markers for clipping / replay
   const [momentMarkers, setMomentMarkers] = useState<{ id: number; time: string; label: string }[]>([]);
 
   const qaItems = [
@@ -245,6 +241,8 @@ export default function CreatorLiveStudio() {
     return previewMode === "mobile" ? "Mobile" : "Desktop";
   }, [previewMode, deviceKind]);
 
+  const showDesktopView = resolvedPreviewMode === 'desktop';
+
   return (
     <div className={rootClass}>
       {/* Top bar */}
@@ -321,69 +319,71 @@ export default function CreatorLiveStudio() {
       </header>
 
       {/* Desktop layout */}
-      <main className="hidden md:grid flex-1 p-3 md:p-4 gap-3 overflow-hidden grid-cols-[256px_1fr_384px]">
-        {/* Left */}
-        <section className="w-64 flex-shrink-0 flex flex-col gap-3">
-          <ProductPanel
-            products={products}
-            highlightedProductId={highlightedProductId}
-            onHighlight={setHighlightedProductId}
-            flashDealActive={flashDealActive}
-            flashSeconds={flashDealSeconds}
-            onConfigureFlash={handleOpenFlashConfig}
-            onStopFlash={handleStopFlashDeal}
-          />
-          <CoHostPanel coHosts={coHosts} setCoHosts={setCoHosts} />
-          <AttachmentsPanel
-            attachments={attachments}
-            onApprove={handleApproveAttachment}
-            onReject={handleRejectAttachment}
-          />
-        </section>
+      {showDesktopView && (
+        <main className="flex flex-1 p-3 md:p-4 gap-3 overflow-hidden">
+            {/* Left */}
+            <section className="w-64 flex-shrink-0 flex flex-col gap-3">
+            <ProductPanel
+                products={products}
+                highlightedProductId={highlightedProductId}
+                onHighlight={setHighlightedProductId}
+                flashDealActive={flashDealActive}
+                flashSeconds={flashDealSeconds}
+                onConfigureFlash={handleOpenFlashConfig}
+                onStopFlash={handleStopFlashDeal}
+            />
+            <CoHostPanel coHosts={coHosts} setCoHosts={setCoHosts} />
+            <AttachmentsPanel
+                attachments={attachments}
+                onApprove={handleApproveAttachment}
+                onReject={handleRejectAttachment}
+            />
+            </section>
 
-        {/* Center */}
-        <section className="flex-1 flex flex-col gap-3 min-h-0">
-          <LiveVideoPanel
-            mode={mode}
-            micOn={micOn}
-            camOn={camOn}
-            screenShareOn={screenShareOn}
-            activeSceneId={activeSceneId}
-            scenes={scenes}
-            setActiveSceneId={setActiveSceneId}
-            activeFilter={activeFilter}
-            previewMode={previewMode}
-            resolvedPreviewMode={resolvedPreviewMode}
-            setPreviewMode={setPreviewMode}
-            cameraHint={cameraHint}
-            onExpand={() => setStageExpanded(true)}
-          />
-          <TeleprompterPanel scriptCues={scriptCues} runOfShow={runOfShow} />
-          <CommerceHudPanel
-            commerceGoal={commerceGoal}
-            salesEvents={salesEvents}
-            momentMarkers={momentMarkers}
-          />
-        </section>
+            {/* Center */}
+            <section className="flex-1 flex flex-col gap-3 min-w-0">
+            <LiveVideoPanel
+                mode={mode}
+                micOn={micOn}
+                camOn={camOn}
+                screenShareOn={screenShareOn}
+                activeSceneId={activeSceneId}
+                scenes={scenes}
+                setActiveSceneId={setActiveSceneId}
+                activeFilter={activeFilter}
+                previewMode={previewMode}
+                resolvedPreviewMode={resolvedPreviewMode}
+                setPreviewMode={setPreviewMode}
+                cameraHint={cameraHint}
+                onExpand={() => setStageExpanded(true)}
+            />
+            <TeleprompterPanel scriptCues={scriptCues} runOfShow={runOfShow} />
+            <CommerceHudPanel
+                commerceGoal={commerceGoal}
+                salesEvents={salesEvents}
+                momentMarkers={momentMarkers}
+            />
+            </section>
 
-        {/* Right */}
-        <section className="flex-shrink-0 flex flex-col gap-3 min-h-0">
-          <AudiencePanel
-            activeTab={audienceTab}
-            onTabChange={setAudienceTab}
-            messages={chatMessages}
-            qaItems={qaItems}
-            viewers={viewersList}
-            draft={chatDraft}
-            onDraftChange={setChatDraft}
-            onSend={handleSendChat}
-          />
-          <AiPromptsPanel prompts={aiPrompts} />
-        </section>
-      </main>
+            {/* Right */}
+            <section className="w-80 flex-shrink-0 flex flex-col gap-3">
+            <AudiencePanel
+                activeTab={audienceTab}
+                onTabChange={setAudienceTab}
+                messages={chatMessages}
+                qaItems={qaItems}
+                viewers={viewersList}
+                draft={chatDraft}
+                onDraftChange={setChatDraft}
+                onSend={handleSendChat}
+            />
+            <AiPromptsPanel prompts={aiPrompts} />
+            </section>
+        </main>
+      )}
       
       {/* Mobile studio */}
-      <div className="md:hidden">
+      {!showDesktopView && (
         <MobileStudio
             mode={mode}
             typeLabel={typeLabel}
@@ -410,28 +410,30 @@ export default function CreatorLiveStudio() {
             camOn={camOn} 
             screenShareOn={screenShareOn}
         />
-      </div>
+      )}
 
       {/* Desktop bottom control bar */}
-      <StudioControlBar
-        mode={mode}
-        onToggleLive={toggleLive}
-        micOn={micOn}
-        onToggleMic={() => setMicOn((m) => !m)}
-        camOn={camOn}
-        onToggleCam={() => setCamOn((c) => !c)}
-        screenShareOn={screenShareOn}
-        onToggleScreenShare={() => setScreenShareOn((s) => !s)}
-        activeSceneId={activeSceneId}
-        scenes={scenes}
-        setActiveSceneId={setActiveSceneId}
-        onMarkMoment={handleMarkMoment}
-        onToggleFilters={() => setFiltersOpen((v) => !v)}
-        onOpenLanguagePanel={() => setLanguagePanelOpen(true)}
-        previewMode={previewMode}
-        setPreviewMode={setPreviewMode}
-        cameraHint={cameraHint}
-      />
+      {showDesktopView && (
+        <StudioControlBar
+            mode={mode}
+            onToggleLive={toggleLive}
+            micOn={micOn}
+            onToggleMic={() => setMicOn((m) => !m)}
+            camOn={camOn}
+            onToggleCam={() => setCamOn((c) => !c)}
+            screenShareOn={screenShareOn}
+            onToggleScreenShare={() => setScreenShareOn((s) => !s)}
+            activeSceneId={activeSceneId}
+            scenes={scenes}
+            setActiveSceneId={setActiveSceneId}
+            onMarkMoment={handleMarkMoment}
+            onToggleFilters={() => setFiltersOpen((v) => !v)}
+            onOpenLanguagePanel={() => setLanguagePanelOpen(true)}
+            previewMode={previewMode}
+            setPreviewMode={setPreviewMode}
+            cameraHint={cameraHint}
+        />
+      )}
 
       {/* AR filters tray overlay */}
       {filtersOpen && <FiltersTray onFilterSelect={handleFilterChange} activeFilter={activeFilter} onClose={() => setFiltersOpen(false)} />}
@@ -749,7 +751,7 @@ function StagePreview({
         }
         style={{ aspectRatio: aspect }}
       >
-        <LocalMediaPreview camOn={camOn} micOn={micOn} screenShareOn={screenShareOn} activeFilter={activeFilter} />
+        <div className="absolute inset-0 bg-gradient-to-tr from-slate-900 via-slate-800 to-slate-600" />
 
         <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-20">
           <span className="text-[10px] px-2 py-0.5 rounded-full bg-black/55 border border-white/10 text-slate-100">
@@ -772,6 +774,16 @@ function StagePreview({
         </div>
 
         {isMobile && <div className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-white/10 z-10" />}
+        
+        <div className="relative h-full w-full flex items-center justify-center">
+            <div className="text-center px-6">
+                <div className="text-xs text-slate-200">Live preview</div>
+                <div className="text-sm font-semibold text-white mt-1">Viewer-facing camera</div>
+                <div className="text-[11px] text-slate-300 mt-2">
+                This preview adapts to mobile vs desktop.
+                </div>
+            </div>
+        </div>
       </div>
     </button>
   );
@@ -860,8 +872,7 @@ function LobbyPanel({ micOn, camOn, screenShareOn, activeFilter }: { micOn: bool
     return (
         <div className="flex flex-col gap-3 h-full">
             <div className="relative flex-1 rounded-2xl bg-slate-950 border border-slate-800 flex flex-col items-center justify-center gap-2 overflow-hidden">
-                <LocalMediaPreview camOn={camOn} micOn={micOn} screenShareOn={screenShareOn} activeFilter={activeFilter} />
-
+                <div className="absolute inset-0 bg-gradient-to-tr from-slate-900 via-slate-800 to-slate-600" />
                 <div className="z-10 flex flex-col items-center justify-center gap-2">
                     <span className="text-[11px] text-slate-300 mb-1">Pre-live lobby · Device & scene check</span>
                     <div className="flex gap-2 text-[10px] text-slate-200">
@@ -1173,7 +1184,7 @@ function StudioControlBar({
   cameraHint,
 }: any) {
   return (
-    <div className="hidden md:flex items-center justify-between px-3 md:px-6 py-2 border-t border-slate-800 bg-slate-950/95 text-[11px]">
+    <div className="flex items-center justify-between px-3 md:px-6 py-2 border-t border-slate-800 bg-slate-950/95 text-[11px]">
       <div className="flex items-center gap-2">
         <button
           className={`px-4 py-1.5 rounded-full text-[11px] font-semibold ${
