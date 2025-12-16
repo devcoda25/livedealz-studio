@@ -6,6 +6,7 @@ import { useDeviceKind } from '@/hooks/use-mobile';
 import { useStudioStream } from '@/hooks/useStudioSocket';
 import { getCountdownSeconds } from '@/lib/utils';
 import type { PreviewMode, AudienceTab, Product, Scene, CoHost, Attachment, QAItem, Viewer, RunOfShowItem, ChatMessage } from '@/types/studio';
+import { LocalMediaPreview } from './LocalMediaPreview';
 
 const EV_ORANGE = '#f77f00';
 
@@ -770,17 +771,19 @@ function LobbyPanel({ micOn, camOn, screenShareOn, activeFilter }: { micOn: bool
     return (
         <div className="flex flex-col gap-3 h-full">
             <div className="relative flex-1 rounded-2xl bg-slate-950 border border-slate-800 flex flex-col items-center justify-center gap-2 overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-tr from-slate-900 via-slate-800 to-slate-600" />
-                <div className="z-10 flex flex-col items-center justify-center gap-2">
+                <LocalMediaPreview 
+                    camOn={camOn}
+                    micOn={micOn}
+                    screenShareOn={screenShareOn}
+                    activeFilter={activeFilter}
+                />
+                <div className="z-10 flex flex-col items-center justify-center gap-2 absolute bottom-4">
                     <span className="text-[11px] text-slate-300 mb-1">Pre-live lobby · Device & scene check</span>
                     <div className="flex gap-2 text-[10px] text-slate-200">
                         <LobbyToggle label="Camera" on={camOn} />
                         <LobbyToggle label="Microphone" on={micOn} />
                         <LobbyToggle label="Screen share" on={screenShareOn} disabled />
                     </div>
-                    <p className="text-[10px] text-slate-500 mt-2 max-w-xs text-center">
-                        Check your framing, lighting and audio levels. You’re not live yet – only you and crew can see this.
-                    </p>
                 </div>
             </div>
         </div>

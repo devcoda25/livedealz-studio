@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
@@ -74,7 +73,7 @@ export function LocalMediaPreview({ camOn, micOn, screenShareOn, activeFilter }:
 
   return (
     <>
-        <div className={`w-full h-full object-contain z-0 bg-secondary transition-all duration-300`}>
+        <div className={`w-full h-full object-contain z-0 bg-secondary transition-all duration-300 absolute inset-0`}>
             <video ref={videoRef} className={`w-full h-full object-contain ${camOn || screenShareOn ? '' : 'hidden'}`} autoPlay muted playsInline />
         </div>
       
