@@ -1,22 +1,70 @@
-
 'use client';
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from 'react';
 import { useDeviceKind } from '@/hooks/use-mobile';
+import { useStudioStream } from '@/hooks/useStudioSocket';
+import { getCountdownSeconds } from '@/lib/utils';
+import type { PreviewMode, AudienceTab, Product, Scene, CoHost, Attachment, QAItem, Viewer, RunOfShowItem, ChatMessage } from '@/types/studio';
 
-const EV_GREEN = "#03cd8c";
-const EV_ORANGE = "#f77f00";
+const EV_ORANGE = '#f77f00';
 
-type Mode = "lobby" | "live";
+const products: Product[] = [
+  { id: 'P-101', name: 'GlowUp Serum - 30ml', price: '$24', stock: '52 in stock', tag: 'Hero product' },
+  { id: 'P-102', name: 'GlowUp Cleanser', price: '$14', stock: '86 in stock', tag: 'Bundle with serum' },
+  { id: 'P-103', name: 'GlowUp Night Cream', price: '$29', stock: '34 in stock', tag: 'Upsell after serum' },
+];
 
-type PreviewMode = "auto" | "desktop" | "mobile";
+const scenes: Scene[] = [
+  { id: 'intro', label: 'Intro + host', desc: 'Single camera, no overlay' },
+  { id: 'product', label: 'Product close-up', desc: 'Camera 2 or crop, hero overlay' },
+  { id: 'split', label: 'Split screen', desc: 'Host + product / co-host' },
+  { id: 'offer', label: 'Flash offer', desc: 'Full-screen offer graphic + timer' },
+];
 
-type AudienceTab = "chat" | "qa" | "viewers";
+const qaItems: QAItem[] = [
+  {
+    id: 1,
+    question: "How long until I see results?",
+    from: "Viewer #321",
+    status: "unanswered",
+  },
+  {
+    id: 2,
+    question: "Is this safe for sensitive skin?",
+    from: "Viewer #119",
+    status: "pinned",
+  },
+];
+
+const viewersList: Viewer[] = [
+  { id: 1, name: "Dacy (Producer)", tag: "Moderator" },
+  { id: 2, name: "Grace (Brand rep)", tag: "VIP" },
+  { id: 3, name: "Viewer #238", tag: "" },
+  { id: 4, name: "Viewer #874", tag: "" },
+];
+
+const scriptCues: string[] = [
+  "Welcome + short intro (name, theme of show).",
+  "Explain key benefits in plain language.",
+  "Mention discount code + flash window.",
+  "Ask for questions, highlight 2 top FAQs.",
+  "Recommend best combo for beginners.",
+  "Close with CTA + follow reminder.",
+];
+
+const runOfShow: RunOfShowItem[] = [
+  { id: "shot-1", label: "Intro + hook", window: "00:00-03:00", scene: "intro" },
+  { id: "shot-2", label: "Hero demo: Serum texture", window: "03:00-08:00", scene: "product" },
+  { id: "shot-3", label: "Before / After slides", window: "08:00-12:00", scene: "offer" },
+  { id: "shot-4", label: "Q&A + objections", window: "12:00-18:00", scene: "split" },
+];
+
 
 export default function CreatorLiveStudio() {
+  const { state, actions, isConnecting } = useStudioStream('live-dealz-studio');
+  
   const [darkMode, setDarkMode] = useState(true);
-
-  const [mode, setMode] = useState<Mode>("lobby");
+  
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(true);
   const [screenShareOn, setScreenShareOn] = useState(false);
@@ -24,8 +72,6 @@ export default function CreatorLiveStudio() {
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
 
   const [highlightedProductId, setHighlightedProductId] = useState("P-101");
-  const [flashDealActive, setFlashDealActive] = useState(false);
-  const [flashDealSeconds, setFlashDealSeconds] = useState(120);
   const [flashConfigOpen, setFlashConfigOpen] = useState(false);
 
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -39,196 +85,52 @@ export default function CreatorLiveStudio() {
     previewMode === "auto" ? deviceKind : previewMode;
 
   const [stageExpanded, setStageExpanded] = useState(false);
-
-  const [mobilePanel, setMobilePanel] = useState<"products" | "chat">("products");
-
-  const [coHosts, setCoHosts] = useState(
-    [
-      { id: 1, name: "Dacy (Producer)", status: "Accepted" },
-      { id: 2, name: "Grace (Brand rep)", status: "Pending" },
-    ]
-  );
-
-  const [attachments] = useState([
-    {
-      id: 1,
-      from: "Viewer #238",
-      type: "image",
-      label: "Before/after photo",
-      status: "Pending",
-    },
-    {
-      id: 2,
-      from: "Viewer #874",
-      type: "question",
-      label: "Skin type question",
-      status: "Pending",
-    },
-  ]);
-
-  const [chatMessages, setChatMessages] = useState([
-    {
-      id: 1,
-      from: "Viewer #238",
-      body: "Is this serum okay for oily skin?",
-      time: "18:42",
-      system: false,
-    },
-    {
-      id: 2,
-      from: "Viewer #102",
-      body: "Can you show the texture again?",
-      time: "18:43",
-      system: false,
-    },
-    {
-      id: 3,
-      from: "System",
-      body: "5 new viewers joined from Nairobi.",
-      time: "18:44",
-      system: true,
-    },
+  const [mobilePanel, setMobilePanel] = useState<'products' | 'chat'>("products");
+  
+  // Demo-only state for co-hosts, as this isn't in our core stream state
+  const [coHosts, setCoHosts] = useState<CoHost[]>([
+    { id: 1, name: "Dacy (Producer)", status: "Accepted" },
+    { id: 2, name: "Grace (Brand rep)", status: "Pending" },
   ]);
 
   const [chatDraft, setChatDraft] = useState("");
 
-  const [momentMarkers, setMomentMarkers] = useState<{ id: number; time: string; label: string }[]>([]);
+  const { mode, chat, stats, salesEvents, commerceGoal, flashDeal, momentMarkers, aiPrompts, attachments } = state;
+  const { messages: chatMessages } = chat;
 
-  const qaItems = [
-    {
-      id: 1,
-      question: "How long until I see results?",
-      from: "Viewer #321",
-      status: "unanswered",
-    },
-    {
-      id: 2,
-      question: "Is this safe for sensitive skin?",
-      from: "Viewer #119",
-      status: "pinned",
-    },
-  ];
-
-  const viewersList = [
-    { id: 1, name: "Dacy (Producer)", tag: "Moderator" },
-    { id: 2, name: "Grace (Brand rep)", tag: "VIP" },
-    { id: 3, name: "Viewer #238", tag: "" },
-    { id: 4, name: "Viewer #874", tag: "" },
-  ];
-
-  const scriptCues = [
-    "Welcome + short intro (name, theme of show).",
-    "Explain key benefits in plain language.",
-    "Mention discount code + flash window.",
-    "Ask for questions, highlight 2 top FAQs.",
-    "Recommend best combo for beginners.",
-    "Close with CTA + follow reminder.",
-  ];
-
-  const runOfShow = [
-    { id: "shot-1", label: "Intro + hook", window: "00:00-03:00", scene: "intro" },
-    { id: "shot-2", label: "Hero demo: Serum texture", window: "03:00-08:00", scene: "product" },
-    { id: "shot-3", label: "Before / After slides", window: "08:00-12:00", scene: "offer" },
-    { id: "shot-4", label: "Q&A + objections", window: "12:00-18:00", scene: "split" },
-  ];
-
-  const aiPrompts = [
-    "Chat asking about skin type match. Address oily vs dry quickly.",
-    "Viewers reacted strongly when you mentioned 'glow in 7 days'. Lean into that angle.",
-    "Consider a quick poll: Serum vs Cream. What do you want to see next?",
-    "Watch time spikes during before/after. Keep visuals on screen.",
-  ];
-
-  const scenes = [
-    { id: "intro", label: "Intro + host", desc: "Single camera, no overlay" },
-    { id: "product", label: "Product close-up", desc: "Camera 2 or crop, hero overlay" },
-    { id: "split", label: "Split screen", desc: "Host + product / co-host" },
-    { id: "offer", label: "Flash offer", desc: "Full-screen offer graphic + timer" },
-  ];
-
-  const products = [
-    { id: "P-101", name: "GlowUp Serum - 30ml", price: "$24", stock: "52 in stock", tag: "Hero product" },
-    { id: "P-102", name: "GlowUp Cleanser", price: "$14", stock: "86 in stock", tag: "Bundle with serum" },
-    { id: "P-103", name: "GlowUp Night Cream", price: "$29", stock: "34 in stock", tag: "Upsell after serum" },
-  ];
-
-  const liveStats = {
-    timer: mode === "live" ? "00:18:24" : "--:--",
-    viewers: 842,
-    sales: 37,
-    connection: "Excellent",
-    bitrate: "4.5 Mbps",
-  };
-
-  const salesEvents = [
-    { id: 1, label: "Mary (Kampala) bought GlowUp Serum", time: "18:41" },
-    { id: 2, label: "2x GlowUp bundles sold", time: "18:39" },
-    { id: 3, label: "Viewer from Nairobi added Serum to cart", time: "18:38" },
-  ];
-
-  const commerceGoal = {
-    targetUnits: 50,
-    soldUnits: liveStats.sales,
-    cartCount: 12,
-    last5MinSales: 5,
-  };
+  const flashDealSeconds = getCountdownSeconds(flashDeal.endsAt);
 
   const toggleLive = () => {
-    if (mode === "lobby") {
-      setMode("live");
-      setFlashDealActive(false);
-      setFlashDealSeconds(120);
-    } else {
-      setMode("lobby");
-      setFlashDealActive(false);
-    }
+    actions.setMode(mode === 'live' ? 'lobby' : 'live');
   };
 
   const handleSendChat = () => {
     const txt = chatDraft.trim();
     if (!txt) return;
-    setChatMessages((prev) => [
-      ...prev,
-      { id: prev.length + 1, from: "You", body: txt, time: "Now", system: false },
-    ]);
+    actions.sendChat(txt);
     setChatDraft("");
   };
 
-  const handleApproveAttachment = (id: number) => {
-    alert(`Approved attachment ${id} to show on stream (demo only).`);
-  };
-
-  const handleRejectAttachment = (id: number) => {
-    alert(`Rejected attachment ${id} (demo only).`);
-  };
-
-  const handleOpenFlashConfig = () => {
-    setFlashConfigOpen(true);
-  };
-
   const handleApplyFlashDeal = (durationMinutes: number, extraDiscount: number) => {
-    setFlashDealActive(true);
-    setFlashDealSeconds(durationMinutes * 60);
+    actions.startFlashDeal(durationMinutes * 60, extraDiscount);
     setFlashConfigOpen(false);
-    console.log("Flash deal:", durationMinutes, "min", extraDiscount, "%");
   };
 
   const handleStopFlashDeal = () => {
-    setFlashDealActive(false);
+    actions.stopFlashDeal();
   };
 
   const handleMarkMoment = () => {
-    setMomentMarkers((prev) => [
-      ...prev,
-      { id: prev.length + 1, time: liveStats.timer, label: "Marked moment" },
-    ]);
+    actions.markMoment();
   };
-    const handleFilterChange = (filter: string | null) => {
+  
+  const handleFilterChange = (filter: string | null) => {
     const newFilter = filter === 'none' ? null : filter;
     setActiveFilter(activeFilter === newFilter ? null : newFilter);
   };
 
   const typeLabel = mode === "live" ? "Live" : "Pre-live";
+  const showDesktopView = resolvedPreviewMode === 'desktop';
 
   const rootClass = darkMode
     ? "min-h-screen flex flex-col bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-50"
@@ -241,11 +143,19 @@ export default function CreatorLiveStudio() {
     return previewMode === "mobile" ? "Mobile" : "Desktop";
   }, [previewMode, deviceKind]);
 
-  const showDesktopView = resolvedPreviewMode === 'desktop';
+  if (isConnecting) {
+      return (
+          <div className={`${rootClass} items-center justify-center`}>
+              <div className="flex flex-col items-center gap-2">
+                  <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-500 border-t-slate-50" />
+                  <p className="text-slate-400 text-sm">Connecting to Live Studio...</p>
+              </div>
+          </div>
+      );
+  }
 
   return (
     <div className={rootClass}>
-      {/* Top bar */}
       <header
         className={
           "h-14 flex items-center justify-between px-4 md:px-6 border-b backdrop-blur-sm " +
@@ -274,13 +184,13 @@ export default function CreatorLiveStudio() {
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-900 text-slate-50 border border-slate-700">
               <span className={`h-1.5 w-1.5 rounded-full ${mode === 'live' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-500'}`} />
               <span>
-                {typeLabel} · {liveStats.timer}
+                {typeLabel} · {stats.timer}
               </span>
             </span>
-            <TopStat label="Viewers" value={liveStats.viewers.toLocaleString()} />
-            <TopStat label="Sales" value={String(liveStats.sales)} />
-            <TopStat label="Conn" value={liveStats.connection} />
-            <TopStat label="Bitrate" value={liveStats.bitrate} />
+            <TopStat label="Viewers" value={stats.viewers.toLocaleString()} />
+            <TopStat label="Sales" value={String(stats.sales)} />
+            <TopStat label="Conn" value={stats.connection} />
+            <TopStat label="Bitrate" value={stats.bitrate} />
           </div>
 
           <button
@@ -317,30 +227,27 @@ export default function CreatorLiveStudio() {
           </div>
         </div>
       </header>
-
-      {/* Desktop layout */}
+      
       {showDesktopView && (
         <main className="flex flex-1 p-3 md:p-4 gap-3 overflow-hidden">
-            {/* Left */}
             <section className="w-64 flex-shrink-0 flex flex-col gap-3">
             <ProductPanel
                 products={products}
                 highlightedProductId={highlightedProductId}
                 onHighlight={setHighlightedProductId}
-                flashDealActive={flashDealActive}
+                flashDealActive={flashDeal.active}
                 flashSeconds={flashDealSeconds}
-                onConfigureFlash={handleOpenFlashConfig}
+                onConfigureFlash={() => setFlashConfigOpen(true)}
                 onStopFlash={handleStopFlashDeal}
             />
             <CoHostPanel coHosts={coHosts} setCoHosts={setCoHosts} />
             <AttachmentsPanel
                 attachments={attachments}
-                onApprove={handleApproveAttachment}
-                onReject={handleRejectAttachment}
+                onApprove={(id) => actions.moderateAttachment(id, 'approved')}
+                onReject={(id) => actions.moderateAttachment(id, 'rejected')}
             />
             </section>
 
-            {/* Center */}
             <section className="flex-1 flex flex-col gap-3 min-w-0">
             <LiveVideoPanel
                 mode={mode}
@@ -365,7 +272,6 @@ export default function CreatorLiveStudio() {
             />
             </section>
 
-            {/* Right */}
             <section className="w-80 flex-shrink-0 flex flex-col gap-3">
             <AudiencePanel
                 activeTab={audienceTab}
@@ -382,7 +288,6 @@ export default function CreatorLiveStudio() {
         </main>
       )}
       
-      {/* Mobile studio */}
       {!showDesktopView && (
         <MobileStudio
             mode={mode}
@@ -390,8 +295,8 @@ export default function CreatorLiveStudio() {
             products={products}
             highlightedProductId={highlightedProductId}
             setHighlightedProductId={setHighlightedProductId}
-            flashDealActive={flashDealActive}
-            onOpenFlashConfig={handleOpenFlashConfig}
+            flashDealActive={flashDeal.active}
+            onOpenFlashConfig={() => setFlashConfigOpen(true)}
             onStopFlash={handleStopFlashDeal}
             chatMessages={chatMessages}
             chatDraft={chatDraft}
@@ -412,7 +317,6 @@ export default function CreatorLiveStudio() {
         />
       )}
 
-      {/* Desktop bottom control bar */}
       {showDesktopView && (
         <StudioControlBar
             mode={mode}
@@ -435,10 +339,8 @@ export default function CreatorLiveStudio() {
         />
       )}
 
-      {/* AR filters tray overlay */}
       {filtersOpen && <FiltersTray onFilterSelect={handleFilterChange} activeFilter={activeFilter} onClose={() => setFiltersOpen(false)} />}
 
-      {/* Flash deal configuration overlay */}
       {flashConfigOpen && (
         <FlashDealControl
           onClose={() => setFlashConfigOpen(false)}
@@ -446,12 +348,10 @@ export default function CreatorLiveStudio() {
         />
       )}
 
-      {/* Language selection overlay */}
       {languagePanelOpen && (
         <LanguagePanel onClose={() => setLanguagePanelOpen(false)} />
       )}
 
-      {/* Stage expand modal */}
       {stageExpanded && (
         <StageModal
           resolvedPreviewMode={resolvedPreviewMode}
@@ -467,8 +367,7 @@ export default function CreatorLiveStudio() {
 }
 
 
-/* Header stat pill */
-function TopStat({ label, value }: { label: string; value: string }) {
+function TopStat({ label, value }: { label: string; value: string | number }) {
   return (
     <span className="inline-flex flex-col items-start px-2 py-0.5 rounded-lg bg-slate-900 border border-slate-700 text-[10px]">
       <span className="text-[9px] text-slate-400">{label}</span>
@@ -477,7 +376,6 @@ function TopStat({ label, value }: { label: string; value: string }) {
   );
 }
 
-/* Left column panels */
 function ProductPanel({
   products,
   highlightedProductId,
@@ -486,7 +384,15 @@ function ProductPanel({
   flashSeconds,
   onConfigureFlash,
   onStopFlash,
-}: any) {
+}: {
+    products: Product[];
+    highlightedProductId: string;
+    onHighlight: (id: string) => void;
+    flashDealActive: boolean;
+    flashSeconds: number;
+    onConfigureFlash: () => void;
+    onStopFlash: () => void;
+}) {
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 flex flex-col gap-2 text-[11px]">
       <div className="flex items-center justify-between mb-1">
@@ -494,7 +400,7 @@ function ProductPanel({
         <span className="text-[10px] text-slate-400">{products.length} items</span>
       </div>
       <div className="space-y-1.5 max-h-52 overflow-y-auto">
-        {products.map((p: any) => {
+        {products.map((p) => {
           const active = p.id === highlightedProductId;
           return (
             <button
@@ -561,15 +467,11 @@ function ProductPanel({
   );
 }
 
-function CoHostPanel({ coHosts, setCoHosts }: any) {
+function CoHostPanel({ coHosts, setCoHosts }: { coHosts: CoHost[], setCoHosts: React.Dispatch<React.SetStateAction<CoHost[]>> }) {
   const addCoHost = () => {
     const name = window.prompt("Enter co-host name (demo only):");
     if (!name) return;
-    setCoHosts((prev: any[]) => [...prev, { id: prev.length + 1, name, status: "Invited" }]);
-  };
-
-  const updateStatus = (id: number, status: string) => {
-    setCoHosts((prev: any[]) => prev.map((c:any) => (c.id === id ? { ...c, status } : c)));
+    setCoHosts((prev) => [...prev, { id: prev.length + 1, name, status: "Pending" }]);
   };
 
   return (
@@ -581,7 +483,7 @@ function CoHostPanel({ coHosts, setCoHosts }: any) {
         </button>
       </div>
       <div className="space-y-1 max-h-32 overflow-y-auto">
-        {coHosts.map((c: any) => (
+        {coHosts.map((c) => (
           <div key={c.id} className="flex items-center justify-between text-[10px]">
             <div className="flex items-center gap-2">
               <span className="h-6 w-6 rounded-full bg-slate-800 flex items-center justify-center text-[10px]">
@@ -596,10 +498,7 @@ function CoHostPanel({ coHosts, setCoHosts }: any) {
               </div>
             </div>
             <div className="flex items-center gap-1">
-              <button className="px-2 py-0.5 rounded-full border border-slate-700 text-slate-100 text-[9px]" onClick={() => updateStatus(c.id, "Accepted")}>
-                Accept
-              </button>
-              <button className="px-2 py-0.5 rounded-full border border-slate-700 text-slate-400 text-[9px]" onClick={() => updateStatus(c.id, "Removed")}>
+               <button className="px-2 py-0.5 rounded-full border border-slate-700 text-slate-400 text-[9px]">
                 Remove
               </button>
             </div>
@@ -611,8 +510,8 @@ function CoHostPanel({ coHosts, setCoHosts }: any) {
   );
 }
 
-function AttachmentsPanel({ attachments, onApprove, onReject }: any) {
-  const pending = attachments.filter((a: any) => a.status === "Pending");
+function AttachmentsPanel({ attachments, onApprove, onReject }: { attachments: Attachment[], onApprove: (id: number) => void, onReject: (id: number) => void }) {
+  const pending = attachments.filter((a) => a.status === "Pending");
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 flex flex-col gap-2 text-[11px]">
       <h3 className="text-xs font-semibold">Attachments queue</h3>
@@ -620,7 +519,7 @@ function AttachmentsPanel({ attachments, onApprove, onReject }: any) {
         Viewers can send images or questions. Nothing appears on screen until you approve.
       </p>
       <div className="space-y-1 max-h-28 overflow-y-auto">
-        {pending.map((a: any) => (
+        {pending.map((a) => (
           <div key={a.id} className="flex items-center justify-between text-[10px] border border-slate-800 rounded-lg px-2 py-1">
             <div className="flex flex-col">
               <span className="text-slate-100">{a.label}</span>
@@ -642,7 +541,6 @@ function AttachmentsPanel({ attachments, onApprove, onReject }: any) {
   );
 }
 
-/* Center camera panel */
 function LiveVideoPanel({
   mode,
   micOn,
@@ -662,7 +560,6 @@ function LiveVideoPanel({
 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-3xl p-3 md:p-4 flex flex-col gap-3 h-full">
-      {/* Preview mode toggle (Auto/Desktop/Mobile) */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <span className="text-[11px] text-slate-300">Camera preview</span>
@@ -906,8 +803,7 @@ function LobbyToggle({ label, on, disabled }: { label: string, on: boolean, disa
   );
 }
 
-/* Teleprompter + run-of-show */
-function TeleprompterPanel({ scriptCues, runOfShow }: any) {
+function TeleprompterPanel({ scriptCues, runOfShow }: { scriptCues: string[], runOfShow: RunOfShowItem[] }) {
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 flex flex-col gap-2 text-[11px] max-h-48">
       <div className="flex items-center justify-between">
@@ -1012,13 +908,21 @@ function CommerceHudPanel({ commerceGoal, salesEvents, momentMarkers }: any) {
   );
 }
 
-/* Right audience panel */
-function AudiencePanel({ activeTab, onTabChange, messages, qaItems, viewers, draft, onDraftChange, onSend }: any) {
+function AudiencePanel({ activeTab, onTabChange, messages, qaItems, viewers, draft, onDraftChange, onSend }: {
+    activeTab: AudienceTab;
+    onTabChange: (tab: AudienceTab) => void;
+    messages: ChatMessage[];
+    qaItems: QAItem[];
+    viewers: Viewer[];
+    draft: string;
+    onDraftChange: (draft: string) => void;
+    onSend: () => void;
+}) {
   const renderBody = () => {
     if (activeTab === "qa") {
       return (
         <div className="space-y-2">
-          {qaItems.map((q: any) => (
+          {qaItems.map((q) => (
             <div key={q.id} className="rounded-xl px-3 py-2 bg-slate-950 border border-slate-800">
               <div className="flex items-center justify-between gap-2 mb-1">
                 <span className="font-semibold truncate text-[11px] text-slate-100">{q.question}</span>
@@ -1042,7 +946,7 @@ function AudiencePanel({ activeTab, onTabChange, messages, qaItems, viewers, dra
     if (activeTab === "viewers") {
       return (
         <div className="space-y-1.5">
-          {viewers.map((v: any) => (
+          {viewers.map((v) => (
             <div key={v.id} className="flex items-center justify-between gap-3 px-2 py-1 rounded-lg hover:bg-slate-900">
               <div className="flex items-center gap-2 min-w-0">
                 <div className="h-7 w-7 rounded-full bg-slate-700 flex items-center justify-center text-[11px] font-semibold text-slate-100">
@@ -1065,7 +969,7 @@ function AudiencePanel({ activeTab, onTabChange, messages, qaItems, viewers, dra
 
     return (
       <div className="space-y-1.5">
-        {messages.map((m: any) => (
+        {messages.map((m) => (
           <div key={m.id} className="text-[10px]">
             <span className={`font-semibold ${m.system ? "text-slate-400" : "text-slate-100"}`}>
               {m.system ? "System" : m.from}
@@ -1163,7 +1067,6 @@ function AiPromptsPanel({ prompts }: { prompts: string[] }) {
   );
 }
 
-/* Bottom control bar */
 function StudioControlBar({
   mode,
   onToggleLive,
@@ -1265,7 +1168,6 @@ function StudioControlBar({
   );
 }
 
-/* AR filters tray */
 function FiltersTray({ onFilterSelect, activeFilter, onClose }: { onFilterSelect: (filter: string) => void; activeFilter: string | null; onClose: () => void; }) {
   const categories = ["Beauty", "Fun", "Background", "Brand"];
   const filters = [
@@ -1302,8 +1204,7 @@ function FiltersTray({ onFilterSelect, activeFilter, onClose }: { onFilterSelect
     </div>);
 }
 
-/* Flash Deal Control */
-function FlashDealControl({ onClose, onStart }: any) {
+function FlashDealControl({ onClose, onStart }: { onClose: () => void, onStart: (duration: number, discount: number) => void }) {
   const [duration, setDuration] = useState(5);
   const [discount, setDiscount] = useState(15);
   const durationOptions = [5, 10, 15];
@@ -1365,7 +1266,6 @@ function FlashDealControl({ onClose, onStart }: any) {
   );
 }
 
-/* Language panel */
 function LanguagePanel({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed right-4 top-20 z-[70]">
@@ -1403,7 +1303,6 @@ function LanguagePanel({ onClose }: { onClose: () => void }) {
   );
 }
 
-/* Mobile studio: improved responsive camera preview and manual switch */
 function MobileStudio({
   mode,
   typeLabel,
@@ -1432,7 +1331,6 @@ function MobileStudio({
 }: any) {
   return (
     <div className="fixed inset-x-0 bottom-0 top-14 flex flex-col bg-slate-950 z-30">
-      {/* Mobile camera preview - adapts to mobile or desktop preview */}
       <div className="border-b border-slate-800 px-3 py-3">
         <div className="flex items-center justify-between mb-2">
           <div className="flex flex-col">
@@ -1466,7 +1364,6 @@ function MobileStudio({
         </div>
       </div>
 
-      {/* Mobile panels */}
       <div className="flex-1 flex flex-col min-h-0">
         <div className="flex items-center justify-between px-3 py-1 bg-slate-900 border-b border-slate-800 text-[10px]">
             <div className="flex gap-1">
@@ -1527,7 +1424,6 @@ function MobileStudio({
         </div>
       </div>
 
-      {/* Mobile footer actions */}
       <div className="border-t border-slate-800 bg-slate-950 px-3 py-2 flex items-center justify-between gap-2 text-[10px]">
         <button className="px-2.5 py-1 rounded-full border border-slate-700 text-slate-100 flex-1">Highlight product</button>
         <button
