@@ -1,7 +1,6 @@
-
 'use client';
 
-import React, from 'react';
+import React, { useMemo } from 'react';
 import type { PreviewMode, AudienceTab, Product, Scene, CoHost, Attachment, QAItem, Viewer, RunOfShowItem, ChatMessage } from '@/types/studio';
 import { LocalMediaPreview } from './LocalMediaPreview';
 import { useDeviceKind } from '@/hooks/use-mobile';
@@ -61,10 +60,9 @@ const runOfShow: RunOfShowItem[] = [
   { id: "shot-4", label: "Q&A + objections", window: "12:00-18:00", scene: "split" },
 ];
 
-
 export default function CreatorLiveStudio({ streamApiKey }: { streamApiKey: string }) {
   const { state, actions, isConnecting } = useStudioStream('live-dealz-studio', streamApiKey);
-  
+
   const [darkMode, setDarkMode] = React.useState(true);
   
   const [micOn, setMicOn] = React.useState(true);
@@ -137,7 +135,7 @@ export default function CreatorLiveStudio({ streamApiKey }: { streamApiKey: stri
     ? "min-h-screen flex flex-col bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-50"
     : "min-h-screen flex flex-col bg-slate-50 text-slate-900";
 
-  const cameraHint = React.useMemo(() => {
+  const cameraHint = useMemo(() => {
     if (previewMode === "auto") {
       return `Auto (${deviceKind === "mobile" ? "mobile" : "desktop"})`;
     }

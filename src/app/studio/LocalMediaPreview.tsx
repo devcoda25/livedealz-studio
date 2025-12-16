@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
@@ -20,6 +19,12 @@ export function LocalMediaPreview({ camOn, micOn, screenShareOn, activeFilter }:
   useEffect(() => {
     let stream: MediaStream | null = null;
     const getMedia = async () => {
+      // Always clear previous stream
+      if (videoRef.current && videoRef.current.srcObject) {
+        (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
+        videoRef.current.srcObject = null;
+      }
+
       if (screenShareOn) {
         try {
           stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
@@ -50,12 +55,8 @@ export function LocalMediaPreview({ camOn, micOn, screenShareOn, activeFilter }:
         }
       }
 
-      if (videoRef.current) {
-        if (stream) {
-          videoRef.current.srcObject = stream;
-        } else {
-          videoRef.current.srcObject = null;
-        }
+      if (videoRef.current && stream) {
+        videoRef.current.srcObject = stream;
       }
     };
     
@@ -64,9 +65,6 @@ export function LocalMediaPreview({ camOn, micOn, screenShareOn, activeFilter }:
     return () => {
         if (stream) {
             stream.getTracks().forEach(track => track.stop());
-        }
-        if(videoRef.current) {
-            videoRef.current.srcObject = null;
         }
     }
 
