@@ -1058,7 +1058,7 @@ export default function MyLiveDealzLiveStudioFullPage() {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-        {/* Left Column (Desktop) / Main Column (Mobile) */}
+        {/* Left column (Desktop) / Main Column (Mobile) */}
         <div className="flex-1 flex flex-col gap-3 p-3 min-w-0 overflow-y-auto">
           {/* Top section for mobile */}
           <div className="md:hidden flex flex-col gap-3">
@@ -1130,15 +1130,16 @@ export default function MyLiveDealzLiveStudioFullPage() {
 
           <TeleprompterPanel />
 
-          {/* Panels for mobile view */}
-           <div className="md:hidden flex flex-col gap-3">
+          <div className="md:hidden flex flex-col gap-3">
               <CoHostsPanel coHosts={coHosts} onInvite={(name) => setCoHosts((p) => [...p, { id: p.length + 1, name, status: "Invited" }])} />
               <AttachmentsPanel
                 attachments={attachments}
                 onApprove={(id) => pushSystem(`Approved attachment ${id} (demo).`)}
                 onReject={(id) => pushSystem(`Rejected attachment ${id} (demo).`)}
               />
-              <CommercePanel
+          </div>
+
+          <CommercePanel
                 targetUnits={50}
                 soldUnits={salesCount}
                 cartCount={totalCartItems}
@@ -1147,7 +1148,6 @@ export default function MyLiveDealzLiveStudioFullPage() {
                 flashUrgency={flashUrgency}
                 salesEvents={salesEvents}
               />
-          </div>
         </div>
 
         {/* Right Column (Desktop & Tablet) */}
@@ -1177,15 +1177,6 @@ export default function MyLiveDealzLiveStudioFullPage() {
                 attachments={attachments}
                 onApprove={(id) => pushSystem(`Approved attachment ${id} (demo).`)}
                 onReject={(id) => pushSystem(`Rejected attachment ${id} (demo).`)}
-              />
-               <CommercePanel
-                targetUnits={50}
-                soldUnits={salesCount}
-                cartCount={totalCartItems}
-                last5MinSales={last5MinSales}
-                flash={flash}
-                flashUrgency={flashUrgency}
-                salesEvents={salesEvents}
               />
             </div>
 
@@ -2840,5 +2831,3 @@ function ExpandedStageModal(props: {
     </div>
   );
 }
-
-    
