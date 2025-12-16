@@ -1057,32 +1057,38 @@ export default function MyLiveDealzLiveStudioFullPage() {
       </header>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-        {/* Left column (Desktop) / Main Column (Mobile) */}
-        <div className="flex-1 flex flex-col gap-3 p-3 min-w-0 overflow-y-auto">
-          {/* Top section for mobile */}
-          <div className="md:hidden flex flex-col gap-3">
-             <ProductionPanel
-                productionMode={productionMode}
-                externalTool={externalTool}
-                activeSourceId={activeSourceId}
-                onChangeProductionMode={setProductionMode}
-                onChangeExternalTool={setExternalTool}
-                onChangeSource={setActiveSourceId}
-              />
-               <InventoryPanel
-                  products={products}
-                  highlightedId={highlightedProductId}
-                  onSelectProduct={setHighlightedProductId}
-                  flash={flash}
-                  flashUrgency={flashUrgency}
-                  onOpenFlash={() => setFlashConfigOpen(true)}
-                  onStopFlash={stopFlashDeal}
-                  onRestock={restockProduct}
-                  getPriceForProduct={getPriceForProduct}
-                />
-          </div>
+      <main className="flex-1 flex flex-col md:flex-row overflow-hidden">
+        {/* Left column (Desktop & Tablet) */}
+        <section className="hidden md:flex flex-col gap-3 p-3 w-72 lg:w-80 flex-shrink-0 overflow-y-auto">
+          <ProductionPanel
+            productionMode={productionMode}
+            externalTool={externalTool}
+            activeSourceId={activeSourceId}
+            onChangeProductionMode={setProductionMode}
+            onChangeExternalTool={setExternalTool}
+            onChangeSource={setActiveSourceId}
+          />
+          <InventoryPanel
+            products={products}
+            highlightedId={highlightedProductId}
+            onSelectProduct={setHighlightedProductId}
+            flash={flash}
+            flashUrgency={flashUrgency}
+            onOpenFlash={() => setFlashConfigOpen(true)}
+            onStopFlash={stopFlashDeal}
+            onRestock={restockProduct}
+            getPriceForProduct={getPriceForProduct}
+          />
+          <CoHostsPanel coHosts={coHosts} onInvite={(name) => setCoHosts((p) => [...p, { id: p.length + 1, name, status: "Invited" }])} />
+          <AttachmentsPanel
+            attachments={attachments}
+            onApprove={(id) => pushSystem(`Approved attachment ${id} (demo).`)}
+            onReject={(id) => pushSystem(`Rejected attachment ${id} (demo).`)}
+          />
+        </section>
 
+        {/* Center column (Desktop & Tablet) */}
+        <section className="flex-1 flex flex-col gap-3 p-3 min-w-0 overflow-y-auto">
           <StagePanel
             mode={mode}
             activeSceneId={activeSceneId}
@@ -1130,15 +1136,6 @@ export default function MyLiveDealzLiveStudioFullPage() {
 
           <TeleprompterPanel />
 
-          <div className="md:hidden flex flex-col gap-3">
-              <CoHostsPanel coHosts={coHosts} onInvite={(name) => setCoHosts((p) => [...p, { id: p.length + 1, name, status: "Invited" }])} />
-              <AttachmentsPanel
-                attachments={attachments}
-                onApprove={(id) => pushSystem(`Approved attachment ${id} (demo).`)}
-                onReject={(id) => pushSystem(`Rejected attachment ${id} (demo).`)}
-              />
-          </div>
-
           <CommercePanel
                 targetUnits={50}
                 soldUnits={salesCount}
@@ -1148,12 +1145,10 @@ export default function MyLiveDealzLiveStudioFullPage() {
                 flashUrgency={flashUrgency}
                 salesEvents={salesEvents}
               />
-        </div>
 
-        {/* Right Column (Desktop & Tablet) */}
-        <div className="w-full md:w-80 lg:w-96 flex-shrink-0 flex flex-col gap-3 p-3 overflow-y-auto">
-           <div className="hidden md:flex md:flex-col gap-3">
-              <ProductionPanel
+          {/* Panels for mobile view, shown in center column */}
+          <div className="md:hidden flex flex-col gap-3">
+             <ProductionPanel
                 productionMode={productionMode}
                 externalTool={externalTool}
                 activeSourceId={activeSourceId}
@@ -1161,25 +1156,28 @@ export default function MyLiveDealzLiveStudioFullPage() {
                 onChangeExternalTool={setExternalTool}
                 onChangeSource={setActiveSourceId}
               />
-              <InventoryPanel
-                products={products}
-                highlightedId={highlightedProductId}
-                onSelectProduct={setHighlightedProductId}
-                flash={flash}
-                flashUrgency={flashUrgency}
-                onOpenFlash={() => setFlashConfigOpen(true)}
-                onStopFlash={stopFlashDeal}
-                onRestock={restockProduct}
-                getPriceForProduct={getPriceForProduct}
-              />
+               <InventoryPanel
+                  products={products}
+                  highlightedId={highlightedProductId}
+                  onSelectProduct={setHighlightedProductId}
+                  flash={flash}
+                  flashUrgency={flashUrgency}
+                  onOpenFlash={() => setFlashConfigOpen(true)}
+                  onStopFlash={stopFlashDeal}
+                  onRestock={restockProduct}
+                  getPriceForProduct={getPriceForProduct}
+                />
               <CoHostsPanel coHosts={coHosts} onInvite={(name) => setCoHosts((p) => [...p, { id: p.length + 1, name, status: "Invited" }])} />
               <AttachmentsPanel
                 attachments={attachments}
                 onApprove={(id) => pushSystem(`Approved attachment ${id} (demo).`)}
                 onReject={(id) => pushSystem(`Rejected attachment ${id} (demo).`)}
               />
-            </div>
+          </div>
+        </section>
 
+        {/* Right Column (Desktop & Tablet) */}
+        <section className="w-full md:w-80 lg:w-96 flex-shrink-0 flex flex-col gap-3 p-3 overflow-y-auto">
           <AudiencePanel
             activeTab={audienceTab}
             onTabChange={setAudienceTab}
@@ -1204,8 +1202,8 @@ export default function MyLiveDealzLiveStudioFullPage() {
           />
 
           <AiPanel prompts={aiHints} />
-        </div>
-      </div>
+        </section>
+      </main>
 
       {/* Bottom control bar */}
       <div className="sticky bottom-0 z-40">
