@@ -1,12 +1,12 @@
 
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, from 'react';
+import type { PreviewMode, AudienceTab, Product, Scene, CoHost, Attachment, QAItem, Viewer, RunOfShowItem, ChatMessage } from '@/types/studio';
+import { LocalMediaPreview } from './LocalMediaPreview';
 import { useDeviceKind } from '@/hooks/use-mobile';
 import { useStudioStream } from '@/hooks/useStudioSocket';
 import { getCountdownSeconds } from '@/lib/utils';
-import type { PreviewMode, AudienceTab, Product, Scene, CoHost, Attachment, QAItem, Viewer, RunOfShowItem, ChatMessage } from '@/types/studio';
-import { LocalMediaPreview } from './LocalMediaPreview';
 
 const EV_ORANGE = '#f77f00';
 
@@ -65,37 +65,36 @@ const runOfShow: RunOfShowItem[] = [
 export default function CreatorLiveStudio({ streamApiKey }: { streamApiKey: string }) {
   const { state, actions, isConnecting } = useStudioStream('live-dealz-studio', streamApiKey);
   
-  const [darkMode, setDarkMode] = useState(true);
+  const [darkMode, setDarkMode] = React.useState(true);
   
-  const [micOn, setMicOn] = useState(true);
-  const [camOn, setCamOn] = useState(true);
-  const [screenShareOn, setScreenShareOn] = useState(false);
-  const [activeSceneId, setActiveSceneId] = useState("intro");
-  const [activeFilter, setActiveFilter] = useState<string | null>(null);
+  const [micOn, setMicOn] = React.useState(true);
+  const [camOn, setCamOn] = React.useState(true);
+  const [screenShareOn, setScreenShareOn] = React.useState(false);
+  const [activeSceneId, setActiveSceneId] = React.useState("intro");
+  const [activeFilter, setActiveFilter] = React.useState<string | null>(null);
 
-  const [highlightedProductId, setHighlightedProductId] = useState("P-101");
-  const [flashConfigOpen, setFlashConfigOpen] = useState(false);
+  const [highlightedProductId, setHighlightedProductId] = React.useState("P-101");
+  const [flashConfigOpen, setFlashConfigOpen] = React.useState(false);
 
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const [languagePanelOpen, setLanguagePanelOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = React.useState(false);
+  const [languagePanelOpen, setLanguagePanelOpen] = React.useState(false);
 
-  const [audienceTab, setAudienceTab] = useState<AudienceTab>("chat");
+  const [audienceTab, setAudienceTab] = React.useState<AudienceTab>("chat");
 
-  const [previewMode, setPreviewMode] = useState<PreviewMode>("auto");
+  const [previewMode, setPreviewMode] = React.useState<PreviewMode>("auto");
   const deviceKind = useDeviceKind();
   const resolvedPreviewMode: Exclude<PreviewMode, "auto"> =
     previewMode === "auto" ? deviceKind : previewMode;
 
-  const [stageExpanded, setStageExpanded] = useState(false);
-  const [mobilePanel, setMobilePanel] = useState<'products' | 'chat'>("products");
+  const [stageExpanded, setStageExpanded] = React.useState(false);
+  const [mobilePanel, setMobilePanel] = React.useState<'products' | 'chat'>("products");
   
-  // Demo-only state for co-hosts, as this isn't in our core stream state
-  const [coHosts, setCoHosts] = useState<CoHost[]>([
+  const [coHosts, setCoHosts] = React.useState<CoHost[]>([
     { id: 1, name: "Dacy (Producer)", status: "Accepted" },
     { id: 2, name: "Grace (Brand rep)", status: "Pending" },
   ]);
 
-  const [chatDraft, setChatDraft] = useState("");
+  const [chatDraft, setChatDraft] = React.useState("");
 
   const { mode, chat, stats, salesEvents, commerceGoal, flashDeal, momentMarkers, aiPrompts, attachments } = state;
   const { messages: chatMessages } = chat;
@@ -138,7 +137,7 @@ export default function CreatorLiveStudio({ streamApiKey }: { streamApiKey: stri
     ? "min-h-screen flex flex-col bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-50"
     : "min-h-screen flex flex-col bg-slate-50 text-slate-900";
 
-  const cameraHint = useMemo(() => {
+  const cameraHint = React.useMemo(() => {
     if (previewMode === "auto") {
       return `Auto (${deviceKind === "mobile" ? "mobile" : "desktop"})`;
     }
@@ -1209,8 +1208,8 @@ function FiltersTray({ onFilterSelect, activeFilter, onClose }: { onFilterSelect
 }
 
 function FlashDealControl({ onClose, onStart }: { onClose: () => void, onStart: (duration: number, discount: number) => void }) {
-  const [duration, setDuration] = useState(5);
-  const [discount, setDiscount] = useState(15);
+  const [duration, setDuration] = React.useState(5);
+  const [discount, setDiscount] = React.useState(15);
   const durationOptions = [5, 10, 15];
 
   return (

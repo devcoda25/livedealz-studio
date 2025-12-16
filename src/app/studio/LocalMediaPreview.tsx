@@ -73,8 +73,8 @@ export function LocalMediaPreview({ camOn, micOn, screenShareOn, activeFilter }:
 
   return (
     <>
-        <div className={`w-full h-full object-contain z-0 bg-secondary transition-all duration-300 absolute inset-0`}>
-            <video ref={videoRef} className={`w-full h-full object-contain ${camOn || screenShareOn ? '' : 'hidden'}`} autoPlay muted playsInline />
+        <div className={`w-full h-full object-cover z-0 bg-secondary transition-all duration-300 absolute inset-0`}>
+            <video ref={videoRef} className={`w-full h-full object-cover ${camOn || screenShareOn ? '' : 'hidden'}`} autoPlay muted playsInline />
         </div>
       
       { !(camOn || screenShareOn) && (
