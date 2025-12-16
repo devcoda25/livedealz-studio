@@ -22,7 +22,7 @@ const initialState: StudioState = {
   mode: 'lobby',
   startedAt: null,
   chat: { messages: [] },
-  stats: { viewers: 842, sales: 37, connection: 'Excellent', bitrate: '4.5 Mbps', timer: '00:00:00' },
+  stats: { viewers: 842, sales: 37, connection: 'Excellent', bitrate: '4.5 Mbps' },
   salesEvents: [
     { id: 1, label: 'Mary (Kampala) bought GlowUp Serum', time: '18:41' },
     { id: 2, label: '2x GlowUp bundles sold', time: '18:39' },
@@ -101,6 +101,7 @@ export function useStudioStream(channelId: string, apiKey: string) {
   const [channel, setChannel] = useState<Channel | null>(null);
   const [isConnecting, setIsConnecting] = useState(true);
 
+  // This effect manages the real-time connection to Stream
   useEffect(() => {
     let chatClient: StreamChat;
     let currentChannel: Channel;
@@ -108,28 +109,32 @@ export function useStudioStream(channelId: string, apiKey: string) {
     async function initStream() {
       try {
         if (!apiKey) {
-            console.error("Stream API key was not provided to useStudioStream hook.");
-            setIsConnecting(false); 
-            return;
+          console.error("Stream API key was not provided to useStudioStream hook.");
+          setIsConnecting(false);
+          return;
         }
 
         chatClient = StreamChat.getInstance(apiKey);
+
+        // Disconnect any existing user to ensure a clean connection
+        if (chatClient.activeUser) {
+          await chatClient.disconnectUser();
+        }
         
         const userToken = await fetchStreamToken(USER_ID_CREATOR);
         if (!userToken) {
-            setIsConnecting(false);
-            return;
+          console.error("Failed to get user token.");
+          setIsConnecting(false);
+          return;
         }
         
         await chatClient.connectUser(
-          { id: USER_ID_CREATOR, name: 'Live Dealz Creator' },
+          { id: USER_ID_CREATOR, name: 'Live Dealz Creator', role: 'admin' },
           userToken
         );
         
-        currentChannel = chatClient.channel('livestream', channelId, {
-            name: 'Live Dealz Studio',
-        });
-        
+        currentChannel = chatClient.channel('livestream', channelId, {});
+
         // Using watch() is key to getting real-time updates and state
         const channelState = await currentChannel.watch();
         setChannel(currentChannel);
@@ -148,7 +153,6 @@ export function useStudioStream(channelId: string, apiKey: string) {
         }));
         dispatch({ type: 'UPDATE_CUSTOM_STATE', payload: { chat: { messages } } });
         
-
       } catch (error) {
         console.error('Stream connection error:', error);
       } finally {
@@ -157,6 +161,16 @@ export function useStudioStream(channelId: string, apiKey: string) {
     }
 
     initStream();
+
+    return () => {
+      // Cleanup on unmount
+      chatClient?.disconnectUser();
+    };
+  }, [channelId, apiKey]); // Rerun when channelId or apiKey changes
+
+  // This effect handles incoming real-time events from the channel
+  useEffect(() => {
+    if (!channel) return;
 
     const handleEvent = (event: Event) => {
         if (event.type === 'message.new' && event.message) {
@@ -170,7 +184,6 @@ export function useStudioStream(channelId: string, apiKey: string) {
                        type: attachmentData.type as 'image' | 'question',
                        label: attachmentData.title || 'New Attachment',
                        status: 'Pending',
-                       // In a real app, you'd handle the file properly
                        file: { name: attachmentData.title || "file" } as File, 
                    };
                    dispatch({ type: 'ADD_ATTACHMENT', payload: newAttachment });
@@ -192,17 +205,31 @@ export function useStudioStream(channelId: string, apiKey: string) {
         }
     };
     
-    if (channel) {
-        channel.on(handleEvent);
-    }
+    const listener = channel.on(handleEvent);
     
     return () => {
-      if (channel) {
-        channel.off(handleEvent);
-      }
-      chatClient?.disconnectUser();
+      // Cleanup on unmount
+      listener.unsubscribe();
     };
-  }, [channelId, apiKey, channel]);
+  }, [channel]);
+
+  // This effect updates the timer every second when the stream is live
+  useEffect(() => {
+    if (state.mode !== 'live' || !state.startedAt) {
+      if (state.stats.timer !== '00:00:00') {
+        dispatch({ type: 'UPDATE_CUSTOM_STATE', payload: { stats: { ...state.stats, timer: '00:00:00' } } });
+      }
+      return;
+    }
+
+    const interval = setInterval(() => {
+      const elapsed = (Date.now() - state.startedAt!) / 1000;
+      dispatch({ type: 'UPDATE_CUSTOM_STATE', payload: { stats: { ...state.stats, timer: formatTimer(elapsed) } } });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [state.mode, state.startedAt, state.stats]);
+
 
   const updateChannelState = useCallback(async (newState: Partial<StudioState>) => {
     if (!channel) return;
@@ -223,10 +250,7 @@ export function useStudioStream(channelId: string, apiKey: string) {
 
   const sendAttachment = useCallback(async (file: File) => {
     if (!channel) return;
-    // First, upload the file to Stream's CDN
     const response = await channel.sendImage(file);
-    
-    // Then, send a message flagged for moderation. This won't appear in the main chat.
     await channel.sendMessage({
       text: `Attachment for approval: ${file.name}`,
       attachments: [{
@@ -235,15 +259,14 @@ export function useStudioStream(channelId: string, apiKey: string) {
           image_url: response.file,
           thumb_url: response.file,
       }],
-      for_moderation: true, // Custom flag
-      silent: true, // Don't trigger push notifications
-      show_in_channel: false, // Don't show in main channel UI
+      for_moderation: true,
+      silent: true,
+      show_in_channel: false,
     });
 
-    // We also update the local state immediately for the moderator UI
     const newAttachment: Attachment = {
         id: Date.now(),
-        from: 'You', // Since creator is sending it
+        from: 'You',
         type: 'image',
         label: file.name,
         status: 'Pending',
@@ -287,20 +310,16 @@ export function useStudioStream(channelId: string, apiKey: string) {
   }, [state.flashDeal, updateChannelState]);
 
   const moderateAttachment = useCallback((attachmentId: number, status: 'approved' | 'rejected') => {
-    // This action would typically happen on a backend for security.
-    // For the client-side simulation, we just remove it from the queue.
     const updatedAttachments = state.attachments.filter(a => a.id !== attachmentId);
 
     if (status === 'approved') {
         const approvedAttachment = state.attachments.find(a => a.id === attachmentId);
         if (approvedAttachment && channel) {
-            // If approved, send a new message to the channel that IS visible
             channel.sendMessage({
                 text: `Attachment from ${approvedAttachment.from}:`,
                 attachments: [{
                     type: 'image',
                     title: approvedAttachment.label,
-                    // In a real app, you'd have the URL from the moderation event
                     image_url: 'https://placehold.co/400x300/orange/white?text=Approved',
                     thumb_url: 'https://placehold.co/400x300/orange/white?text=Approved'
                 }]
