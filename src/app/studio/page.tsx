@@ -18,3 +18,7 @@ export default function StudioPage() {
         </div>
       </div>
     );
+  }
+
+  return <CreatorLiveStudio streamApiKey={streamApiKey} />;
+}
