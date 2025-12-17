@@ -1,9 +1,11 @@
 
+
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
+import { X } from "lucide-react";
 
 /**
  * MyLiveDealz Creator Live Studio (clean-code, single-file page)
@@ -285,6 +287,9 @@ export default function MyLiveDealzLiveStudioFullPage() {
   const [screenShareOn, setScreenShareOn] = useState(false);
   
   const videoRef = useRef<HTMLVideoElement>(null);
+  const expandedVideoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
   const [hasCameraPermission, setHasCameraPermission] = useState(true);
   const { toast } = useToast();
 
@@ -370,8 +375,11 @@ export default function MyLiveDealzLiveStudioFullPage() {
 
   // Client-side only data initialization to prevent hydration errors
   useEffect(() => {
+    // Only run simulation setup once on the client
+    if (simulate) return;
+
     setProducts(INITIAL_PRODUCTS);
-    setHighlightedProductId(INITIAL_PRODUCTS[0].id);
+    setHighlightedProductId(INITIAL_PRODUCTS[0]?.id ?? null);
     setCoHosts([
       { id: 1, name: "Dacy (Producer)", status: "Accepted" },
       { id: 2, name: "Grace (Brand rep)", status: "Pending" },
@@ -384,11 +392,12 @@ export default function MyLiveDealzLiveStudioFullPage() {
     setSalesCount(37);
     setLast5MinSales(5);
     setViewers(createInitialViewers());
-    setBuyers(INITIAL_BUYERS);
-    if(INITIAL_BUYERS.length > 0) {
-      setSelectedBuyerId(INITIAL_BUYERS[0].id);
+    
+    const initialBuyers = INITIAL_BUYERS;
+    setBuyers(initialBuyers);
+    if(initialBuyers.length > 0) {
+      setSelectedBuyerId(initialBuyers[0].id);
     }
-
 
     setChatMessages([
       {
@@ -429,6 +438,7 @@ export default function MyLiveDealzLiveStudioFullPage() {
         createdAt: Date.now() - 60000,
       },
     ]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   
   useEffect(() => {
@@ -446,6 +456,7 @@ export default function MyLiveDealzLiveStudioFullPage() {
 
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        streamRef.current = stream;
         setHasCameraPermission(true);
 
         if (videoRef.current) {
@@ -463,7 +474,22 @@ export default function MyLiveDealzLiveStudioFullPage() {
     };
 
     getCameraPermission();
+     // Cleanup function
+     return () => {
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => track.stop());
+        }
+    };
   }, [toast]);
+
+  useEffect(() => {
+    if (streamRef.current) {
+        const targetRef = stageExpanded ? expandedVideoRef : videoRef;
+        if (targetRef.current) {
+            targetRef.current.srcObject = streamRef.current;
+        }
+    }
+  }, [stageExpanded]);
 
 
   // keep active source synced to production mode/tool
@@ -1010,6 +1036,7 @@ export default function MyLiveDealzLiveStudioFullPage() {
   const featuredPriceInfo = useMemo(() => {
     if (!featuredProduct) return { price: 0, applies: false };
     return getPriceForProduct(featuredProduct)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [featuredProduct, flash.active, flash.discountPct, flash.productId, flash.secondsLeft]);
 
   const rootClass = darkMode
@@ -1197,31 +1224,29 @@ export default function MyLiveDealzLiveStudioFullPage() {
 
             {/* Right Column */}
             <section className="w-full md:w-80 lg:w-96 flex-shrink-0 flex flex-col gap-3 min-h-0">
-                <div className="flex flex-col gap-3 overflow-y-auto">
-                    <AudiencePanel
-                        activeTab={audienceTab}
-                        onTabChange={setAudienceTab}
-                        messages={chatMessages}
-                        qaItems={qaItems}
-                        viewers={viewers}
-                        liveLangMix={liveLangMix}
-                        audioRequests={audioRequests}
-                        currentSpeaker={currentSpeaker}
-                        speakerSecondsLeft={speakerSecondsLeft}
-                        onAcceptAudio={acceptAudioRequest}
-                        onDeclineAudio={declineAudioRequest}
-                        onEndSpeaker={endCurrentSpeaker}
-                        draft={chatDraft}
-                        onDraftChange={setChatDraft}
-                        onSend={() => {
-                        const t = chatDraft.trim();
-                        if (!t) return;
-                        setChatMessages((prev) => [...prev, { id: uid("m"), from: "You", body: t, time: nowTimeLabel() }].slice(-120));
-                        setChatDraft("");
-                        }}
-                    />
-                    <AiPanel prompts={aiHints} />
-                </div>
+                <AudiencePanel
+                    activeTab={audienceTab}
+                    onTabChange={setAudienceTab}
+                    messages={chatMessages}
+                    qaItems={qaItems}
+                    viewers={viewers}
+                    liveLangMix={liveLangMix}
+                    audioRequests={audioRequests}
+                    currentSpeaker={currentSpeaker}
+                    speakerSecondsLeft={speakerSecondsLeft}
+                    onAcceptAudio={acceptAudioRequest}
+                    onDeclineAudio={declineAudioRequest}
+                    onEndSpeaker={endCurrentSpeaker}
+                    draft={chatDraft}
+                    onDraftChange={setChatDraft}
+                    onSend={() => {
+                    const t = chatDraft.trim();
+                    if (!t) return;
+                    setChatMessages((prev) => [...prev, { id: uid("m"), from: "You", body: t, time: nowTimeLabel() }].slice(-120));
+                    setChatDraft("");
+                    }}
+                />
+                <AiPanel prompts={aiHints} />
             </section>
           </div>
         </div>
@@ -1289,7 +1314,7 @@ export default function MyLiveDealzLiveStudioFullPage() {
           flashUrgency={flashUrgency}
           currentSpeaker={currentSpeaker}
           speakerSecondsLeft={speakerSecondsLeft}
-          videoRef={videoRef}
+          videoRef={expandedVideoRef}
           hasCameraPermission={hasCameraPermission}
         />
       )}
@@ -2374,7 +2399,7 @@ function AudiencePanel(props: {
   };
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 flex flex-col overflow-hidden">
+    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 flex flex-col overflow-hidden flex-1 min-h-0">
       <div className="mb-2 flex items-start justify-between gap-2">
         <div>
           <h3 className="text-xs font-semibold">Live audience</h3>
@@ -2448,7 +2473,7 @@ function AudiencePanel(props: {
         {renderBody()}
       </div>
 
-      <div className="flex items-center gap-1 text-[10px]">
+      <div className="flex items-center gap-1 text-[10px] mt-2">
         <button className="h-7 w-7 rounded-full border border-slate-700 text-slate-200 flex items-center justify-center" title="Audio tools" onClick={() => onTabChange("viewers")}>
           <span className="material-icons text-[16px]">mic</span>
         </button>
@@ -2795,6 +2820,12 @@ function ExpandedStageModal(props: {
     };
   }, []);
 
+  const handleClose = async () => {
+    const fsEl = getFullscreenElement();
+    if (fsEl) await exitFullscreen();
+    onClose();
+  };
+
   const toggleFullscreen = async () => {
     try {
       if (!containerRef.current) return;
@@ -2808,7 +2839,7 @@ function ExpandedStageModal(props: {
 
   return (
     <div className="fixed inset-0 z-[80] bg-black/75 flex items-center justify-center p-4">
-      <div className="w-full max-w-6xl">
+      <div className="w-full max-w-6xl relative">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-white">Expanded preview</span>
@@ -2827,17 +2858,21 @@ function ExpandedStageModal(props: {
             </button>
             <button
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-600 text-slate-100 hover:bg-slate-900 text-[11px]"
-              onClick={async () => {
-                const fsEl = getFullscreenElement();
-                if (fsEl) await exitFullscreen();
-                onClose();
-              }}
+              onClick={handleClose}
             >
               <span className="material-icons text-[14px]">close</span>
               Close
             </button>
           </div>
         </div>
+
+        <button 
+            onClick={handleClose} 
+            className="absolute -top-2 -right-2 z-10 h-8 w-8 rounded-full bg-slate-800/80 text-white flex items-center justify-center hover:bg-slate-700"
+            aria-label="Close expanded view"
+        >
+            <X size={20} />
+        </button>
 
         <div
           ref={containerRef}
@@ -2871,5 +2906,3 @@ function ExpandedStageModal(props: {
     </div>
   );
 }
-
-    
