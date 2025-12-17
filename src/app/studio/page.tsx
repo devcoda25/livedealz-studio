@@ -2469,7 +2469,7 @@ function AudiencePanel(props: {
         {renderBody()}
       </div>
 
-      <div className="flex items-center gap-1 text-[10px]">
+      <div className="flex items-center gap-1 text-[10px] pt-2">
         <button className="h-7 w-7 rounded-full border border-slate-700 text-slate-200 flex items-center justify-center" title="Audio tools" onClick={() => onTabChange("viewers")}>
           <span className="material-icons text-[16px]">mic</span>
         </button>
@@ -2672,43 +2672,37 @@ function FlashDealDialog(props: { onClose: () => void; onStart: (durationMin: nu
 
   const handleMouseDown = (e: React.MouseEvent) => {
     isDraggingRef.current = true;
-    // Prevent text selection while dragging
     e.preventDefault();
   };
-
-  const handleMouseMove = (e: MouseEvent) => {
-    if (isDraggingRef.current) {
-        setPosition(prev => ({
-            x: prev.x + e.movementX,
-            y: prev.y + e.movementY,
-        }));
-    }
-  };
-
-  const handleMouseUp = () => {
-    isDraggingRef.current = false;
-  };
-
+  
   useEffect(() => {
-    const handleGlobalMouseMove = (e: MouseEvent) => handleMouseMove(e);
-    const handleGlobalMouseUp = () => handleMouseUp();
+    const handleMouseMove = (e: MouseEvent) => {
+      if (isDraggingRef.current) {
+        setPosition((pos) => ({
+          x: pos.x + e.movementX,
+          y: pos.y + e.movementY,
+        }));
+      }
+    };
+
+    const handleMouseUp = () => {
+      isDraggingRef.current = false;
+    };
 
     if (isDraggingRef.current) {
-        // This is a subtle but important check. If we are dragging, we want to listen on the window
-        // so that the drag continues even if the cursor leaves the dialog header.
-        window.addEventListener("mousemove", handleGlobalMouseMove);
-        window.addEventListener("mouseup", handleGlobalMouseUp);
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
     }
-
+    
     // Always listen to mouseup on the window to catch the case where the mouse is released outside the component
-    window.addEventListener("mouseup", handleGlobalMouseUp);
+    window.addEventListener("mouseup", handleMouseUp);
+
 
     return () => {
-        window.removeEventListener("mousemove", handleGlobalMouseMove);
-        window.removeEventListener("mouseup", handleGlobalMouseUp);
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, []); // Re-run this effect only once to set up global listeners that check the ref
-
+  }, [isDraggingRef.current]); // Re-run when dragging starts/stops
 
   return (
     <div 
