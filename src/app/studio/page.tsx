@@ -1088,122 +1088,124 @@ export default function MyLiveDealzLiveStudioFullPage() {
           />
         </section>
 
-        {/* Center column (Desktop & Tablet) */}
-        <section className="flex-1 flex flex-col gap-3 p-3 min-w-0 overflow-y-auto">
-          <StagePanel
-            mode={mode}
-            activeSceneId={activeSceneId}
-            onChangeScene={setActiveSceneId}
-            previewMode={previewMode}
-            onChangePreviewMode={setPreviewMode}
-            resolvedPreviewMode={resolvedPreviewMode}
-            cameraHint={cameraHint}
-            liveTimerLabel={liveTimerLabel}
-            viewerCount={viewerCount}
-            langMix={liveLangMix}
-            productionMode={productionMode}
-            externalTool={externalTool}
-            activeSourceId={activeSourceId}
-            flash={flash}
-            flashUrgency={flashUrgency}
-            micOn={micOn}
-            camOn={camOn}
-            screenShareOn={screenShareOn}
-            currentSpeaker={currentSpeaker}
-            speakerSecondsLeft={speakerSecondsLeft}
-            onExpand={() => setStageExpanded(true)}
-          />
-
-          {featuredProduct && selectedBuyer && (
-            <BuyerSimulatorPanel
-              buyers={buyers}
-              selectedBuyerId={selectedBuyerId}
-              onSelectBuyer={setSelectedBuyerId}
-              featuredProduct={featuredProduct}
-              featuredPrice={featuredPriceInfo}
-              flashOnFeatured={flashOnFeatured}
-              flashDiscountPct={flash.discountPct}
-              flashSecondsLeft={flash.secondsLeft}
+        <div className="flex-1 flex min-w-0 gap-3 p-3">
+          {/* Center column */}
+          <section className="flex-1 flex flex-col gap-3 min-w-0 overflow-y-auto">
+            <StagePanel
+              mode={mode}
+              activeSceneId={activeSceneId}
+              onChangeScene={setActiveSceneId}
+              previewMode={previewMode}
+              onChangePreviewMode={setPreviewMode}
+              resolvedPreviewMode={resolvedPreviewMode}
+              cameraHint={cameraHint}
+              liveTimerLabel={liveTimerLabel}
+              viewerCount={viewerCount}
+              langMix={liveLangMix}
+              productionMode={productionMode}
+              externalTool={externalTool}
+              activeSourceId={activeSourceId}
+              flash={flash}
               flashUrgency={flashUrgency}
-              selectedBuyerHasReminder={selectedBuyerHasReminder}
-              selectedBuyerCartQty={selectedBuyerCartQty}
-              outOfStock={featuredOOS}
-              lowStock={featuredLow}
-              onBuyNow={() => buyerBuyNow(selectedBuyer.id, featuredProduct!.id, 1)}
-              onAddToCart={() => buyerAddToCart(selectedBuyer.id, featuredProduct!.id, 1)}
-              onRemindMe={() => buyerSetReminder(selectedBuyer.id, featuredProduct!.id)}
+              micOn={micOn}
+              camOn={camOn}
+              screenShareOn={screenShareOn}
+              currentSpeaker={currentSpeaker}
+              speakerSecondsLeft={speakerSecondsLeft}
+              onExpand={() => setStageExpanded(true)}
             />
-          )}
 
-          <TeleprompterPanel />
-
-          <CommercePanel
-                targetUnits={50}
-                soldUnits={salesCount}
-                cartCount={totalCartItems}
-                last5MinSales={last5MinSales}
-                flash={flash}
+            {featuredProduct && selectedBuyer && (
+              <BuyerSimulatorPanel
+                buyers={buyers}
+                selectedBuyerId={selectedBuyerId}
+                onSelectBuyer={setSelectedBuyerId}
+                featuredProduct={featuredProduct}
+                featuredPrice={featuredPriceInfo}
+                flashOnFeatured={flashOnFeatured}
+                flashDiscountPct={flash.discountPct}
+                flashSecondsLeft={flash.secondsLeft}
                 flashUrgency={flashUrgency}
-                salesEvents={salesEvents}
+                selectedBuyerHasReminder={selectedBuyerHasReminder}
+                selectedBuyerCartQty={selectedBuyerCartQty}
+                outOfStock={featuredOOS}
+                lowStock={featuredLow}
+                onBuyNow={() => buyerBuyNow(selectedBuyer.id, featuredProduct!.id, 1)}
+                onAddToCart={() => buyerAddToCart(selectedBuyer.id, featuredProduct!.id, 1)}
+                onRemindMe={() => buyerSetReminder(selectedBuyer.id, featuredProduct!.id)}
               />
+            )}
 
-          {/* Panels for mobile view, shown in center column */}
-          <div className="md:hidden flex flex-col gap-3">
-             <ProductionPanel
-                productionMode={productionMode}
-                externalTool={externalTool}
-                activeSourceId={activeSourceId}
-                onChangeProductionMode={setProductionMode}
-                onChangeExternalTool={setExternalTool}
-                onChangeSource={setActiveSourceId}
-              />
-               <InventoryPanel
-                  products={products}
-                  highlightedId={highlightedProductId}
-                  onSelectProduct={setHighlightedProductId}
+            <TeleprompterPanel />
+
+            <CommercePanel
+                  targetUnits={50}
+                  soldUnits={salesCount}
+                  cartCount={totalCartItems}
+                  last5MinSales={last5MinSales}
                   flash={flash}
                   flashUrgency={flashUrgency}
-                  onOpenFlash={() => setFlashConfigOpen(true)}
-                  onStopFlash={stopFlashDeal}
-                  onRestock={restockProduct}
-                  getPriceForProduct={getPriceForProduct}
+                  salesEvents={salesEvents}
                 />
-              <CoHostsPanel coHosts={coHosts} onInvite={(name) => setCoHosts((p) => [...p, { id: p.length + 1, name, status: "Invited" }])} />
-              <AttachmentsPanel
-                attachments={attachments}
-                onApprove={(id) => pushSystem(`Approved attachment ${id} (demo).`)}
-                onReject={(id) => pushSystem(`Rejected attachment ${id} (demo).`)}
-              />
-          </div>
-        </section>
 
-        {/* Right Column (Desktop & Tablet) */}
-        <section className="w-full md:w-80 lg:w-96 flex-shrink-0 flex flex-col gap-3 p-3 overflow-y-auto">
-          <AudiencePanel
-            activeTab={audienceTab}
-            onTabChange={setAudienceTab}
-            messages={chatMessages}
-            qaItems={qaItems}
-            viewers={viewers}
-            langMix={liveLangMix}
-            audioRequests={audioRequests}
-            currentSpeaker={currentSpeaker}
-            speakerSecondsLeft={speakerSecondsLeft}
-            onAcceptAudio={acceptAudioRequest}
-            onDeclineAudio={declineAudioRequest}
-            onEndSpeaker={endCurrentSpeaker}
-            draft={chatDraft}
-            onDraftChange={setChatDraft}
-            onSend={() => {
-              const t = chatDraft.trim();
-              if (!t) return;
-              setChatMessages((prev) => [...prev, { id: uid("m"), from: "You", body: t, time: nowTimeLabel() }].slice(-120));
-              setChatDraft("");
-            }}
-          />
+            {/* Panels for mobile view, shown in center column */}
+            <div className="md:hidden flex flex-col gap-3">
+               <ProductionPanel
+                  productionMode={productionMode}
+                  externalTool={externalTool}
+                  activeSourceId={activeSourceId}
+                  onChangeProductionMode={setProductionMode}
+                  onChangeExternalTool={setExternalTool}
+                  onChangeSource={setActiveSourceId}
+                />
+                 <InventoryPanel
+                    products={products}
+                    highlightedId={highlightedProductId}
+                    onSelectProduct={setHighlightedProductId}
+                    flash={flash}
+                    flashUrgency={flashUrgency}
+                    onOpenFlash={() => setFlashConfigOpen(true)}
+                    onStopFlash={stopFlashDeal}
+                    onRestock={restockProduct}
+                    getPriceForProduct={getPriceForProduct}
+                  />
+                <CoHostsPanel coHosts={coHosts} onInvite={(name) => setCoHosts((p) => [...p, { id: p.length + 1, name, status: "Invited" }])} />
+                <AttachmentsPanel
+                  attachments={attachments}
+                  onApprove={(id) => pushSystem(`Approved attachment ${id} (demo).`)}
+                  onReject={(id) => pushSystem(`Rejected attachment ${id} (demo).`)}
+                />
+            </div>
+          </section>
 
-          <AiPanel prompts={aiHints} />
-        </section>
+          {/* Right Column */}
+          <section className="w-full md:w-80 lg:w-96 flex-shrink-0 flex flex-col gap-3 overflow-y-auto">
+            <AudiencePanel
+              activeTab={audienceTab}
+              onTabChange={setAudienceTab}
+              messages={chatMessages}
+              qaItems={qaItems}
+              viewers={viewers}
+              langMix={liveLangMix}
+              audioRequests={audioRequests}
+              currentSpeaker={currentSpeaker}
+              speakerSecondsLeft={speakerSecondsLeft}
+              onAcceptAudio={acceptAudioRequest}
+              onDeclineAudio={declineAudioRequest}
+              onEndSpeaker={endCurrentSpeaker}
+              draft={chatDraft}
+              onDraftChange={setChatDraft}
+              onSend={() => {
+                const t = chatDraft.trim();
+                if (!t) return;
+                setChatMessages((prev) => [...prev, { id: uid("m"), from: "You", body: t, time: nowTimeLabel() }].slice(-120));
+                setChatDraft("");
+              }}
+            />
+
+            <AiPanel prompts={aiHints} />
+          </section>
+        </div>
       </main>
 
       {/* Bottom control bar */}
@@ -2339,7 +2341,7 @@ function AudiencePanel(props: {
   };
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 flex flex-col overflow-hidden">
+    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 flex flex-col flex-1 overflow-hidden">
       <div className="mb-2 flex items-start justify-between gap-2">
         <div>
           <h3 className="text-xs font-semibold">Live audience</h3>
@@ -2413,7 +2415,7 @@ function AudiencePanel(props: {
         {renderBody()}
       </div>
 
-      <div className="mt-1 flex items-center gap-1 text-[10px]">
+      <div className="flex items-center gap-1 text-[10px]">
         <button className="h-7 w-7 rounded-full border border-slate-700 text-slate-200 flex items-center justify-center" title="Audio tools" onClick={() => onTabChange("viewers")}>
           <span className="material-icons text-[16px]">mic</span>
         </button>
@@ -2830,4 +2832,3 @@ function ExpandedStageModal(props: {
     </div>
   );
 }
-
