@@ -1,8 +1,9 @@
 
-
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useToast } from "@/hooks/use-toast";
 
 /**
  * MyLiveDealz Creator Live Studio (clean-code, single-file page)
@@ -282,11 +283,15 @@ export default function MyLiveDealzLiveStudioFullPage() {
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(true);
   const [screenShareOn, setScreenShareOn] = useState(false);
+  
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [hasCameraPermission, setHasCameraPermission] = useState(true);
+  const { toast } = useToast();
 
   // Production
-  const [productionMode, setProductionMode] = useState<ProductionMode>("external");
+  const [productionMode, setProductionMode] = useState<ProductionMode>("inapp");
   const [externalTool, setExternalTool] = useState<ExternalTool>("OBS");
-  const [activeSourceId, setActiveSourceId] = useState<SourceId>("obs");
+  const [activeSourceId, setActiveSourceId] = useState<SourceId>("cam1");
 
   // Scenes + preview
   const [activeSceneId, setActiveSceneId] = useState<SceneId>("intro");
@@ -425,6 +430,41 @@ export default function MyLiveDealzLiveStudioFullPage() {
       },
     ]);
   }, []);
+  
+  useEffect(() => {
+    const getCameraPermission = async () => {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        console.error("Camera API not available in this browser.");
+        setHasCameraPermission(false);
+        toast({
+          variant: 'destructive',
+          title: 'Camera Not Available',
+          description: 'Your browser does not support camera access.',
+        });
+        return;
+      }
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        setHasCameraPermission(true);
+
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      } catch (error) {
+        console.error('Error accessing camera:', error);
+        setHasCameraPermission(false);
+        toast({
+          variant: 'destructive',
+          title: 'Camera Access Denied',
+          description: 'Please enable camera permissions in your browser settings to use this app.',
+        });
+      }
+    };
+
+    getCameraPermission();
+  }, [toast]);
+
 
   // keep active source synced to production mode/tool
   useEffect(() => {
@@ -1059,152 +1099,131 @@ export default function MyLiveDealzLiveStudioFullPage() {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col md:flex-row overflow-hidden">
-        {/* Left column (Desktop & Tablet) */}
-        <section className="hidden md:flex flex-col gap-3 p-3 w-72 lg:w-80 flex-shrink-0 overflow-y-auto">
-          <ProductionPanel
-            productionMode={productionMode}
-            externalTool={externalTool}
-            activeSourceId={activeSourceId}
-            onChangeProductionMode={setProductionMode}
-            onChangeExternalTool={setExternalTool}
-            onChangeSource={setActiveSourceId}
-          />
-          <InventoryPanel
-            products={products}
-            highlightedId={highlightedProductId}
-            onSelectProduct={setHighlightedProductId}
-            flash={flash}
-            flashUrgency={flashUrgency}
-            onOpenFlash={() => setFlashConfigOpen(true)}
-            onStopFlash={stopFlashDeal}
-            onRestock={restockProduct}
-            getPriceForProduct={getPriceForProduct}
-          />
-          <CoHostsPanel coHosts={coHosts} onInvite={(name) => setCoHosts((p) => [...p, { id: p.length + 1, name, status: "Invited" }])} />
-          <AttachmentsPanel
-            attachments={attachments}
-            onApprove={(id) => pushSystem(`Approved attachment ${id} (demo).`)}
-            onReject={(id) => pushSystem(`Rejected attachment ${id} (demo).`)}
-          />
-        </section>
-
-        <div className="flex-1 flex min-w-0 gap-3 p-3">
-          {/* Center column */}
-          <section className="flex-1 flex flex-col gap-3 min-w-0 overflow-y-auto">
-            <StagePanel
-              mode={mode}
-              activeSceneId={activeSceneId}
-              onChangeScene={setActiveSceneId}
-              previewMode={previewMode}
-              onChangePreviewMode={setPreviewMode}
-              resolvedPreviewMode={resolvedPreviewMode}
-              cameraHint={cameraHint}
-              liveTimerLabel={liveTimerLabel}
-              viewerCount={viewerCount}
-              langMix={liveLangMix}
+        {/* Responsive wrapper */}
+        <div className="flex-1 flex flex-col md:flex-row gap-3 p-3 min-w-0">
+          
+          {/* Left Column (visible on all sizes, but stacked on mobile) */}
+          <section className="flex flex-col gap-3 w-full md:w-72 lg:w-80 flex-shrink-0">
+            <ProductionPanel
               productionMode={productionMode}
               externalTool={externalTool}
               activeSourceId={activeSourceId}
+              onChangeProductionMode={setProductionMode}
+              onChangeExternalTool={setExternalTool}
+              onChangeSource={setActiveSourceId}
+            />
+            <InventoryPanel
+              products={products}
+              highlightedId={highlightedProductId}
+              onSelectProduct={setHighlightedProductId}
               flash={flash}
               flashUrgency={flashUrgency}
-              micOn={micOn}
-              camOn={camOn}
-              screenShareOn={screenShareOn}
-              currentSpeaker={currentSpeaker}
-              speakerSecondsLeft={speakerSecondsLeft}
-              onExpand={() => setStageExpanded(true)}
+              onOpenFlash={() => setFlashConfigOpen(true)}
+              onStopFlash={stopFlashDeal}
+              onRestock={restockProduct}
+              getPriceForProduct={getPriceForProduct}
             />
+            <CoHostsPanel coHosts={coHosts} onInvite={(name) => setCoHosts((p) => [...p, { id: p.length + 1, name, status: "Invited" }])} />
+            <AttachmentsPanel
+              attachments={attachments}
+              onApprove={(id) => pushSystem(`Approved attachment ${id} (demo).`)}
+              onReject={(id) => pushSystem(`Rejected attachment ${id} (demo).`)}
+            />
+          </section>
 
-            {featuredProduct && selectedBuyer && (
-              <BuyerSimulatorPanel
-                buyers={buyers}
-                selectedBuyerId={selectedBuyerId}
-                onSelectBuyer={setSelectedBuyerId}
-                featuredProduct={featuredProduct}
-                featuredPrice={featuredPriceInfo}
-                flashOnFeatured={flashOnFeatured}
-                flashDiscountPct={flash.discountPct}
-                flashSecondsLeft={flash.secondsLeft}
+          {/* Center and Right columns wrapper */}
+          <div className="flex-1 flex flex-col md:flex-row gap-3 min-w-0 min-h-0">
+            {/* Center column */}
+            <section className="flex-1 flex flex-col gap-3 min-w-0 overflow-y-auto">
+              <StagePanel
+                mode={mode}
+                activeSceneId={activeSceneId}
+                onChangeScene={setActiveSceneId}
+                previewMode={previewMode}
+                onChangePreviewMode={setPreviewMode}
+                resolvedPreviewMode={resolvedPreviewMode}
+                cameraHint={cameraHint}
+                liveTimerLabel={liveTimerLabel}
+                viewerCount={viewerCount}
+                liveLangMix={liveLangMix}
+                productionMode={productionMode}
+                externalTool={externalTool}
+                activeSourceId={activeSourceId}
+                flash={flash}
                 flashUrgency={flashUrgency}
-                selectedBuyerHasReminder={selectedBuyerHasReminder}
-                selectedBuyerCartQty={selectedBuyerCartQty}
-                outOfStock={featuredOOS}
-                lowStock={featuredLow}
-                onBuyNow={() => buyerBuyNow(selectedBuyer.id, featuredProduct!.id, 1)}
-                onAddToCart={() => buyerAddToCart(selectedBuyer.id, featuredProduct!.id, 1)}
-                onRemindMe={() => buyerSetReminder(selectedBuyer.id, featuredProduct!.id)}
+                micOn={micOn}
+                camOn={camOn}
+                screenShareOn={screenShareOn}
+                currentSpeaker={currentSpeaker}
+                speakerSecondsLeft={speakerSecondsLeft}
+                onExpand={() => setStageExpanded(true)}
+                videoRef={videoRef}
+                hasCameraPermission={hasCameraPermission}
               />
-            )}
 
-            <TeleprompterPanel />
-
-            <CommercePanel
-                  targetUnits={50}
-                  soldUnits={salesCount}
-                  cartCount={totalCartItems}
-                  last5MinSales={last5MinSales}
-                  flash={flash}
+              {featuredProduct && selectedBuyer && (
+                <BuyerSimulatorPanel
+                  buyers={buyers}
+                  selectedBuyerId={selectedBuyerId}
+                  onSelectBuyer={setSelectedBuyerId}
+                  featuredProduct={featuredProduct}
+                  featuredPrice={featuredPriceInfo}
+                  flashOnFeatured={flashOnFeatured}
+                  flashDiscountPct={flash.discountPct}
+                  flashSecondsLeft={flash.secondsLeft}
                   flashUrgency={flashUrgency}
-                  salesEvents={salesEvents}
+                  selectedBuyerHasReminder={selectedBuyerHasReminder}
+                  selectedBuyerCartQty={selectedBuyerCartQty}
+                  outOfStock={featuredOOS}
+                  lowStock={featuredLow}
+                  onBuyNow={() => buyerBuyNow(selectedBuyer.id, featuredProduct!.id, 1)}
+                  onAddToCart={() => buyerAddToCart(selectedBuyer.id, featuredProduct!.id, 1)}
+                  onRemindMe={() => buyerSetReminder(selectedBuyer.id, featuredProduct!.id)}
                 />
+              )}
 
-            {/* Panels for mobile view, shown in center column */}
-            <div className="md:hidden flex flex-col gap-3">
-               <ProductionPanel
-                  productionMode={productionMode}
-                  externalTool={externalTool}
-                  activeSourceId={activeSourceId}
-                  onChangeProductionMode={setProductionMode}
-                  onChangeExternalTool={setExternalTool}
-                  onChangeSource={setActiveSourceId}
-                />
-                 <InventoryPanel
-                    products={products}
-                    highlightedId={highlightedProductId}
-                    onSelectProduct={setHighlightedProductId}
-                    flash={flash}
-                    flashUrgency={flashUrgency}
-                    onOpenFlash={() => setFlashConfigOpen(true)}
-                    onStopFlash={stopFlashDeal}
-                    onRestock={restockProduct}
-                    getPriceForProduct={getPriceForProduct}
-                  />
-                <CoHostsPanel coHosts={coHosts} onInvite={(name) => setCoHosts((p) => [...p, { id: p.length + 1, name, status: "Invited" }])} />
-                <AttachmentsPanel
-                  attachments={attachments}
-                  onApprove={(id) => pushSystem(`Approved attachment ${id} (demo).`)}
-                  onReject={(id) => pushSystem(`Rejected attachment ${id} (demo).`)}
-                />
-            </div>
-          </section>
+              <TeleprompterPanel />
 
-          {/* Right Column */}
-          <section className="w-full md:w-80 lg:w-96 flex-shrink-0 flex flex-col gap-3 overflow-y-auto">
-            <AudiencePanel
-              activeTab={audienceTab}
-              onTabChange={setAudienceTab}
-              messages={chatMessages}
-              qaItems={qaItems}
-              viewers={viewers}
-              langMix={liveLangMix}
-              audioRequests={audioRequests}
-              currentSpeaker={currentSpeaker}
-              speakerSecondsLeft={speakerSecondsLeft}
-              onAcceptAudio={acceptAudioRequest}
-              onDeclineAudio={declineAudioRequest}
-              onEndSpeaker={endCurrentSpeaker}
-              draft={chatDraft}
-              onDraftChange={setChatDraft}
-              onSend={() => {
-                const t = chatDraft.trim();
-                if (!t) return;
-                setChatMessages((prev) => [...prev, { id: uid("m"), from: "You", body: t, time: nowTimeLabel() }].slice(-120));
-                setChatDraft("");
-              }}
-            />
+              <CommercePanel
+                targetUnits={50}
+                soldUnits={salesCount}
+                cartCount={totalCartItems}
+                last5MinSales={last5MinSales}
+                flash={flash}
+                flashUrgency={flashUrgency}
+                salesEvents={salesEvents}
+              />
+            </section>
 
-            <AiPanel prompts={aiHints} />
-          </section>
+            {/* Right Column */}
+            <section className="w-full md:w-80 lg:w-96 flex-shrink-0 flex flex-col gap-3 min-h-0">
+                <div className="flex flex-col gap-3 overflow-y-auto">
+                    <AudiencePanel
+                        activeTab={audienceTab}
+                        onTabChange={setAudienceTab}
+                        messages={chatMessages}
+                        qaItems={qaItems}
+                        viewers={viewers}
+                        liveLangMix={liveLangMix}
+                        audioRequests={audioRequests}
+                        currentSpeaker={currentSpeaker}
+                        speakerSecondsLeft={speakerSecondsLeft}
+                        onAcceptAudio={acceptAudioRequest}
+                        onDeclineAudio={declineAudioRequest}
+                        onEndSpeaker={endCurrentSpeaker}
+                        draft={chatDraft}
+                        onDraftChange={setChatDraft}
+                        onSend={() => {
+                        const t = chatDraft.trim();
+                        if (!t) return;
+                        setChatMessages((prev) => [...prev, { id: uid("m"), from: "You", body: t, time: nowTimeLabel() }].slice(-120));
+                        setChatDraft("");
+                        }}
+                    />
+                    <AiPanel prompts={aiHints} />
+                </div>
+            </section>
+          </div>
         </div>
       </main>
 
@@ -1251,7 +1270,7 @@ export default function MyLiveDealzLiveStudioFullPage() {
         />
       )}
 
-      {languagePanelOpen && <LanguagePanel onClose={() => setLanguagePanelOpen(false)} langMix={liveLangMix} />}
+      {languagePanelOpen && <LanguagePanel onClose={() => setLanguagePanelOpen(false)} liveLangMix={liveLangMix} />}
 
       {stageExpanded && (
         <ExpandedStageModal
@@ -1262,7 +1281,7 @@ export default function MyLiveDealzLiveStudioFullPage() {
           resolvedPreviewMode={resolvedPreviewMode}
           liveTimerLabel={liveTimerLabel}
           viewerCount={viewerCount}
-          langMix={langMix}
+          liveLangMix={liveLangMix}
           productionMode={productionMode}
           externalTool={externalTool}
           activeSourceId={activeSourceId}
@@ -1270,6 +1289,8 @@ export default function MyLiveDealzLiveStudioFullPage() {
           flashUrgency={flashUrgency}
           currentSpeaker={currentSpeaker}
           speakerSecondsLeft={speakerSecondsLeft}
+          videoRef={videoRef}
+          hasCameraPermission={hasCameraPermission}
         />
       )}
     </div>
@@ -1592,7 +1613,7 @@ function StagePanel(props: {
   cameraHint: string;
   liveTimerLabel: string;
   viewerCount: number;
-  langMix: { label: string; pct: number }[];
+  liveLangMix: { label: string; pct: number }[];
   productionMode: ProductionMode;
   externalTool: ExternalTool;
   activeSourceId: SourceId;
@@ -1604,6 +1625,8 @@ function StagePanel(props: {
   currentSpeaker: CurrentSpeaker | null;
   speakerSecondsLeft: number;
   onExpand: () => void;
+  videoRef: React.RefObject<HTMLVideoElement>;
+  hasCameraPermission: boolean;
 }) {
   const {
     mode,
@@ -1615,7 +1638,7 @@ function StagePanel(props: {
     cameraHint,
     liveTimerLabel,
     viewerCount,
-    langMix,
+    liveLangMix,
     productionMode,
     externalTool,
     activeSourceId,
@@ -1627,6 +1650,8 @@ function StagePanel(props: {
     currentSpeaker,
     speakerSecondsLeft,
     onExpand,
+    videoRef,
+    hasCameraPermission,
   } = props;
 
   const activeScene = SCENES.find((s) => s.id === activeSceneId) ?? SCENES[0];
@@ -1652,7 +1677,7 @@ function StagePanel(props: {
           activeSceneLabel={activeScene.label}
           liveTimerLabel={liveTimerLabel}
           viewerCount={viewerCount}
-          langMix={langMix}
+          liveLangMix={liveLangMix}
           source={sourceLabel(activeSourceId, productionMode, externalTool)}
           flash={flash}
           flashUrgency={flashUrgency}
@@ -1662,6 +1687,8 @@ function StagePanel(props: {
           currentSpeaker={currentSpeaker}
           speakerSecondsLeft={speakerSecondsLeft}
           onExpand={onExpand}
+          videoRef={videoRef}
+          hasCameraPermission={hasCameraPermission}
         />
       )}
 
@@ -1695,7 +1722,7 @@ function StagePreview(props: {
   activeSceneLabel: string;
   liveTimerLabel: string;
   viewerCount: number;
-  langMix: { label: string; pct: number }[];
+  liveLangMix: { label: string; pct: number }[];
   source: string;
   flash: FlashDealState;
   flashUrgency: string;
@@ -1705,13 +1732,15 @@ function StagePreview(props: {
   currentSpeaker: CurrentSpeaker | null;
   speakerSecondsLeft: number;
   onExpand: () => void;
+  videoRef: React.RefObject<HTMLVideoElement>;
+  hasCameraPermission: boolean;
 }) {
   const {
     resolvedPreviewMode,
     activeSceneLabel,
     liveTimerLabel,
     viewerCount,
-    langMix,
+    liveLangMix,
     source,
     flash,
     flashUrgency,
@@ -1721,6 +1750,8 @@ function StagePreview(props: {
     currentSpeaker,
     speakerSecondsLeft,
     onExpand,
+    videoRef,
+    hasCameraPermission,
   } = props;
 
   const isMobile = resolvedPreviewMode === "mobile";
@@ -1746,7 +1777,18 @@ function StagePreview(props: {
         className={"relative rounded-2xl border overflow-hidden shadow-[0_24px_80px_rgba(15,23,42,0.7)] bg-slate-950 border-slate-800 " + (isMobile ? "w-[360px] max-w-[80%]" : "w-full")}
         style={{ aspectRatio: aspect }}
       >
-        <div className="absolute inset-0 bg-gradient-to-tr from-slate-900 via-slate-800 to-slate-600" />
+        <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover" autoPlay muted playsInline />
+        
+        {!hasCameraPermission && (
+          <div className="absolute inset-0 bg-black/50 flex items-center justify-center p-4">
+            <Alert variant="destructive">
+              <AlertTitle>Camera Access Required</AlertTitle>
+              <AlertDescription>
+                Please allow camera and microphone access to use the preview.
+              </AlertDescription>
+            </Alert>
+          </div>
+        )}
 
         {/* Live pill */}
         <div className="absolute top-2 left-2 flex flex-col gap-1 text-[10px]">
@@ -1798,7 +1840,7 @@ function StagePreview(props: {
               <span className="material-icons text-[14px]">bolt</span>
               <span className="font-semibold">FLASH</span>
               <span>-{flash.discountPct}%</span>
-              <span className="opacity-90">ends in {formatHMS(flash.secondsLeft)}</span>
+              <span>ends in {formatHMS(flash.secondsLeft)}</span>
               <span className="ml-1 h-1.5 w-16 rounded-full bg-black/30 overflow-hidden">
                 <span
                   className="block h-full"
@@ -1821,7 +1863,7 @@ function StagePreview(props: {
             <span className="text-[10px] text-slate-300">Source: {source}</span>
           </div>
           <div className="h-2 w-full rounded-full bg-slate-900/70 border border-white/10 overflow-hidden flex">
-            {langMix.map((seg, idx) => (
+            {liveLangMix.map((seg, idx) => (
               <div
                 key={seg.label}
                 className="h-full"
@@ -1854,15 +1896,6 @@ function StagePreview(props: {
             <span>{camOn ? "Camera on" : "Camera off"}</span>
           </div>
         </div>
-
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="text-center px-6">
-            <div className="text-xs text-slate-200">Preview</div>
-            <div className="text-sm font-semibold text-white mt-1">Tap to expand</div>
-            <div className="text-[11px] text-slate-300 mt-2">Mobile-first framing included</div>
-          </div>
-        </div>
-
         {isMobile && <div className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-white/10" />}
       </div>
     </div>
@@ -1979,7 +2012,7 @@ function BuyerSimulatorPanel(props: {
                   <span className="material-icons text-[14px]">bolt</span>
                   <span className="font-semibold">FLASH</span>
                   <span>-{flashDiscountPct}%</span>
-                  <span className="opacity-90">{formatHMS(flashSecondsLeft)}</span>
+                  <span>{formatHMS(flashSecondsLeft)}</span>
                 </div>
               </div>
             )}
@@ -2235,7 +2268,7 @@ function AudiencePanel(props: {
   messages: ChatMsg[];
   qaItems: QaItem[];
   viewers: LiveViewer[];
-  langMix: { label: string; pct: number }[];
+  liveLangMix: { label: string; pct: number }[];
   audioRequests: AudioRequest[];
   currentSpeaker: CurrentSpeaker | null;
   speakerSecondsLeft: number;
@@ -2252,7 +2285,7 @@ function AudiencePanel(props: {
     messages,
     qaItems,
     viewers,
-    langMix,
+    liveLangMix,
     audioRequests,
     currentSpeaker,
     speakerSecondsLeft,
@@ -2341,7 +2374,7 @@ function AudiencePanel(props: {
   };
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 flex flex-col flex-1 overflow-hidden">
+    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 flex flex-col overflow-hidden">
       <div className="mb-2 flex items-start justify-between gap-2">
         <div>
           <h3 className="text-xs font-semibold">Live audience</h3>
@@ -2354,7 +2387,7 @@ function AudiencePanel(props: {
             <button className={`px-3 py-1 rounded-full ${activeTab === "viewers" ? "bg-white text-slate-900" : "text-slate-300"}`} onClick={() => onTabChange("viewers")}>Viewers</button>
           </div>
           <div className="flex flex-wrap gap-1 justify-end">
-            {langMix.map((s) => (
+            {liveLangMix.map((s) => (
               <span key={s.label} className="px-2 py-0.5 rounded-full border border-slate-700 bg-slate-950 text-[9px] text-slate-200">
                 {s.label} · {s.pct}%
               </span>
@@ -2671,7 +2704,7 @@ function FlashDealDialog(props: { onClose: () => void; onStart: (durationMin: nu
   );
 }
 
-function LanguagePanel({ onClose, langMix }: { onClose: () => void; langMix: { label: string; pct: number }[] }) {
+function LanguagePanel({ onClose, liveLangMix }: { onClose: () => void; liveLangMix: { label: string; pct: number }[] }) {
   return (
     <div className="fixed right-4 top-20 z-[70]">
       <div className="w-80 rounded-2xl border border-slate-800 bg-slate-950 shadow-xl px-4 py-3 text-[11px]">
@@ -2687,7 +2720,7 @@ function LanguagePanel({ onClose, langMix }: { onClose: () => void; langMix: { l
           <div>
             <div className="text-[10px] text-slate-400 mb-1">Live viewer language mix (sample)</div>
             <div className="flex flex-wrap gap-1">
-              {langMix.map((s) => (
+              {liveLangMix.map((s) => (
                 <span key={s.label} className="px-2 py-0.5 rounded-full bg-slate-900 border border-slate-700 text-[10px] text-slate-100">
                   {s.label} · {s.pct}%
                 </span>
@@ -2711,7 +2744,7 @@ function ExpandedStageModal(props: {
   resolvedPreviewMode: "mobile" | "desktop";
   liveTimerLabel: string;
   viewerCount: number;
-  langMix: { label: string; pct: number }[];
+  liveLangMix: { label: string; pct: number }[];
   productionMode: ProductionMode;
   externalTool: ExternalTool;
   activeSourceId: SourceId;
@@ -2719,6 +2752,8 @@ function ExpandedStageModal(props: {
   flashUrgency: string;
   currentSpeaker: CurrentSpeaker | null;
   speakerSecondsLeft: number;
+  videoRef: React.RefObject<HTMLVideoElement>;
+  hasCameraPermission: boolean;
 }) {
   const {
     onClose,
@@ -2728,7 +2763,7 @@ function ExpandedStageModal(props: {
     resolvedPreviewMode,
     liveTimerLabel,
     viewerCount,
-    langMix,
+    liveLangMix,
     productionMode,
     externalTool,
     activeSourceId,
@@ -2736,6 +2771,8 @@ function ExpandedStageModal(props: {
     flashUrgency,
     currentSpeaker,
     speakerSecondsLeft,
+    videoRef,
+    hasCameraPermission,
   } = props;
 
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -2812,7 +2849,7 @@ function ExpandedStageModal(props: {
             activeSceneLabel="Expanded"
             liveTimerLabel={liveTimerLabel}
             viewerCount={viewerCount}
-            langMix={langMix}
+            liveLangMix={liveLangMix}
             source={sourceLabel(activeSourceId, productionMode, externalTool)}
             flash={flash}
             flashUrgency={flashUrgency}
@@ -2822,6 +2859,8 @@ function ExpandedStageModal(props: {
             currentSpeaker={currentSpeaker}
             speakerSecondsLeft={speakerSecondsLeft}
             onExpand={toggleFullscreen}
+            videoRef={videoRef}
+            hasCameraPermission={hasCameraPermission}
           />
           <div className="mt-3 text-[11px] text-slate-300 flex items-center justify-between">
             <span>Tip: double-click the preview to toggle fullscreen.</span>
@@ -2832,3 +2871,5 @@ function ExpandedStageModal(props: {
     </div>
   );
 }
+
+    
