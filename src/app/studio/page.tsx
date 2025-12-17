@@ -1153,15 +1153,6 @@ export default function MyLiveDealzLiveStudioFullPage() {
               onApprove={(id) => pushSystem(`Approved attachment ${id} (demo).`)}
               onReject={(id) => pushSystem(`Rejected attachment ${id} (demo).`)}
             />
-            <CommercePanel
-                targetUnits={50}
-                soldUnits={salesCount}
-                cartCount={totalCartItems}
-                last5MinSales={last5MinSales}
-                flash={flash}
-                flashUrgency={flashUrgency}
-                salesEvents={salesEvents}
-              />
           </section>
 
           {/* Center and Right columns wrapper */}
@@ -1216,6 +1207,15 @@ export default function MyLiveDealzLiveStudioFullPage() {
               )}
 
               <TeleprompterPanel />
+              <CommercePanel
+                targetUnits={50}
+                soldUnits={salesCount}
+                cartCount={totalCartItems}
+                last5MinSales={last5MinSales}
+                flash={flash}
+                flashUrgency={flashUrgency}
+                salesEvents={salesEvents}
+              />
             </section>
 
             {/* Right Column */}
@@ -2395,7 +2395,7 @@ function AudiencePanel(props: {
   };
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 flex flex-col overflow-hidden flex-1 min-h-0">
+    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 flex flex-col overflow-hidden flex-1">
       <div className="mb-2 flex items-start justify-between gap-2">
         <div>
           <h3 className="text-xs font-semibold">Live audience</h3>
@@ -2667,47 +2667,47 @@ function FlashDealDialog(props: { onClose: () => void; onStart: (durationMin: nu
   const durationOptions = [5, 10, 15];
 
   const [position, setPosition] = useState({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-  const dragRef = useRef({ x: 0, y: 0 });
+  const isDraggingRef = useRef(false);
   const dialogRef = useRef<HTMLDivElement>(null);
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (dialogRef.current) {
-      setIsDragging(true);
-      dragRef.current = {
-        x: e.clientX - dialogRef.current.offsetLeft,
-        y: e.clientY - dialogRef.current.offsetTop,
-      };
-      // Prevent text selection while dragging
-      e.preventDefault();
-    }
+    isDraggingRef.current = true;
+    // Prevent text selection while dragging
+    e.preventDefault();
   };
 
   const handleMouseMove = (e: MouseEvent) => {
-    if (isDragging && dialogRef.current) {
-      const x = e.clientX - dragRef.current.x;
-      const y = e.clientY - dragRef.current.y;
-      setPosition({ x, y });
+    if (isDraggingRef.current) {
+        setPosition(prev => ({
+            x: prev.x + e.movementX,
+            y: prev.y + e.movementY,
+        }));
     }
   };
 
   const handleMouseUp = () => {
-    setIsDragging(false);
+    isDraggingRef.current = false;
   };
 
   useEffect(() => {
-    if (isDragging) {
-      window.addEventListener("mousemove", handleMouseMove);
-      window.addEventListener("mouseup", handleMouseUp);
-    } else {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
+    const handleGlobalMouseMove = (e: MouseEvent) => handleMouseMove(e);
+    const handleGlobalMouseUp = () => handleMouseUp();
+
+    if (isDraggingRef.current) {
+        // This is a subtle but important check. If we are dragging, we want to listen on the window
+        // so that the drag continues even if the cursor leaves the dialog header.
+        window.addEventListener("mousemove", handleGlobalMouseMove);
+        window.addEventListener("mouseup", handleGlobalMouseUp);
     }
+
+    // Always listen to mouseup on the window to catch the case where the mouse is released outside the component
+    window.addEventListener("mouseup", handleGlobalMouseUp);
+
     return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
+        window.removeEventListener("mousemove", handleGlobalMouseMove);
+        window.removeEventListener("mouseup", handleGlobalMouseUp);
     };
-  }, [isDragging]);
+  }, []); // Re-run this effect only once to set up global listeners that check the ref
 
 
   return (
