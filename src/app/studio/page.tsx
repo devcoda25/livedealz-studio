@@ -375,9 +375,6 @@ export default function MyLiveDealzLiveStudioFullPage() {
 
   // Client-side only data initialization to prevent hydration errors
   useEffect(() => {
-    // Only run simulation setup once on the client
-    if (simulate) return;
-
     setProducts(INITIAL_PRODUCTS);
     setHighlightedProductId(INITIAL_PRODUCTS[0]?.id ?? null);
     setCoHosts([
@@ -393,7 +390,7 @@ export default function MyLiveDealzLiveStudioFullPage() {
     setLast5MinSales(5);
     setViewers(createInitialViewers());
     
-    const initialBuyers = INITIAL_BUYERS;
+    const initialBuyers = INITIAL_BUYERS.map(b => ({...b, lastActionAt: Date.now()}));
     setBuyers(initialBuyers);
     if(initialBuyers.length > 0) {
       setSelectedBuyerId(initialBuyers[0].id);
@@ -1043,7 +1040,7 @@ export default function MyLiveDealzLiveStudioFullPage() {
     ? "min-h-screen flex flex-col bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-50"
     : "min-h-screen flex flex-col bg-slate-50 text-slate-900";
 
-  if (!products.length || !highlightedProductId) {
+  if (products.length === 0) {
     return (
       <div className={rootClass}>
         <div className="flex-1 flex items-center justify-center">
@@ -1156,6 +1153,15 @@ export default function MyLiveDealzLiveStudioFullPage() {
               onApprove={(id) => pushSystem(`Approved attachment ${id} (demo).`)}
               onReject={(id) => pushSystem(`Rejected attachment ${id} (demo).`)}
             />
+            <CommercePanel
+                targetUnits={50}
+                soldUnits={salesCount}
+                cartCount={totalCartItems}
+                last5MinSales={last5MinSales}
+                flash={flash}
+                flashUrgency={flashUrgency}
+                salesEvents={salesEvents}
+              />
           </section>
 
           {/* Center and Right columns wrapper */}
@@ -1210,16 +1216,6 @@ export default function MyLiveDealzLiveStudioFullPage() {
               )}
 
               <TeleprompterPanel />
-
-              <CommercePanel
-                targetUnits={50}
-                soldUnits={salesCount}
-                cartCount={totalCartItems}
-                last5MinSales={last5MinSales}
-                flash={flash}
-                flashUrgency={flashUrgency}
-                salesEvents={salesEvents}
-              />
             </section>
 
             {/* Right Column */}
@@ -2469,11 +2465,11 @@ function AudiencePanel(props: {
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 border border-slate-800 rounded-xl p-2.5 bg-slate-950 overflow-y-auto max-h-96">
+      <div className="flex-1 min-h-0 border border-slate-800 rounded-xl p-2.5 bg-slate-950 overflow-y-auto max-h-80">
         {renderBody()}
       </div>
 
-      <div className="flex items-center gap-1 text-[10px] mt-2">
+      <div className="flex items-center gap-1 text-[10px]">
         <button className="h-7 w-7 rounded-full border border-slate-700 text-slate-200 flex items-center justify-center" title="Audio tools" onClick={() => onTabChange("viewers")}>
           <span className="material-icons text-[16px]">mic</span>
         </button>
@@ -2670,20 +2666,71 @@ function FlashDealDialog(props: { onClose: () => void; onStart: (durationMin: nu
   const [discount, setDiscount] = useState(15);
   const durationOptions = [5, 10, 15];
 
-  return (
-    <div className="fixed right-4 top-20 z-[70]">
-      <div className="w-80 rounded-2xl border border-slate-800 bg-slate-950 shadow-xl px-4 py-3 text-[11px]">
-        <div className="flex items-start justify-between mb-2">
-          <div className="flex items-center gap-1.5">
-            <span className="material-icons text-[16px]" style={{ color: EV_ORANGE }}>bolt</span>
-            <div className="flex flex-col">
-              <span className="text-[12px] font-semibold text-white">Flash Deal Control</span>
-              <span className="text-[10px] text-slate-400">Countdown + urgency + buyer CTAs</span>
-            </div>
-          </div>
-          <button className="text-[10px] text-slate-400 hover:text-white" onClick={onClose}>Close</button>
-        </div>
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragRef = useRef({ x: 0, y: 0 });
+  const dialogRef = useRef<HTMLDivElement>(null);
 
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (dialogRef.current) {
+      setIsDragging(true);
+      dragRef.current = {
+        x: e.clientX - dialogRef.current.offsetLeft,
+        y: e.clientY - dialogRef.current.offsetTop,
+      };
+      // Prevent text selection while dragging
+      e.preventDefault();
+    }
+  };
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (isDragging && dialogRef.current) {
+      const x = e.clientX - dragRef.current.x;
+      const y = e.clientY - dragRef.current.y;
+      setPosition({ x, y });
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  useEffect(() => {
+    if (isDragging) {
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
+    } else {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    }
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isDragging]);
+
+
+  return (
+    <div 
+      ref={dialogRef}
+      className="fixed left-4 bottom-4 z-[70] w-80 rounded-2xl border border-slate-800 bg-slate-950 shadow-xl text-[11px]"
+      style={{ transform: `translate(${position.x}px, ${position.y}px)` }}
+    >
+      <div 
+        className="flex items-start justify-between mb-2 px-4 pt-3 cursor-move"
+        onMouseDown={handleMouseDown}
+      >
+        <div className="flex items-center gap-1.5">
+          <span className="material-icons text-[16px]" style={{ color: EV_ORANGE }}>bolt</span>
+          <div className="flex flex-col">
+            <span className="text-[12px] font-semibold text-white">Flash Deal Control</span>
+            <span className="text-[10px] text-slate-400">Countdown + urgency + buyer CTAs</span>
+          </div>
+        </div>
+        <button className="text-[10px] text-slate-400 hover:text-white" onClick={onClose}>Close</button>
+      </div>
+
+      <div className="px-4 pb-3">
         <p className="text-[11px] text-slate-300 mb-3">
           Start a limited-time offer. Discount applies to the currently featured product.
         </p>
