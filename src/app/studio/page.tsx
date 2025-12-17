@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -2338,7 +2339,7 @@ function AudiencePanel(props: {
   };
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 flex flex-col h-full overflow-hidden">
+    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 flex flex-col overflow-hidden">
       <div className="mb-2 flex items-start justify-between gap-2">
         <div>
           <h3 className="text-xs font-semibold">Live audience</h3>
@@ -2412,7 +2413,7 @@ function AudiencePanel(props: {
         {renderBody()}
       </div>
 
-      <div className="mt-2 flex items-center gap-1 text-[10px]">
+      <div className="mt-1 flex items-center gap-1 text-[10px]">
         <button className="h-7 w-7 rounded-full border border-slate-700 text-slate-200 flex items-center justify-center" title="Audio tools" onClick={() => onTabChange("viewers")}>
           <span className="material-icons text-[16px]">mic</span>
         </button>
@@ -2829,3 +2830,4 @@ function ExpandedStageModal(props: {
     </div>
   );
 }
+
