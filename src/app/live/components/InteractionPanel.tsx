@@ -59,6 +59,7 @@ interface InteractionPanelProps {
     tr: (s: string) => string;
     isDesktop: boolean;
     videoHeight: number;
+    hideTabs?: boolean;
 }
 
 export function InteractionPanel({
@@ -99,6 +100,7 @@ export function InteractionPanel({
     tr,
     isDesktop,
     videoHeight,
+    hideTabs = false,
 }: InteractionPanelProps) {
 
     // Derived lists
@@ -114,18 +116,22 @@ export function InteractionPanel({
     const services = filteredItems.filter(x => x.kind === 'service') as LiveServiceItem[];
 
     return (
-        <Card className="rounded-xl shadow-sm border-border h-full flex flex-col overflow-hidden bg-card text-card-foreground">
+        <Card className={`rounded-xl shadow-sm border-border h-full flex flex-col overflow-hidden bg-card text-card-foreground ${hideTabs ? 'border-0 shadow-none' : ''}`}>
             <Tabs value={panelTab} onValueChange={setPanelTab} className="h-full flex flex-col">
-                <div className="px-4 pt-2">
-                    <TabsList className="grid w-full grid-cols-3 bg-muted border border-border">
-                        <TabsTrigger value="products" className="data-[state=active]:bg-background data-[state=active]:text-foreground text-muted-foreground">{t("products")}</TabsTrigger>
-                        <TabsTrigger value="chat" className="data-[state=active]:bg-background data-[state=active]:text-foreground text-muted-foreground">
-                            {hideChat ? "Chat (Hidden)" : t("chat")}
-                        </TabsTrigger>
-                        <TabsTrigger value="info" className="data-[state=active]:bg-background data-[state=active]:text-foreground text-muted-foreground">{t("hostInfo")}</TabsTrigger>
-                    </TabsList>
-                </div>
-                <Separator className="my-2 bg-border" />
+                {!hideTabs && (
+                    <>
+                        <div className="px-4 pt-2">
+                            <TabsList className="grid w-full grid-cols-3 bg-muted border border-border">
+                                <TabsTrigger value="products" className="data-[state=active]:bg-background data-[state=active]:text-foreground text-muted-foreground">{t("products")}</TabsTrigger>
+                                <TabsTrigger value="chat" className="data-[state=active]:bg-background data-[state=active]:text-foreground text-muted-foreground">
+                                    {hideChat ? "Chat (Hidden)" : t("chat")}
+                                </TabsTrigger>
+                                <TabsTrigger value="info" className="data-[state=active]:bg-background data-[state=active]:text-foreground text-muted-foreground">{t("hostInfo")}</TabsTrigger>
+                            </TabsList>
+                        </div>
+                        <Separator className="my-2 bg-border" />
+                    </>
+                )}
 
                 <div className="flex-1 overflow-hidden relative">
                     <TabsContent value="products" className="h-full m-0 p-0 absolute inset-0">

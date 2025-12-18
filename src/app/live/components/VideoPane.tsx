@@ -62,7 +62,9 @@ export function VideoPane({
     packType,
     qty,
 }: VideoPaneProps) {
-    const videoHeight = isDesktop ? "h-[520px]" : "h-[260px]";
+    const videoStyle = isDesktop
+        ? { aspectRatio: "16 / 9", height: "520px" }
+        : { aspectRatio: "9 / 16", width: "100%" };
 
     const isRegulated = Boolean(session.regulated);
     const pinnedIsProduct = pinned?.kind === "product";
@@ -100,13 +102,15 @@ export function VideoPane({
         ? "fixed inset-0 z-50 h-[100dvh] w-full bg-black rounded-none"
         : "relative overflow-hidden rounded-xl bg-[#0b0f19]";
 
-    const heightClass = isExpanded ? "h-full" : videoHeight;
+    const contentClass = isExpanded ? "h-full w-full" : "w-full";
+    const contentStyle = isExpanded ? {} : videoStyle;
 
     return (
         <div className={containerClass}>
             <div
-                className={`${heightClass} relative flex items-center justify-center bg-[#0b0f19]`}
+                className={`${contentClass} relative flex items-center justify-center bg-[#0b0f19]`}
                 style={{
+                    ...contentStyle,
                     backgroundImage:
                         "radial-gradient(circle at 30% 20%, rgba(247,127,0,0.16), transparent 55%), radial-gradient(circle at 70% 70%, rgba(3,205,140,0.14), transparent 55%)",
                 }}

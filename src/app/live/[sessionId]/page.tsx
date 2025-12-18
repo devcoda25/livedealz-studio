@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, MoreVertical, Share2, Flag, Eye, EyeOff, ShoppingCart, Sun, Moon } from "lucide-react";
+import { ArrowLeft, MoreVertical, Share2, Flag, Eye, EyeOff, ShoppingCart, Sun, Moon, Smartphone, Monitor, Settings, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useTheme } from "next-themes";
@@ -45,6 +45,8 @@ import { MiniCheckoutDrawer, BookingDrawer, QuoteDrawer } from "../components/Co
 
 const ORANGE = "#f77f00";
 
+type DeviceMode = "auto" | "mobile" | "desktop";
+
 export default function LiveSessionPage() {
     const params = useParams();
     const router = useRouter();
@@ -79,14 +81,26 @@ export default function LiveSessionPage() {
     const [wholesaleApproved, setWholesaleApproved] = useState(false);
 
 
-    // Desktop check with hydration safety
+    // Device Mode Logic
+    const [deviceMode, setDeviceMode] = useState<DeviceMode>("auto");
     const [isDesktop, setIsDesktop] = useState(true);
+
     useEffect(() => {
-        const check = () => setIsDesktop(window.innerWidth >= 768);
+        const check = () => {
+            if (deviceMode === "mobile") {
+                setIsDesktop(false);
+            } else if (deviceMode === "desktop") {
+                setIsDesktop(true);
+            } else {
+                // Auto
+                setIsDesktop(window.innerWidth >= 768);
+            }
+        };
+
         check();
         window.addEventListener('resize', check);
         return () => window.removeEventListener('resize', check);
-    }, []);
+    }, [deviceMode]);
 
     // --- Shell / Prefs ---
     const [shellCurrency, setShellCurrency] = useState<CurrencyCode>("USD");
@@ -111,7 +125,7 @@ export default function LiveSessionPage() {
 
     // --- UI State ---
     const [panelTab, setPanelTab] = useState("products");
-    const [itemFilter, setItemFilter] = useState("all");
+    const [itemFilter, setItemFilter] = useState("hidden");
     const [hideChat, setHideChat] = useState(false);
     const [prefsOpen, setPrefsOpen] = useState(false);
     const [snackOpen, setSnackOpen] = useState(false); // Using sonner toast instead
@@ -301,12 +315,13 @@ export default function LiveSessionPage() {
     }
 
     const audioLabel = voiceTranslationOn ? (LANGS.find(l => l.code === audioLang)?.native || "English") : `${t("original")}: ${session.language}`;
+    const showMobileFrame = deviceMode === 'mobile' && window.innerWidth >= 768; // Show frame if force-mobile on desktop
 
     return (
-        <div className="min-h-screen bg-background text-foreground pb-20 md:pb-0 transition-colors duration-300">
+        <div className={`min-h-screen bg-background text-foreground pb-20 md:pb-0 transition-colors duration-300 ${showMobileFrame ? 'bg-slate-100 dark:bg-slate-950' : ''}`}>
 
-            {/* Top Bar */}
-            <div className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border px-4 py-2 flex items-center justify-between">
+            {/* Top Bar - Always full width */}
+            <div className={`sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border px-4 py-2 flex items-center justify-between`}>
                 <div className="flex items-center gap-2">
                     <Button variant="ghost" size="icon" onClick={() => router.back()} className="hover:bg-muted text-muted-foreground">
                         <ArrowLeft className="h-5 w-5" />
@@ -319,6 +334,39 @@ export default function LiveSessionPage() {
 
                 <div className="flex items-center gap-2">
                     <Badge variant="secondary" className="hidden md:flex bg-muted text-muted-foreground">{session.state}</Badge>
+
+                    {/* Device Selector */}
+                    <div className="hidden sm:flex items-center bg-muted/50 rounded-lg p-0.5 border border-border">
+                        <div className="flex">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className={`h-7 w-7 rounded-md ${deviceMode === 'auto' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                                onClick={() => setDeviceMode('auto')}
+                                title="Auto Detect"
+                            >
+                                <Settings className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className={`h-7 w-7 rounded-md ${deviceMode === 'desktop' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                                onClick={() => setDeviceMode('desktop')}
+                                title="Force Desktop"
+                            >
+                                <Monitor className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className={`h-7 w-7 rounded-md ${deviceMode === 'mobile' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                                onClick={() => setDeviceMode('mobile')}
+                                title="Force Mobile"
+                            >
+                                <Smartphone className="h-3.5 w-3.5" />
+                            </Button>
+                        </div>
+                    </div>
 
                     {/* Theme Toggle */}
                     <Button
@@ -358,80 +406,144 @@ export default function LiveSessionPage() {
                 </div>
             </div>
 
-            <div className="max-w-7xl mx-auto p-4 grid grid-cols-1 md:grid-cols-12 gap-4 h-[calc(100vh-60px)]">
+            {/* Main Content Area - Centered Video & Bottom Nav */}
+            <div className={`mx-auto h-[calc(100vh-60px)] relative flex flex-col items-center ${deviceMode === 'mobile' ? 'max-w-md' : 'max-w-7xl'}`}>
 
-                {/* Main Video Area */}
-                <div className="md:col-span-7 flex flex-col gap-4">
-                    <VideoPane
-                        session={session}
-                        pinned={pinned}
-                        currency={currency}
-                        audioLabel={audioLabel}
-                        displayNative={LANGS.find(l => l.code === displayLang)?.native || "English"}
-                        captionsOn={captionsOn}
-                        tr={tr} t={t} isDesktop={isDesktop}
-                        reactions={reactions}
-                        onPin={onPin}
-                        addToCart={addToCart}
-                        openMiniCheckout={openMiniCheckout}
-                        openDeal={(id) => showSnack(`Open Deal ${id}`)}
-                        openBooking={openBooking}
-                        openQuote={openQuote}
-                        openConsultation={openConsultation}
-                        toggleRestockReminder={(p) => addToCart(p)}
-                        isOutOfStock={isOutOfStock}
-                        isReminding={isReminding}
-                        pinnedWholesaleLocked={false} // Simplified for demo
-                        pinnedWholesaleTier={null}
-                        packType={packType}
-                        qty={qty}
-                    />
-
-                    {/* Desktop only descriptive content below video? */}
-                    <div className="hidden md:block">
-                        {/* Could put session details here */}
+                <div className="w-full flex-1 flex flex-col items-center justify-center p-4 overflow-hidden min-h-0">
+                    <div className={`${deviceMode === 'mobile' ? 'w-[365px]' : 'w-full'} transition-all duration-300 relative z-0`}>
+                        <VideoPane
+                            session={session}
+                            pinned={pinned}
+                            currency={currency}
+                            audioLabel={audioLabel}
+                            displayNative={LANGS.find(l => l.code === displayLang)?.native || "English"}
+                            captionsOn={captionsOn}
+                            tr={tr} t={t} isDesktop={isDesktop}
+                            reactions={reactions}
+                            onPin={onPin}
+                            addToCart={addToCart}
+                            openMiniCheckout={openMiniCheckout}
+                            openDeal={(id) => showSnack(`Open Deal ${id}`)}
+                            openBooking={openBooking}
+                            openQuote={openQuote}
+                            openConsultation={openConsultation}
+                            toggleRestockReminder={(p) => addToCart(p)}
+                            isOutOfStock={isOutOfStock}
+                            isReminding={isReminding}
+                            pinnedWholesaleLocked={false} // Simplified for demo
+                            pinnedWholesaleTier={null}
+                            packType={packType}
+                            qty={qty}
+                        />
                     </div>
                 </div>
 
-                {/* Side Interaction Panel */}
-                <div className="md:col-span-5 h-[500px] md:h-full">
-                    <InteractionPanel
-                        session={session}
-                        auth={auth}
-                        buyerMode={buyerMode}
-                        currency={currency}
-                        panelTab={panelTab}
-                        setPanelTab={setPanelTab}
-                        itemFilter={itemFilter}
-                        setItemFilter={setItemFilter}
-                        hideChat={hideChat}
-                        messages={messages}
-                        chatInput={chatInput}
-                        setChatInput={setChatInput}
-                        sendChat={sendChat}
-                        sendAttachment={() => { }}
-                        reactEmoji={reactEmoji}
-                        poll={poll}
-                        vote={vote}
-                        votedOption={votedOption}
-                        onIdentify={(id) => showSnack(`Identify ${id}`)}
-                        onPin={onPin}
-                        addToCart={addToCart}
-                        openMiniCheckout={openMiniCheckout}
-                        openBooking={openBooking}
-                        openQuote={openQuote}
-                        openConsultation={openConsultation}
-                        getStockLeft={getStockLeft}
-                        isOutOfStock={isOutOfStock}
-                        isReminding={isReminding}
-                        wholesaleApproved={wholesaleApproved}
-                        packType={packType}
-                        qty={qty}
-                        captionsOn={captionsOn}
-                        t={t} tr={tr}
-                        isDesktop={isDesktop}
-                        videoHeight={500}
-                    />
+                {/* Bottom Interaction Drawer (Slide-up) */}
+                <div
+                    className={`fixed inset-x-0 bottom-[90px] z-20 mx-auto max-w-md bg-transparent transition-all duration-500 cubic-bezier(0.32, 0.72, 0, 1) ${panelTab && itemFilter !== 'hidden' ? 'translate-y-0 opacity-100 visible' : 'translate-y-[50%] opacity-0 invisible'
+                        }`}
+                    style={{ height: '60vh' }}
+                >
+                    <div className="h-full bg-card border-t border-x border-border rounded-t-2xl shadow-[0_-4px_30px_rgba(0,0,0,0.15)] overflow-hidden relative flex flex-col">
+                        {/* Drawer Handle */}
+                        <div className="absolute top-2 inset-x-0 flex justify-center z-10 p-2" onClick={() => setItemFilter('hidden')}>
+                            <div className="w-12 h-1.5 rounded-full bg-border cursor-pointer hover:bg-muted-foreground/50 transition-colors" />
+                        </div>
+
+                        <div className="flex-1 pt-8 bg-card">
+                            <InteractionPanel
+                                session={session}
+                                auth={auth}
+                                buyerMode={buyerMode}
+                                currency={currency}
+                                panelTab={panelTab}
+                                setPanelTab={setPanelTab}
+                                itemFilter={itemFilter === 'hidden' ? 'all' : itemFilter}
+                                setItemFilter={setItemFilter}
+                                hideChat={hideChat}
+                                messages={messages}
+                                chatInput={chatInput}
+                                setChatInput={setChatInput}
+                                sendChat={sendChat}
+                                sendAttachment={() => { }}
+                                reactEmoji={reactEmoji}
+                                poll={poll}
+                                vote={vote}
+                                votedOption={votedOption}
+                                onIdentify={(id) => showSnack(`Identify ${id}`)}
+                                onPin={onPin}
+                                addToCart={addToCart}
+                                openMiniCheckout={openMiniCheckout}
+                                openBooking={openBooking}
+                                openQuote={openQuote}
+                                openConsultation={openConsultation}
+                                getStockLeft={getStockLeft}
+                                isOutOfStock={isOutOfStock}
+                                isReminding={isReminding}
+                                wholesaleApproved={wholesaleApproved}
+                                packType={packType}
+                                qty={qty}
+                                captionsOn={captionsOn}
+                                t={t} tr={tr}
+                                isDesktop={isDesktop}
+                                videoHeight={500}
+                                hideTabs={true}
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Bottom Navigation Bar */}
+                <div className="fixed bottom-6 inset-x-0 z-30 flex justify-center">
+                    <div className="bg-background/80 backdrop-blur-md border border-border shadow-lg rounded-full px-8 py-3 flex items-center gap-12 ring-1 ring-white/10 dark:ring-white/5">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className={`rounded-full hover:bg-transparent ${panelTab === 'products' && itemFilter !== 'hidden' ? 'text-[#f77f00] scale-110' : 'text-muted-foreground'}`}
+                            onClick={() => {
+                                if (panelTab === 'products' && itemFilter !== 'hidden') {
+                                    setItemFilter('hidden');
+                                } else {
+                                    setPanelTab('products');
+                                    setItemFilter('all');
+                                }
+                            }}
+                        >
+                            <ShoppingCart className="h-6 w-6" />
+                        </Button>
+
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className={`rounded-full hover:bg-transparent ${panelTab === 'chat' && itemFilter !== 'hidden' ? 'text-[#f77f00] scale-110' : 'text-muted-foreground'}`}
+                            onClick={() => {
+                                if (panelTab === 'chat' && itemFilter !== 'hidden') {
+                                    setItemFilter('hidden');
+                                } else {
+                                    setPanelTab('chat');
+                                    setItemFilter('all');
+                                }
+                            }}
+                        >
+                            <MessageCircle className="h-6 w-6" />
+                        </Button>
+
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className={`rounded-full hover:bg-transparent ${panelTab === 'info' && itemFilter !== 'hidden' ? 'text-[#f77f00] scale-110' : 'text-muted-foreground'}`}
+                            onClick={() => {
+                                if (panelTab === 'info' && itemFilter !== 'hidden') {
+                                    setItemFilter('hidden');
+                                } else {
+                                    setPanelTab('info');
+                                    setItemFilter('all');
+                                }
+                            }}
+                        >
+                            <Flag className="h-6 w-6" />
+                        </Button>
+                    </div>
                 </div>
 
             </div>
