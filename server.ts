@@ -3,6 +3,8 @@ import { createServer } from 'http';
 import { parse } from 'url';
 import next from 'next';
 import { config } from 'dotenv';
+import { Server } from 'socket.io';
+// import { studioState } from './src/socket/state'; // Replaced by StudioEngine
 
 // Load environment variables from .env file
 config();
@@ -26,6 +28,16 @@ app.prepare().then(() => {
       res.end('internal server error');
     }
   });
+
+  // Initialize Socket.IO
+  const io = new Server(httpServer);
+
+  // Initialize the Studio Engine
+  const { StudioServer } = require('./src/engines/studio/StudioServer');
+  new StudioServer(io);
+
+  // Replaced manual logic with StudioServer
+  // io.on('connection', ...) is now handled inside StudioServer
 
   httpServer
     .once('error', (err) => {
