@@ -8,70 +8,103 @@ export function FlashDealDialog(props: { onClose: () => void; onStart: (duration
     const durationOptions = [5, 10, 15];
 
     const [position, setPosition] = useState({ x: 0, y: 0 });
-    const isDraggingRef = useRef(false);
+    const dragStartRef = useRef<{ x: number; y: number } | null>(null);
     const dialogRef = useRef<HTMLDivElement>(null);
 
+    // Mouse
     const handleMouseDown = (e: React.MouseEvent) => {
-        isDraggingRef.current = true;
-        e.preventDefault();
+        // Ignore if clicking on buttons or inputs
+        if ((e.target as HTMLElement).closest("button, input, select")) return;
+
+        dragStartRef.current = { x: e.clientX - position.x, y: e.clientY - position.y };
+        e.preventDefault(); // prevent text selection
+
+        window.addEventListener("mousemove", handleMouseMove);
+        window.addEventListener("mouseup", handleMouseUp);
     };
 
+    const handleMouseMove = (e: MouseEvent) => {
+        if (!dragStartRef.current) return;
+        setPosition({
+            x: e.clientX - dragStartRef.current.x,
+            y: e.clientY - dragStartRef.current.y
+        });
+    };
+
+    const handleMouseUp = () => {
+        dragStartRef.current = null;
+        window.removeEventListener("mousemove", handleMouseMove);
+        window.removeEventListener("mouseup", handleMouseUp);
+    };
+
+    // Touch
+    const handleTouchStart = (e: React.TouchEvent) => {
+        // Ignore if clicking on buttons or inputs
+        if ((e.target as HTMLElement).closest("button, input, select")) return;
+
+        const touch = e.touches[0];
+        dragStartRef.current = { x: touch.clientX - position.x, y: touch.clientY - position.y };
+        // e.preventDefault(); // might block scrolling if we aren't careful, but since it's a dialog...
+
+        window.addEventListener("touchmove", handleTouchMove, { passive: false });
+        window.addEventListener("touchend", handleTouchEnd);
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+        if (!dragStartRef.current) return;
+        e.preventDefault(); // prevent scrolling while dragging
+        const touch = e.touches[0];
+        setPosition({
+            x: touch.clientX - dragStartRef.current.x,
+            y: touch.clientY - dragStartRef.current.y
+        });
+    };
+
+    const handleTouchEnd = () => {
+        dragStartRef.current = null;
+        window.removeEventListener("touchmove", handleTouchMove);
+        window.removeEventListener("touchend", handleTouchEnd);
+    };
+
+    // Cleanup
     useEffect(() => {
-        const handleMouseMove = (e: MouseEvent) => {
-            if (isDraggingRef.current) {
-                setPosition((pos) => ({
-                    x: pos.x + e.movementX,
-                    y: pos.y + e.movementY,
-                }));
-            }
-        };
-
-        const handleMouseUp = () => {
-            isDraggingRef.current = false;
-        };
-
-        if (isDraggingRef.current) {
-            window.addEventListener("mousemove", handleMouseMove);
-            window.addEventListener("mouseup", handleMouseUp);
-        }
-
-        // Always listen to mouseup on the window to catch the case where the mouse is released outside the component
-        window.addEventListener("mouseup", handleMouseUp);
-
-
         return () => {
             window.removeEventListener("mousemove", handleMouseMove);
             window.removeEventListener("mouseup", handleMouseUp);
+            window.removeEventListener("touchmove", handleTouchMove);
+            window.removeEventListener("touchend", handleTouchEnd);
         };
-    }, [isDraggingRef.current]);
+    }, []);
 
     return (
         <div
             ref={dialogRef}
-            className="fixed left-4 bottom-4 z-[70] w-80 rounded-2xl border border-slate-800 bg-slate-950 shadow-xl text-[11px]"
-            style={{ transform: `translate(${position.x}px, ${position.y}px)` }}
+            className="fixed left-4 bottom-20 z-[70] w-80 rounded-2xl border border-slate-800 bg-slate-950 shadow-xl text-[11px] cursor-move touch-none"
+            style={{
+                transform: `translate(${position.x}px, ${position.y}px)`,
+                // ensure it's on top and reachable
+            }}
+            onMouseDown={handleMouseDown}
+            onTouchStart={handleTouchStart}
         >
-            <div
-                className="flex items-start justify-between mb-2 px-4 pt-3 cursor-move"
-                onMouseDown={handleMouseDown}
-            >
-                <div className="flex items-center gap-1.5">
+            <div className="flex items-start justify-between mb-2 px-4 pt-3 pointer-events-none">
+                <div className="flex items-center gap-1.5 pointer-events-auto">
                     <span className="material-icons text-[16px]" style={{ color: EV_ORANGE }}>bolt</span>
                     <div className="flex flex-col">
                         <span className="text-[12px] font-semibold text-white">Flash Deal Control</span>
                         <span className="text-[10px] text-slate-400">Countdown + urgency + buyer CTAs</span>
                     </div>
                 </div>
-                <button className="text-[10px] text-slate-400 hover:text-white" onClick={onClose}>Close</button>
+                <button className="text-[10px] text-slate-400 hover:text-white pointer-events-auto" onClick={onClose}>Close</button>
             </div>
 
             <div className="px-4 pb-3">
-                <p className="text-[11px] text-slate-300 mb-3">
+                <p className="text-[11px] text-slate-300 mb-3 pointer-events-none">
                     Start a limited-time offer. Discount applies to the currently featured product.
                 </p>
 
                 <div className="flex items-center justify-between gap-2 mb-3">
-                    <span className="text-[10px] text-slate-400">Duration</span>
+                    <span className="text-[10px] text-slate-400 pointer-events-none">Duration</span>
                     <div className="flex gap-1">
                         {durationOptions.map((d) => (
                             <button
@@ -86,7 +119,7 @@ export function FlashDealDialog(props: { onClose: () => void; onStart: (duration
                 </div>
 
                 <div className="flex items-center justify-between gap-2 mb-4">
-                    <span className="text-[10px] text-slate-400">Extra discount</span>
+                    <span className="text-[10px] text-slate-400 pointer-events-none">Extra discount</span>
                     <div className="flex items-center gap-2">
                         <input
                             type="number"
@@ -94,7 +127,7 @@ export function FlashDealDialog(props: { onClose: () => void; onStart: (duration
                             value={discount}
                             onChange={(e) => setDiscount(Number(e.target.value) || 0)}
                         />
-                        <span className="text-[10px] text-slate-400">%</span>
+                        <span className="text-[10px] text-slate-400 pointer-events-none">%</span>
                     </div>
                 </div>
 
