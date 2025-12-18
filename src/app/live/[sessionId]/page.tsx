@@ -50,6 +50,11 @@ export default function LiveSessionPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { theme, setTheme } = useTheme();
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     // Route / Session State
     const sessionIdParam = params?.sessionId as string;
@@ -72,7 +77,16 @@ export default function LiveSessionPage() {
     const [auth, setAuth] = useState<ViewerAuth>("guest");
     const [buyerMode, setBuyerMode] = useState<BuyerMode>("retail");
     const [wholesaleApproved, setWholesaleApproved] = useState(false);
-    const isDesktop = typeof window !== 'undefined' ? window.innerWidth >= 768 : true; // Rough check
+
+
+    // Desktop check with hydration safety
+    const [isDesktop, setIsDesktop] = useState(true);
+    useEffect(() => {
+        const check = () => setIsDesktop(window.innerWidth >= 768);
+        check();
+        window.addEventListener('resize', check);
+        return () => window.removeEventListener('resize', check);
+    }, []);
 
     // --- Shell / Prefs ---
     const [shellCurrency, setShellCurrency] = useState<CurrencyCode>("USD");
@@ -313,7 +327,7 @@ export default function LiveSessionPage() {
                         onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
                         className="hover:bg-muted text-muted-foreground"
                     >
-                        {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                        {mounted && theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
                     </Button>
 
                     <Button variant="outline" size="sm" onClick={() => setPrefsOpen(true)} className="bg-card border-border text-muted-foreground hover:bg-muted hover:text-foreground">

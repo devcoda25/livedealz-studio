@@ -22,6 +22,8 @@ export function ControlBar(props: {
     onToggleFilters: () => void;
     transcriptionOn: boolean;
     onToggleTranscription: () => void;
+    showProduction: boolean;
+    onToggleProduction: () => void;
 }) {
     const {
         mode,
@@ -43,6 +45,8 @@ export function ControlBar(props: {
         onToggleFilters,
         transcriptionOn,
         onToggleTranscription,
+        showProduction,
+        onToggleProduction,
     } = props;
 
     return (
@@ -101,6 +105,14 @@ export function ControlBar(props: {
 
                 <button className={`px-3 py-1.5 rounded-full border text-[10px] hidden sm:inline-flex ${screenShareOn ? "bg-slate-900 border-slate-600 text-slate-100" : "bg-slate-950 border-slate-800 text-slate-400"}`} onClick={onToggleScreenShare}>
                     Screen share
+                </button>
+
+                <button
+                    className={`px-3 py-1.5 rounded-full border text-[10px] hidden sm:inline-flex items-center gap-1.5 ${showProduction ? "bg-purple-900/30 border-purple-500 text-purple-200" : "bg-slate-950 border-slate-800 text-slate-400"}`}
+                    onClick={onToggleProduction}
+                >
+                    <span className="material-icons text-[14px]">cameraswitch</span>
+                    Multi-Cam
                 </button>
 
                 <button className="px-3 py-1.5 rounded-full border border-slate-600 text-[10px] text-slate-100 hover:bg-slate-900 hidden sm:inline-flex items-center gap-1.5" onClick={onToggleFilters}>

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { PlayCircle, Mic, Globe, DollarSign, Bell, BellOff, ShoppingCart, Lock, Eye, EyeOff, CreditCard, Calendar, FileText, Zap } from "lucide-react";
+import { PlayCircle, Mic, Globe, DollarSign, Bell, BellOff, ShoppingCart, Lock, Eye, EyeOff, CreditCard, Calendar, FileText, Zap, Maximize2, Minimize2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CurrencyDef, LiveItem, LiveProductItem, LiveServiceItem, LiveSession, ViewerAuth, WholesaleTier } from "../data";
@@ -85,10 +85,27 @@ export function VideoPane({
 
     const pillButtonClass = "rounded-full font-black";
 
+    const [isExpanded, setIsExpanded] = React.useState(false);
+
+    // Handle Escape key
+    React.useEffect(() => {
+        const handleEsc = (e: KeyboardEvent) => {
+            if (e.key === "Escape") setIsExpanded(false);
+        };
+        window.addEventListener("keydown", handleEsc);
+        return () => window.removeEventListener("keydown", handleEsc);
+    }, []);
+
+    const containerClass = isExpanded
+        ? "fixed inset-0 z-50 h-[100dvh] w-full bg-black rounded-none"
+        : "relative overflow-hidden rounded-xl bg-[#0b0f19]";
+
+    const heightClass = isExpanded ? "h-full" : videoHeight;
+
     return (
-        <div className="relative overflow-hidden rounded-xl bg-[#0b0f19]">
+        <div className={containerClass}>
             <div
-                className={`${videoHeight} relative flex items-center justify-center bg-[#0b0f19]`}
+                className={`${heightClass} relative flex items-center justify-center bg-[#0b0f19]`}
                 style={{
                     backgroundImage:
                         "radial-gradient(circle at 30% 20%, rgba(247,127,0,0.16), transparent 55%), radial-gradient(circle at 70% 70%, rgba(3,205,140,0.14), transparent 55%)",
@@ -106,7 +123,7 @@ export function VideoPane({
                 </div>
 
                 {/* Top-left overlays */}
-                <div className="absolute left-3 top-3 flex flex-wrap items-center gap-2">
+                <div className="absolute left-3 top-3 flex flex-wrap items-center gap-2 max-w-[70%]">
                     {session.state === "liveNow" && (
                         <div className="flex items-center gap-1.5 rounded-full border border-[#f77f00] bg-black/65 px-3 py-1">
                             <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
@@ -144,17 +161,38 @@ export function VideoPane({
                     </Badge>
                 </div>
 
-                {/* Flash deal strip */}
-                {session.flashDeal && session.state === "liveNow" && (
-                    <div className="absolute right-3 top-3 rounded-lg border border-[#f77f00] bg-black/55 px-3 py-1.5">
-                        <p className="text-xs font-black text-white">
-                            {tr(session.flashDeal.label)} · {session.flashDeal.timeLeft} · extra {session.flashDeal.extraPct}%
-                        </p>
-                    </div>
-                )}
+                {/* Top-Right Controls Zone */}
+                <div className="absolute right-3 top-3 flex flex-col items-end gap-2">
+                    {/* Flash deal strip */}
+                    {session.flashDeal && session.state === "liveNow" && (
+                        <div className="rounded-lg border border-[#f77f00] bg-black/55 px-3 py-1.5">
+                            <p className="text-xs font-black text-white">
+                                {tr(session.flashDeal.label)} · {session.flashDeal.timeLeft} · extra {session.flashDeal.extraPct}%
+                            </p>
+                        </div>
+                    )}
+                </div>
+
+                {/* Bottom-Right Controls (Expand) */}
+                <div
+                    className={`absolute right-3 transition-all duration-300 z-50 ${pinned
+                        ? (isRegulated ? "bottom-36" : "bottom-24")
+                        : "bottom-3"
+                        }`}
+                >
+                    <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => setIsExpanded(!isExpanded)}
+                        className="h-8 w-8 rounded-full bg-black/40 text-white hover:bg-black/60 hover:text-white"
+                        title={isExpanded ? t("exitFullscreen") : t("enterFullscreen")}
+                    >
+                        {isExpanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                    </Button>
+                </div>
 
                 {/* Floating reactions */}
-                <div className="absolute bottom-28 right-4 flex flex-col gap-2 pointer-events-none">
+                <div className={`absolute right-4 flex flex-col gap-2 pointer-events-none transition-all duration-300 ${pinned ? (isRegulated ? "bottom-48" : "bottom-36") : "bottom-14"}`}>
                     {reactions.map((r) => (
                         <div
                             key={r.id}

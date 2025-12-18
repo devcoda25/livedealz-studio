@@ -71,13 +71,15 @@ export default function MyLiveDealzLiveStudioFullPage() {
   const [activeSourceId, setActiveSourceId] = useState<SourceId>("cam1");
 
   // Scenes + preview
-  const [activeSceneId, setActiveSceneId] = useState<SceneId>("intro");
+  const [activeSceneId, setActiveSceneId] = useState<SceneId>("intro_host");
   const [previewMode, setPreviewMode] = useState<PreviewMode>("auto");
 
   // Transcription (Speech-to-Text)
   const [transcriptionOn, setTranscriptionOn] = useState(false);
   const [transcript, setTranscript] = useState("");
   const recognitionRef = useRef<any>(null);
+
+  const [showProduction, setShowProduction] = useState(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -1055,14 +1057,7 @@ export default function MyLiveDealzLiveStudioFullPage() {
 
           {/* Left Column (visible on all sizes, but stacked on mobile) */}
           <section className="flex flex-col gap-3 w-full md:w-72 lg:w-80 flex-shrink-0">
-            <ProductionPanel
-              productionMode={productionMode}
-              externalTool={externalTool}
-              activeSourceId={activeSourceId}
-              onChangeProductionMode={setProductionMode}
-              onChangeExternalTool={setExternalTool}
-              onChangeSource={setActiveSourceId}
-            />
+            <TeleprompterPanel />
             <InventoryPanel
               products={products}
               highlightedId={highlightedProductId}
@@ -1137,7 +1132,6 @@ export default function MyLiveDealzLiveStudioFullPage() {
                 />
               )}
 
-              <TeleprompterPanel />
               <CommercePanel
                 targetUnits={50}
                 soldUnits={salesCount}
@@ -1206,8 +1200,32 @@ export default function MyLiveDealzLiveStudioFullPage() {
           onToggleFilters={() => setFiltersOpen((v) => !v)}
           transcriptionOn={transcriptionOn}
           onToggleTranscription={() => setTranscriptionOn(v => !v)}
+          showProduction={showProduction}
+          onToggleProduction={() => setShowProduction(v => !v)}
         />
       </div>
+
+      {/* Production Overlay */}
+      {showProduction && (
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-bottom-5">
+          <div className="bg-slate-950 border border-slate-700 rounded-2xl shadow-2xl p-4 w-[400px] max-w-[90vw] relative">
+            <button
+              onClick={() => setShowProduction(false)}
+              className="absolute -top-3 -right-3 h-8 w-8 rounded-full bg-slate-800 text-white flex items-center justify-center hover:bg-slate-700 shadow-lg border border-slate-600"
+            >
+              <span className="material-icons text-sm">close</span>
+            </button>
+            <ProductionPanel
+              productionMode={productionMode}
+              externalTool={externalTool}
+              activeSourceId={activeSourceId}
+              onChangeProductionMode={setProductionMode}
+              onChangeExternalTool={setExternalTool}
+              onChangeSource={setActiveSourceId}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Overlays */}
       {filtersOpen && (

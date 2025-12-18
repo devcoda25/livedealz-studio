@@ -31,18 +31,33 @@ export class FilterEngine {
         console.log("Initializing FilterEngine FaceMesh...");
         // Handle CJS/ESM interop
         // @ts-ignore
-        const FaceMeshConstructor = mpFaceMesh.FaceMesh || (mpFaceMesh as any).default?.FaceMesh || (mpFaceMesh as any).default;
+        const FaceMeshConstructor = mpFaceMesh.FaceMesh || mpFaceMesh.default?.FaceMesh || mpFaceMesh;
 
         if (!FaceMeshConstructor) {
             console.error("Failed to load FaceMesh constructor", mpFaceMesh);
             throw new Error("FaceMesh constructor not found");
         }
 
-        this.faceMesh = new FaceMeshConstructor({
-            locateFile: (file: string) => {
-                return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`;
-            },
-        });
+        // Check if it's a class/constructor
+        try {
+            this.faceMesh = new FaceMeshConstructor({
+                locateFile: (file: string) => {
+                    return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`;
+                },
+            });
+        } catch (e) {
+            // fallback for when default export IS the class but wrapped weirdly
+            if (typeof FaceMeshConstructor === 'function') {
+                // @ts-ignore
+                this.faceMesh = new FaceMeshConstructor({
+                    locateFile: (file: string) => {
+                        return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`;
+                    },
+                });
+            } else {
+                throw e;
+            }
+        }
 
         this.faceMesh.setOptions({
             maxNumFaces: 1,

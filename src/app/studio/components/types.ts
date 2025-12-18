@@ -100,11 +100,8 @@ export type FlashDealState = {
     productId: string | null; // targeted product
 };
 
-export const SCENES = [
-    { id: "intro", label: "Intro + host", desc: "Single camera" },
-    { id: "product", label: "Product close-up", desc: "Hero overlay" },
-    { id: "split", label: "Split screen", desc: "Host + product" },
-    { id: "offer", label: "Flash offer", desc: "Offer graphic" },
-] as const;
+import { SCENE_PRESETS } from "../../../engines/SceneEngine";
+
+export const SCENES = SCENE_PRESETS;
 
 export type SceneId = (typeof SCENES)[number]["id"];
