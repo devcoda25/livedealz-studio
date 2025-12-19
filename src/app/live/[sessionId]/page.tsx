@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, MoreVertical, Share2, Flag, Eye, EyeOff, ShoppingCart, Sun, Moon, Smartphone, Monitor, Settings, MessageCircle } from "lucide-react";
+import { ArrowLeft, MoreVertical, Share2, Flag, Eye, EyeOff, ShoppingCart, ShoppingBag, Sun, Moon, Smartphone, Monitor, Settings, MessageCircle, X } from "lucide-react";
 import { toast } from "sonner";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useTheme } from "next-themes";
@@ -81,26 +81,20 @@ export default function LiveSessionPage() {
     const [wholesaleApproved, setWholesaleApproved] = useState(false);
 
 
-    // Device Mode Logic
-    const [deviceMode, setDeviceMode] = useState<DeviceMode>("auto");
+    // Device Mode Logic (Auto-only: Desktop >= 768px)
     const [isDesktop, setIsDesktop] = useState(true);
 
     useEffect(() => {
-        const check = () => {
-            if (deviceMode === "mobile") {
-                setIsDesktop(false);
-            } else if (deviceMode === "desktop") {
-                setIsDesktop(true);
-            } else {
-                // Auto
-                setIsDesktop(window.innerWidth >= 768);
-            }
-        };
-
-        check();
-        window.addEventListener('resize', check);
-        return () => window.removeEventListener('resize', check);
-    }, [deviceMode]);
+        const mql = window.matchMedia("(min-width: 768px)");
+        
+        const onChange = () => setIsDesktop(mql.matches);
+        
+        // Initial set
+        setIsDesktop(mql.matches);
+        
+        mql.addEventListener("change", onChange);
+        return () => mql.removeEventListener("change", onChange);
+    }, []);
 
     // --- Shell / Prefs ---
     const [shellCurrency, setShellCurrency] = useState<CurrencyCode>("USD");
@@ -315,10 +309,9 @@ export default function LiveSessionPage() {
     }
 
     const audioLabel = voiceTranslationOn ? (LANGS.find(l => l.code === audioLang)?.native || "English") : `${t("original")}: ${session.language}`;
-    const showMobileFrame = deviceMode === 'mobile' && window.innerWidth >= 768; // Show frame if force-mobile on desktop
 
     return (
-        <div className={`min-h-screen bg-background text-foreground pb-20 md:pb-0 transition-colors duration-300 ${showMobileFrame ? 'bg-slate-100 dark:bg-slate-950' : ''}`}>
+        <div className={`min-h-screen bg-background text-foreground pb-20 md:pb-0 transition-colors duration-300`}>
 
             {/* Top Bar - Always full width */}
             <div className={`sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border px-4 py-2 flex items-center justify-between`}>
@@ -335,38 +328,7 @@ export default function LiveSessionPage() {
                 <div className="flex items-center gap-2">
                     <Badge variant="secondary" className="hidden md:flex bg-muted text-muted-foreground">{session.state}</Badge>
 
-                    {/* Device Selector */}
-                    <div className="hidden sm:flex items-center bg-muted/50 rounded-lg p-0.5 border border-border">
-                        <div className="flex">
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className={`h-7 w-7 rounded-md ${deviceMode === 'auto' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-                                onClick={() => setDeviceMode('auto')}
-                                title="Auto Detect"
-                            >
-                                <Settings className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className={`h-7 w-7 rounded-md ${deviceMode === 'desktop' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-                                onClick={() => setDeviceMode('desktop')}
-                                title="Force Desktop"
-                            >
-                                <Monitor className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className={`h-7 w-7 rounded-md ${deviceMode === 'mobile' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-                                onClick={() => setDeviceMode('mobile')}
-                                title="Force Mobile"
-                            >
-                                <Smartphone className="h-3.5 w-3.5" />
-                            </Button>
-                        </div>
-                    </div>
+
 
                     {/* Theme Toggle */}
                     <Button
@@ -407,10 +369,14 @@ export default function LiveSessionPage() {
             </div>
 
             {/* Main Content Area - Centered Video & Bottom Nav */}
-            <div className={`mx-auto h-[calc(100vh-60px)] relative flex flex-col items-center ${deviceMode === 'mobile' ? 'max-w-md' : 'max-w-7xl'}`}>
+            <div className={`mx-auto h-[calc(100vh-60px)] relative flex flex-col items-center overflow-hidden ${!isDesktop ? 'max-w-md' : 'max-w-7xl'}`}>
 
-                <div className="w-full flex-1 flex flex-col items-center justify-center p-4 overflow-hidden min-h-0">
-                    <div className={`${deviceMode === 'mobile' ? 'w-[365px]' : 'w-full'} transition-all duration-300 relative z-0`}>
+                <div className={`w-full flex-1 flex flex-col items-center min-h-0 ${!isDesktop ? 'justify-start p-1 pb-24' : 'justify-center p-8'}`}>
+                    {/* Video Container */}
+                    <div className={`transition-all duration-300 relative z-0 ${!isDesktop
+                        ? 'h-full aspect-[9/16] max-w-full shadow-2xl rounded-2xl overflow-hidden bg-black'
+                        : 'w-full max-w-5xl aspect-video shadow-2xl rounded-2xl overflow-hidden bg-black'
+                        }`}>
                         <VideoPane
                             session={session}
                             pinned={pinned}
@@ -440,7 +406,7 @@ export default function LiveSessionPage() {
 
                 {/* Bottom Interaction Drawer (Slide-up) */}
                 <div
-                    className={`fixed inset-x-0 bottom-[90px] z-20 mx-auto max-w-md bg-transparent transition-all duration-500 cubic-bezier(0.32, 0.72, 0, 1) ${panelTab && itemFilter !== 'hidden' ? 'translate-y-0 opacity-100 visible' : 'translate-y-[50%] opacity-0 invisible'
+                    className={`fixed inset-x-0 bottom-[80px] z-20 mx-auto max-w-md bg-transparent transition-all duration-500 cubic-bezier(0.32, 0.72, 0, 1) ${panelTab && itemFilter !== 'hidden' ? 'translate-y-0 opacity-100 visible' : 'translate-y-[50%] opacity-0 invisible'
                         }`}
                     style={{ height: '60vh' }}
                 >
@@ -448,6 +414,14 @@ export default function LiveSessionPage() {
                         {/* Drawer Handle */}
                         <div className="absolute top-2 inset-x-0 flex justify-center z-10 p-2" onClick={() => setItemFilter('hidden')}>
                             <div className="w-12 h-1.5 rounded-full bg-border cursor-pointer hover:bg-muted-foreground/50 transition-colors" />
+                        </div>
+
+                        {/* Close Icon */}
+                        <div
+                            className="absolute top-3 right-4 z-20 p-1 rounded-full hover:bg-muted cursor-pointer transition-colors"
+                            onClick={() => setItemFilter('hidden')}
+                        >
+                            <X className="h-5 w-5 text-muted-foreground" />
                         </div>
 
                         <div className="flex-1 pt-8 bg-card">
@@ -494,12 +468,11 @@ export default function LiveSessionPage() {
                 </div>
 
                 {/* Bottom Navigation Bar */}
-                <div className="fixed bottom-6 inset-x-0 z-30 flex justify-center">
-                    <div className="bg-background/80 backdrop-blur-md border border-border shadow-lg rounded-full px-8 py-3 flex items-center gap-12 ring-1 ring-white/10 dark:ring-white/5">
+                <div className="fixed bottom-0 inset-x-0 z-50 w-full">
+                    <div className="w-full bg-background/95 backdrop-blur-xl border-t border-border shadow-[0_-4px_20px_rgba(0,0,0,0.1)] px-8 py-4 flex items-center justify-around gap-8">
                         <Button
                             variant="ghost"
-                            size="icon"
-                            className={`rounded-full hover:bg-transparent ${panelTab === 'products' && itemFilter !== 'hidden' ? 'text-[#f77f00] scale-110' : 'text-muted-foreground'}`}
+                            className={`flex flex-col items-center gap-1 h-auto p-2 hover:bg-transparent min-w-[64px] ${panelTab === 'products' && itemFilter !== 'hidden' ? 'text-[#f77f00]' : 'text-muted-foreground'}`}
                             onClick={() => {
                                 if (panelTab === 'products' && itemFilter !== 'hidden') {
                                     setItemFilter('hidden');
@@ -509,13 +482,15 @@ export default function LiveSessionPage() {
                                 }
                             }}
                         >
-                            <ShoppingCart className="h-6 w-6" />
+                            <div className={`p-1 rounded-full transition-all duration-300 ${panelTab === 'products' && itemFilter !== 'hidden' ? 'bg-[#f77f00]/10' : 'bg-transparent'}`}>
+                                <ShoppingBag className="h-6 w-6" />
+                            </div>
+                            <span className="text-[10px] font-bold tracking-wider uppercase">{t("products")}</span>
                         </Button>
 
                         <Button
                             variant="ghost"
-                            size="icon"
-                            className={`rounded-full hover:bg-transparent ${panelTab === 'chat' && itemFilter !== 'hidden' ? 'text-[#f77f00] scale-110' : 'text-muted-foreground'}`}
+                            className={`flex flex-col items-center gap-1 h-auto p-2 hover:bg-transparent min-w-[64px] ${panelTab === 'chat' && itemFilter !== 'hidden' ? 'text-[#f77f00]' : 'text-muted-foreground'}`}
                             onClick={() => {
                                 if (panelTab === 'chat' && itemFilter !== 'hidden') {
                                     setItemFilter('hidden');
@@ -525,13 +500,15 @@ export default function LiveSessionPage() {
                                 }
                             }}
                         >
-                            <MessageCircle className="h-6 w-6" />
+                            <div className={`p-1 rounded-full transition-all duration-300 ${panelTab === 'chat' && itemFilter !== 'hidden' ? 'bg-[#f77f00]/10' : 'bg-transparent'}`}>
+                                <MessageCircle className="h-6 w-6" />
+                            </div>
+                            <span className="text-[10px] font-bold tracking-wider uppercase">{t("chat")}</span>
                         </Button>
 
                         <Button
                             variant="ghost"
-                            size="icon"
-                            className={`rounded-full hover:bg-transparent ${panelTab === 'info' && itemFilter !== 'hidden' ? 'text-[#f77f00] scale-110' : 'text-muted-foreground'}`}
+                            className={`flex flex-col items-center gap-1 h-auto p-2 hover:bg-transparent min-w-[64px] ${panelTab === 'info' && itemFilter !== 'hidden' ? 'text-[#f77f00]' : 'text-muted-foreground'}`}
                             onClick={() => {
                                 if (panelTab === 'info' && itemFilter !== 'hidden') {
                                     setItemFilter('hidden');
@@ -541,7 +518,10 @@ export default function LiveSessionPage() {
                                 }
                             }}
                         >
-                            <Flag className="h-6 w-6" />
+                            <div className={`p-1 rounded-full transition-all duration-300 ${panelTab === 'info' && itemFilter !== 'hidden' ? 'bg-[#f77f00]/10' : 'bg-transparent'}`}>
+                                <Flag className="h-6 w-6" />
+                            </div>
+                            <span className="text-[10px] font-bold tracking-wider uppercase">{t("hostInfo")}</span>
                         </Button>
                     </div>
                 </div>

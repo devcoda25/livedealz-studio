@@ -298,7 +298,7 @@ export function VideoPane({
                                                 {isConsult && isOnDemand ? t("startNow") : t("bookSlot")}
                                             </Button>
                                         </>
-                                    )
+                                    );
                                 })()
                             )}
                         </div>
