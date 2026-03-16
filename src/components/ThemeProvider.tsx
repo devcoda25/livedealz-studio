@@ -1,9 +1,9 @@
 "use client"
 
 import * as React from "react"
-import { ThemeProvider as NextThemesProvider } from "next-themes"
 
-// Define the props we need without importing from internal paths
+// Simple ThemeProvider that doesn't depend on next-themes
+// Theme handling is done via the darkMode state in page.tsx
 interface ThemeProviderProps {
   children?: React.ReactNode;
   attribute?: any;
@@ -16,6 +16,7 @@ interface ThemeProviderProps {
 }
 
 export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
-  // @ts-ignore - next-themes types are incompatible
-  return <NextThemesProvider {...props}>{children}</NextThemesProvider>
+  // This is a no-op provider since we handle theming via CSS variables
+  // and the darkMode state in page.tsx
+  return <>{children}</>
 }
