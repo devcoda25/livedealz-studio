@@ -5,6 +5,7 @@ import { PreviewModeToggle } from "./PreviewModeToggle";
 import { sourceLabel, getFullscreenElement, exitFullscreen, requestFullscreen } from "./utils";
 
 export function ExpandedStageModal(props: {
+    darkMode?: boolean;
     onClose: () => void;
     cameraHint: string;
     previewMode: PreviewMode;
@@ -27,6 +28,7 @@ export function ExpandedStageModal(props: {
     activeFilter: string;
 }) {
     const {
+        darkMode,
         onClose,
         cameraHint,
         previewMode,
@@ -98,7 +100,7 @@ export function ExpandedStageModal(props: {
                     <div className="flex items-center gap-2">
                         <PreviewModeToggle previewMode={previewMode} onChange={onChangePreviewMode} />
                         <button
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-600 text-slate-100 hover:bg-slate-900 text-[11px]"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border text-foreground hover:bg-muted text-[11px]"
                             onClick={toggleFullscreen}
                             title="Uses the browser Fullscreen API"
                         >
@@ -106,7 +108,7 @@ export function ExpandedStageModal(props: {
                             {isFs ? "Exit fullscreen" : "Fullscreen"}
                         </button>
                         <button
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-600 text-slate-100 hover:bg-slate-900 text-[11px]"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border text-foreground hover:bg-muted text-[11px]"
                             onClick={handleClose}
                         >
                             <span className="material-icons text-[14px]">close</span>
@@ -117,7 +119,7 @@ export function ExpandedStageModal(props: {
 
                 <button
                     onClick={handleClose}
-                    className="absolute -top-2 -right-2 z-10 h-8 w-8 rounded-full bg-slate-800/80 text-white flex items-center justify-center hover:bg-slate-700"
+                    className={`absolute -top-2 -right-2 z-10 h-8 w-8 rounded-full ${darkMode ? "bg-slate-800/80 hover:bg-slate-700" : "bg-white/80 hover:bg-slate-100"} ${darkMode ? "text-white" : "text-slate-900"} flex items-center justify-center`}
                     aria-label="Close expanded view"
                 >
                     <span className="material-icons text-[20px]">close</span>
@@ -125,10 +127,11 @@ export function ExpandedStageModal(props: {
 
                 <div
                     ref={containerRef}
-                    className="bg-slate-950 border border-slate-800 rounded-3xl p-3 shadow-[0_24px_80px_rgba(0,0,0,0.7)]"
+                    className="bg-background border border-border rounded-3xl p-3 shadow-[0_24px_80px_rgba(0,0,0,0.7)]"
                     onDoubleClick={toggleFullscreen}
                 >
                     <StagePreview
+                        darkMode={darkMode}
                         resolvedPreviewMode={resolvedPreviewMode}
                         activeSceneLabel="Expanded"
                         liveTimerLabel={liveTimerLabel}
@@ -136,12 +139,12 @@ export function ExpandedStageModal(props: {
                         liveLangMix={liveLangMix}
                         // @ts-ignore
                         source={sourceLabel(activeSourceId, productionMode, externalTool)}
-                        flash={flash}
+                        flash={flash as { active: boolean; secondsLeft: number; discountPct: number; productId?: string }}
                         flashUrgency={flashUrgency}
                         micOn={true}
                         camOn={true}
                         screenShareOn={false}
-                        currentSpeaker={currentSpeaker}
+                        currentSpeaker={currentSpeaker ? { name: currentSpeaker.viewerName } : null}
                         speakerSecondsLeft={speakerSecondsLeft}
                         onExpand={toggleFullscreen}
                         videoRef={videoRef}
@@ -149,6 +152,11 @@ export function ExpandedStageModal(props: {
                         transcriptionOn={transcriptionOn}
                         transcript={transcript}
                         activeFilter={activeFilter}
+                        canvasSources={[]}
+                        selectedSourceId={null}
+                        onSelectSource={() => { }}
+                        onUpdateSourcePosition={() => { }}
+                        onUpdateSourceSize={() => { }}
                     />
                     <div className="mt-3 text-[11px] text-slate-300 flex items-center justify-between">
                         <span>Tip: double-click the preview to toggle fullscreen.</span>

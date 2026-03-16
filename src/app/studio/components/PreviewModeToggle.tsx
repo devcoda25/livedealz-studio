@@ -10,7 +10,7 @@ export function PreviewModeToggle({ previewMode, onChange }: { previewMode: Prev
                 onClick={() => onChange(id)}
                 className={
                     "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] border transition " +
-                    (active ? "bg-white text-slate-900 border-white shadow-sm" : "bg-slate-950 text-slate-200 border-slate-700 hover:bg-slate-900")
+                    (active ? "bg-primary text-primary-foreground border-primary shadow-sm" : "bg-muted text-foreground border-border hover:bg-secondary")
                 }
             >
                 <span className="material-icons text-[13px]">{icon}</span>

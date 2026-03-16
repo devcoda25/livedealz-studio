@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Spinner } from "@/components/ui/spinner";
 import { useStudioSocket } from "@/hooks/useStudioSocket";
+import { useEngines } from "@/hooks/useEngines";
 
 // Local imports
 import {
@@ -23,28 +24,101 @@ import {
 import { StatPill } from "./components/StatPill";
 import { ProductionPanel } from "./components/ProductionPanel";
 import { InventoryPanel } from "./components/InventoryPanel";
-import { CoHostsPanel } from "./components/CoHostsPanel";
-import { AttachmentsPanel } from "./components/AttachmentsPanel";
 import { StagePanel } from "./components/StagePanel";
 import { BuyerSimulatorPanel } from "./components/BuyerSimulatorPanel";
 import { TeleprompterPanel } from "./components/TeleprompterPanel";
+import { AIPromptsToast } from "./components/AIPromptsToast";
 import { CommercePanel } from "./components/CommercePanel";
 import { AudiencePanel } from "./components/AudiencePanel";
 import { AiPanel } from "./components/AiPanel";
 import { ControlBar } from "./components/ControlBar";
 import { FiltersTray } from "./components/FiltersTray";
+import { AudioMixerPanel } from "./components/AudioMixerPanel";
+import { CommerceHUD } from "./components/CommerceHUD";
+import { CoHostsHUD } from "./components/CoHostsHUD";
+import { AttachmentsHUD } from "./components/AttachmentsHUD";
+import { SceneManagerHUD } from "./components/SceneManagerHUD";
 import { FlashDealDialog } from "./components/FlashDealDialog";
 import { LanguagePanel } from "./components/LanguagePanel";
 import { ExpandedStageModal } from "./components/ExpandedStageModal";
+import { SourcesPanel, CanvasSource } from "./components/SourcesPanel";
 
 export default function MyLiveDealzLiveStudioFullPage() {
   // Socket & Real State
   const { state: socketState, sendChat, startFlash, stopFlash } = useStudioSocket();
 
+  // Engine Integration - All 5 engines unified
+  const {
+    state: engineState,
+    products: engineProducts,
+    viewers: engineViewers,
+    chatMessages: engineChatMessages,
+    salesEvents: engineSalesEvents,
+    qaItems: engineQaItems,
+    aiHints: engineAiHints,
+    flashDeal: engineFlashDeal,
+    initializeStreaming: initStreaming,
+    startCamera: engineStartCamera,
+    startScreenShare: engineStartScreenShare,
+    stopSource: engineStopSource,
+    startStream: engineStartStream,
+    stopStream: engineStopStream,
+    getStreamHealth: engineGetHealth,
+    getStreamStats: engineGetStreamStats,
+    pinProduct: enginePinProduct,
+    unpinProduct: engineUnpinProduct,
+    startFlashDeal: engineStartFlash,
+    stopFlashDeal: engineStopFlash,
+    sendChatMessage: engineSendChat,
+    submitQuestion: engineSubmitQ,
+    pinQuestion: enginePinQ,
+    answerQuestion: engineAnswerQ,
+    highlightQuestion: engineHighlightQ,
+    muteUser: engineMuteUser,
+    banUser: engineBanUser,
+    unbanUser: engineUnbanUser,
+    filterMessage: engineFilterMsg,
+    updateViewerCount: engineUpdateViewers,
+    updateEngagement: engineUpdateEngagement,
+    updateCommerceMetrics: engineUpdateCommerce,
+    updateQualityMetrics: engineUpdateQuality,
+    recordSample: engineRecordSample,
+    getStats: engineGetAnalyticsStats,
+    addAiHint: engineAddHint,
+    addSaleEvent: engineAddSale,
+    connect: engineConnect,
+    disconnect: engineDisconnect,
+    initializeAudio,
+    addMicrophone,
+    addScreenShareAudio,
+    addBackgroundMusic,
+    setSourceVolume,
+    setSourcePan,
+    setSourceMuted,
+    setSourceSolo,
+    setMasterVolume,
+    setMasterMuted,
+    enableNoiseReduction,
+    getAudioSources,
+    removeAudioSource,
+  } = useEngines();
+
   // Defaults
   const [darkMode, setDarkMode] = useState(true);
   const [mode, setMode] = useState<Mode>("lobby");
+
+  // Sync darkMode with document class for CSS variables
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+  }, [darkMode]);
   const [simulate, setSimulate] = useState(false);
+
+  // AI Prompts for live sessions
+  const isLive = mode === "live";
 
   // Stream Provisioning
   const [streamKey, setStreamKey] = useState<string | null>(null);
@@ -59,6 +133,7 @@ export default function MyLiveDealzLiveStudioFullPage() {
   const [screenShareOn, setScreenShareOn] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null!);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const expandedVideoRef = useRef<HTMLVideoElement>(null!);
   const streamRef = useRef<MediaStream | null>(null);
 
@@ -74,9 +149,16 @@ export default function MyLiveDealzLiveStudioFullPage() {
   const [activeSceneId, setActiveSceneId] = useState<SceneId>("intro_host");
   const [previewMode, setPreviewMode] = useState<PreviewMode>("auto");
 
+  // Canvas sources management
+  const [canvasSources, setCanvasSources] = useState<CanvasSource[]>([]);
+  const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
+
   // Transcription (Speech-to-Text)
   const [transcriptionOn, setTranscriptionOn] = useState(false);
   const [transcript, setTranscript] = useState("");
+
+  // Audio Mixer
+  const [audioMixerOpen, setAudioMixerOpen] = useState(false);
   const recognitionRef = useRef<any>(null);
 
   const [showProduction, setShowProduction] = useState(false);
@@ -177,9 +259,18 @@ export default function MyLiveDealzLiveStudioFullPage() {
   const [flashConfigOpen, setFlashConfigOpen] = useState(false);
   const [languagePanelOpen, setLanguagePanelOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [sourcesOpen, setSourcesOpen] = useState(false);
+  const [buyersOpen, setBuyersOpen] = useState(false);
+  const [commerceHudOpen, setCommerceHudOpen] = useState(false);
+  const [sceneManagerOpen, setSceneManagerOpen] = useState(false);
+  const [coHostsOpen, setCoHostsOpen] = useState(false);
+  const [attachmentsOpen, setAttachmentsOpen] = useState(false);
 
   // Left panels
-  const [products, setProducts] = useState<Product[]>([]);
+  // Use engine products if available, otherwise use local state
+  const [localProducts, setLocalProducts] = useState<Product[]>([]);
+  const products = engineProducts.length > 0 ? engineProducts : localProducts;
+  const setProducts = engineProducts.length > 0 ? (() => { }) : setLocalProducts;
   const [highlightedProductId, setHighlightedProductId] = useState<string | null>(null);
 
   const [coHosts, setCoHosts] = useState<{ id: number; name: string; status: string }[]>([]);
@@ -194,8 +285,8 @@ export default function MyLiveDealzLiveStudioFullPage() {
   const [viewerCount, setViewerCount] = useState(0);
 
   // Multi-buyer simulation (per-buyer carts + reminders)
-  const [buyers, setBuyers] = useState<BuyerAgent[]>([]);
-  const [selectedBuyerId, setSelectedBuyerId] = useState<string | null>(null);
+  const [buyers, setBuyers] = useState<BuyerAgent[]>(INITIAL_BUYERS.map(b => ({ ...b, lastActionAt: Date.now() })));
+  const [selectedBuyerId, setSelectedBuyerId] = useState<string | null>(INITIAL_BUYERS[0]?.id ?? null);
 
   // KPI stats
   const [liveSeconds, setLiveSeconds] = useState(0);
@@ -228,6 +319,14 @@ export default function MyLiveDealzLiveStudioFullPage() {
   const [currentSpeaker, setCurrentSpeaker] = useState<CurrentSpeaker | null>(null);
   const [speakerSecondsLeft, setSpeakerSecondsLeft] = useState(0);
 
+  // Connect engines on mount
+  useEffect(() => {
+    engineConnect();
+    return () => {
+      engineDisconnect();
+    };
+  }, [engineConnect, engineDisconnect]);
+
   // -------------------- refs for stable simulation --------------------
   const viewersRef = useRef(viewers);
   const productsRef = useRef(products);
@@ -252,6 +351,8 @@ export default function MyLiveDealzLiveStudioFullPage() {
   // Provision Stream Handler
   const handleGoLive = async () => {
     if (mode === 'live') {
+      // Stop streaming engine when going offline
+      await engineStopStream();
       setMode('lobby');
       setStreamKey(null);
       setStreamUrl(null);
@@ -259,15 +360,22 @@ export default function MyLiveDealzLiveStudioFullPage() {
       return;
     }
 
-    // In-App Mode: Instant "Go Live" (Simulation)
+    // In-App Mode: Instant "Go Live" (with Engine)
     if (productionMode === "inapp") {
+      // Try to start streaming engine
+      try {
+        await engineStartStream('webrtc');
+      } catch (e) {
+        console.log("Could not start streaming engine, using simulation mode");
+      }
+
       setMode('live');
       setLiveSeconds(0);
       toast({
         title: "You are Live! (In-App)",
-        description: "Broadcasting from browser camera (Simulation). Viewers will see the stream instantly.",
+        description: "Broadcasting from browser camera. Viewers will see the stream instantly.",
       });
-      console.log("Starting in-app broadcast simulation...");
+      console.log("Starting in-app broadcast with engine...");
       return;
     }
 
@@ -298,8 +406,13 @@ export default function MyLiveDealzLiveStudioFullPage() {
 
   // Client-side only data initialization to prevent hydration errors
   useEffect(() => {
-    setProducts(INITIAL_PRODUCTS);
-    setHighlightedProductId(INITIAL_PRODUCTS[0]?.id ?? null);
+    // Only set local products if engine products not available
+    if (engineProducts.length === 0) {
+      setLocalProducts(INITIAL_PRODUCTS);
+      setHighlightedProductId(INITIAL_PRODUCTS[0]?.id ?? null);
+    } else {
+      setHighlightedProductId(engineProducts[0]?.id ?? null);
+    }
     setCoHosts([
       { id: 1, name: "Dacy (Producer)", status: "Accepted" },
       { id: 2, name: "Grace (Brand rep)", status: "Pending" },
@@ -365,6 +478,35 @@ export default function MyLiveDealzLiveStudioFullPage() {
 
   useEffect(() => {
     const getCameraPermission = async () => {
+      // Try using streaming engine first
+      try {
+        // Create canvas for compositing if not exists
+        let canvas = canvasRef.current;
+        if (!canvas) {
+          canvas = document.createElement('canvas');
+          canvas.width = 1920;
+          canvas.height = 1080;
+          canvasRef.current = canvas;
+        }
+
+        // Initialize streaming engine
+        if (initStreaming && videoRef.current) {
+          const success = await initStreaming(canvas, videoRef.current);
+          if (success) {
+            // Start camera using engine
+            const source = await engineStartCamera("cam1", "Camera 1");
+            if (source) {
+              setHasCameraPermission(true);
+              console.log("Streaming engine camera initialized");
+              return;
+            }
+          }
+        }
+      } catch (e) {
+        console.log("Streaming engine not available, falling back to direct getUserMedia");
+      }
+
+      // Fallback to direct getUserMedia
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         console.error("Camera API not available in this browser.");
         setHasCameraPermission(false);
@@ -402,7 +544,7 @@ export default function MyLiveDealzLiveStudioFullPage() {
         streamRef.current.getTracks().forEach(track => track.stop());
       }
     };
-  }, [toast]);
+  }, [toast, initStreaming, engineStartCamera]);
 
   useEffect(() => {
     if (streamRef.current) {
@@ -637,8 +779,14 @@ export default function MyLiveDealzLiveStudioFullPage() {
 
   const buyerName = (buyerId: string) => buyersRef.current.find((b) => b.id === buyerId)?.name ?? "Buyer";
 
-  // Flash deal actions
-  const startFlashDeal = (durationMinutes: number, discountPct: number, targetProductId: string) => {
+  // Flash deal actions - use engine if available, otherwise local
+  const handleStartFlashDeal = (durationMinutes: number, discountPct: number, targetProductId: string) => {
+    // Try engine first
+    if (engineFlashDeal) {
+      engineStartFlash(targetProductId, durationMinutes * 60);
+      return;
+    }
+    // Fallback to local
     const total = durationMinutes * 60;
     const endsAt = Date.now() + total * 1000;
     setFlash({
@@ -653,7 +801,68 @@ export default function MyLiveDealzLiveStudioFullPage() {
     pushAi(`Flash deal live.Mention: "-${discountPct}% ends in ${formatHMS(total)}".`, "opportunity");
   };
 
-  const stopFlashDeal = () => {
+  // Canvas source management
+  const handleAddSource = (type: CanvasSource["type"]) => {
+    const newSource: CanvasSource = {
+      id: `source_${Date.now()}`,
+      name: `${type.charAt(0).toUpperCase() + type.slice(1)} ${canvasSources.length + 1}`,
+      type,
+      enabled: true,
+      visible: true,
+      locked: false,
+      muted: false,
+      volume: 1,
+      order: canvasSources.length,
+      position: { x: 50, y: 50 },
+      size: { width: 320, height: 180 },
+    };
+    setCanvasSources([...canvasSources, newSource]);
+    setSelectedSourceId(newSource.id);
+  };
+
+  const handleRemoveSource = (id: string) => {
+    setCanvasSources(canvasSources.filter(s => s.id !== id));
+    if (selectedSourceId === id) {
+      setSelectedSourceId(null);
+    }
+  };
+
+  const handleToggleSourceVisibility = (id: string) => {
+    setCanvasSources(canvasSources.map(s =>
+      s.id === id ? { ...s, visible: !s.visible } : s
+    ));
+  };
+
+  const handleToggleSourceLock = (id: string) => {
+    setCanvasSources(canvasSources.map(s =>
+      s.id === id ? { ...s, locked: !s.locked } : s
+    ));
+  };
+
+  const handleToggleSourceMute = (id: string) => {
+    setCanvasSources(canvasSources.map(s =>
+      s.id === id ? { ...s, muted: !s.muted } : s
+    ));
+  };
+
+  const handleUpdateSourceVolume = (id: string, volume: number) => {
+    setCanvasSources(canvasSources.map(s =>
+      s.id === id ? { ...s, volume } : s
+    ));
+  };
+
+  const handleReorderSources = (sources: CanvasSource[]) => {
+    setCanvasSources(sources);
+  };
+
+  // Flash deal actions - use engine if available, otherwise local
+  const handleStopFlashDeal = () => {
+    // Try engine first
+    if (engineFlashDeal) {
+      engineStopFlash();
+      return;
+    }
+    // Fallback to local
     setFlash({ active: false, discountPct: 0, endsAt: null, totalSeconds: 0, secondsLeft: 0, productId: null });
     pushSystem("Flash deal ended.");
   };
@@ -696,7 +905,13 @@ export default function MyLiveDealzLiveStudioFullPage() {
   // live clock
   useEffect(() => {
     if (mode !== "live" || !simulate) return;
-    const t = setInterval(() => setLiveSeconds((s) => s + 1), 1000);
+    const t = setInterval(() => {
+      setLiveSeconds((s) => s + 1);
+      // Record analytics sample every 5 seconds
+      if (engineState.analytics.tracking) {
+        engineRecordSample();
+      }
+    }, 1000);
     return () => clearInterval(t);
   }, [mode, simulate]);
 
@@ -963,8 +1178,8 @@ export default function MyLiveDealzLiveStudioFullPage() {
   }, [featuredProduct, flash.active, flash.discountPct, flash.productId, flash.secondsLeft]);
 
   const rootClass = darkMode
-    ? "min-h-screen flex flex-col bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-50"
-    : "min-h-screen flex flex-col bg-slate-50 text-slate-900";
+    ? "h-screen flex flex-col overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-50"
+    : "h-screen flex flex-col overflow-hidden bg-slate-50 text-slate-900";
 
   if (products.length === 0) {
     return (
@@ -985,7 +1200,7 @@ export default function MyLiveDealzLiveStudioFullPage() {
       {/* Top bar */}
       <header
         className={
-          "h-14 flex items-center justify-between px-4 md:px-6 border-b backdrop-blur-sm sticky top-0 z-50 " +
+          "h-14 flex items-center justify-between px-4 md:px-6 border-b backdrop-blur-sm z-50 flex-shrink-0 " +
           (darkMode ? "border-slate-800/80 bg-slate-950/80 shadow-[0_8px_30px_rgba(15,23,42,0.7)]" : "border-slate-200 bg-white shadow-sm")
         }
       >
@@ -1053,10 +1268,10 @@ export default function MyLiveDealzLiveStudioFullPage() {
       {/* Main Content */}
       <main className="flex-1 flex flex-col md:flex-row overflow-hidden">
         {/* Responsive wrapper */}
-        <div className="flex-1 flex flex-col md:flex-row gap-3 p-3 min-w-0">
+        <div className="flex-1 flex flex-col md:flex-row gap-3 p-3 min-w-0 overflow-hidden">
 
           {/* Left Column (visible on all sizes, but stacked on mobile) */}
-          <section className="flex flex-col gap-3 w-full md:w-72 lg:w-80 flex-shrink-0">
+          <section className="flex flex-col gap-3 w-full md:w-72 lg:w-80 flex-shrink-0 overflow-y-auto">
             <TeleprompterPanel />
             <InventoryPanel
               products={products}
@@ -1065,23 +1280,18 @@ export default function MyLiveDealzLiveStudioFullPage() {
               flash={flash}
               flashUrgency={flashUrgency}
               onOpenFlash={() => setFlashConfigOpen(true)}
-              onStopFlash={stopFlashDeal}
+              onStopFlash={handleStopFlashDeal}
               onRestock={restockProduct}
               getPriceForProduct={getPriceForProduct}
-            />
-            <CoHostsPanel coHosts={coHosts} onInvite={(name) => setCoHosts((p) => [...p, { id: p.length + 1, name, status: "Invited" }])} />
-            <AttachmentsPanel
-              attachments={attachments}
-              onApprove={(id) => pushSystem(`Approved attachment ${id} (demo).`)}
-              onReject={(id) => pushSystem(`Rejected attachment ${id} (demo).`)}
             />
           </section>
 
           {/* Center and Right columns wrapper */}
           <div className="flex-1 flex flex-col md:flex-row gap-3 min-w-0 min-h-0">
-            {/* Center column */}
-            <section className="flex-1 flex flex-col gap-3 min-w-0 overflow-y-auto">
+            {/* Center column - Camera/Stage */}
+            <section className="flex-1 flex flex-col gap-3 min-w-0 min-h-0">
               <StagePanel
+                darkMode={darkMode}
                 mode={mode}
                 activeSceneId={activeSceneId}
                 onChangeScene={setActiveSceneId}
@@ -1108,43 +1318,24 @@ export default function MyLiveDealzLiveStudioFullPage() {
                 transcriptionOn={transcriptionOn}
                 transcript={transcript}
                 activeFilter={activeFilter}
-              />
-
-              {featuredProduct && selectedBuyer && (
-                <BuyerSimulatorPanel
-                  buyers={buyers}
-                  selectedBuyerId={selectedBuyerId}
-                  onSelectBuyer={setSelectedBuyerId}
-                  featuredProduct={featuredProduct}
-                  featuredPrice={featuredPriceInfo}
-                  flashOnFeatured={flashOnFeatured}
-                  flashDiscountPct={flash.discountPct}
-                  flashSecondsLeft={flash.secondsLeft}
-                  flashUrgency={flashUrgency}
-                  selectedBuyerHasReminder={selectedBuyerHasReminder}
-                  selectedBuyerCartQty={selectedBuyerCartQty}
-                  outOfStock={featuredOOS}
-                  lowStock={featuredLow}
-                  onBuyNow={() => buyerBuyNow(selectedBuyer.id, featuredProduct!.id, 1)}
-                  onAddToCart={() => buyerAddToCart(selectedBuyer.id, featuredProduct!.id, 1)}
-                  onRemindMe={() => buyerSetReminder(selectedBuyer.id, featuredProduct!.id)}
-                  transcript={transcript}
-                />
-              )}
-
-              <CommercePanel
-                targetUnits={50}
-                soldUnits={salesCount}
-                cartCount={totalCartItems}
-                last5MinSales={last5MinSales}
-                flash={flash}
-                flashUrgency={flashUrgency}
-                salesEvents={salesEvents}
+                canvasSources={canvasSources}
+                selectedSourceId={selectedSourceId}
+                onSelectSource={setSelectedSourceId}
+                onUpdateSourcePosition={(id, position) => {
+                  setCanvasSources(canvasSources.map(s =>
+                    s.id === id ? { ...s, position } : s
+                  ));
+                }}
+                onUpdateSourceSize={(id, size) => {
+                  setCanvasSources(canvasSources.map(s =>
+                    s.id === id ? { ...s, size } : s
+                  ));
+                }}
               />
             </section>
 
-            {/* Right Column */}
-            <section className="w-full md:w-80 lg:w-96 flex-shrink-0 flex flex-col gap-3 min-h-0">
+            {/* Right Column - Chat/Audience */}
+            <section className="w-full md:w-80 lg:w-96 flex-shrink-0 flex flex-col gap-3 min-h-0 overflow-hidden">
               <AudiencePanel
                 activeTab={audienceTab}
                 onTabChange={setAudienceTab}
@@ -1167,7 +1358,11 @@ export default function MyLiveDealzLiveStudioFullPage() {
                   setChatDraft("");
                 }}
               />
-              <AiPanel prompts={aiHints} />
+              {/* AI Prompts Toast */}
+              <AIPromptsToast 
+                prompts={aiHints}
+                onDismiss={(id) => setAiHints(prev => prev.filter(h => h.id !== id))}
+              />
             </section>
           </div>
         </div>
@@ -1176,6 +1371,7 @@ export default function MyLiveDealzLiveStudioFullPage() {
       {/* Bottom control bar */}
       <div className="sticky bottom-0 z-40">
         <ControlBar
+          darkMode={darkMode}
           mode={mode}
           onToggleLive={() => setMode((m) => (m === "live" ? "lobby" : "live"))}
           micOn={micOn}
@@ -1184,8 +1380,6 @@ export default function MyLiveDealzLiveStudioFullPage() {
           onToggleCam={() => setCamOn((v) => !v)}
           screenShareOn={screenShareOn}
           onToggleScreenShare={() => setScreenShareOn((v) => !v)}
-          activeSceneId={activeSceneId}
-          onChangeScene={setActiveSceneId}
           previewMode={previewMode}
           onCyclePreviewMode={() => {
             const order: PreviewMode[] = ["auto", "desktop", "mobile"];
@@ -1195,41 +1389,46 @@ export default function MyLiveDealzLiveStudioFullPage() {
           cameraHint={cameraHint}
           flashActive={flash.active}
           onOpenFlashConfig={() => setFlashConfigOpen(true)}
-          onStopFlash={stopFlashDeal}
+          onStopFlash={handleStopFlashDeal}
           onOpenLanguage={() => setLanguagePanelOpen(true)}
           onToggleFilters={() => setFiltersOpen((v) => !v)}
+          onToggleCommerceHud={() => setCommerceHudOpen((v) => !v)}
+          commerceHudOpen={commerceHudOpen}
+          onToggleCoHosts={() => setCoHostsOpen((v) => !v)}
+          coHostsOpen={coHostsOpen}
+          onToggleAttachments={() => setAttachmentsOpen((v) => !v)}
+          attachmentsOpen={attachmentsOpen}
           transcriptionOn={transcriptionOn}
           onToggleTranscription={() => setTranscriptionOn(v => !v)}
           showProduction={showProduction}
           onToggleProduction={() => setShowProduction(v => !v)}
+          onToggleSceneManager={() => setSceneManagerOpen(v => !v)}
+          onToggleAudioMixer={() => setAudioMixerOpen(v => !v)}
+          audioMixerOpen={audioMixerOpen}
+          showBuyers={buyersOpen}
+          onToggleBuyers={() => setBuyersOpen(v => !v)}
+          showSources={sourcesOpen}
+          onToggleSources={() => setSourcesOpen(v => !v)}
         />
       </div>
 
       {/* Production Overlay */}
       {showProduction && (
-        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-bottom-5">
-          <div className="bg-slate-950 border border-slate-700 rounded-2xl shadow-2xl p-4 w-[400px] max-w-[90vw] relative">
-            <button
-              onClick={() => setShowProduction(false)}
-              className="absolute -top-3 -right-3 h-8 w-8 rounded-full bg-slate-800 text-white flex items-center justify-center hover:bg-slate-700 shadow-lg border border-slate-600"
-            >
-              <span className="material-icons text-sm">close</span>
-            </button>
-            <ProductionPanel
-              productionMode={productionMode}
-              externalTool={externalTool}
-              activeSourceId={activeSourceId}
-              onChangeProductionMode={setProductionMode}
-              onChangeExternalTool={setExternalTool}
-              onChangeSource={setActiveSourceId}
-            />
-          </div>
-        </div>
+        <ProductionPanel
+          productionMode={productionMode}
+          externalTool={externalTool}
+          activeSourceId={activeSourceId}
+          onChangeProductionMode={setProductionMode}
+          onChangeExternalTool={setExternalTool}
+          onChangeSource={setActiveSourceId}
+          onClose={() => setShowProduction(false)}
+        />
       )}
 
       {/* Overlays */}
       {filtersOpen && (
         <FiltersTray
+          darkMode={darkMode}
           activeFilter={activeFilter}
           onSelectFilter={(f) => {
             setActiveFilter(f);
@@ -1239,12 +1438,125 @@ export default function MyLiveDealzLiveStudioFullPage() {
         />
       )}
 
+      {audioMixerOpen && (
+        <AudioMixerPanel
+          darkMode={darkMode}
+          isOpen={audioMixerOpen}
+          onClose={() => setAudioMixerOpen(false)}
+          sources={getAudioSources()}
+          masterVolume={engineState.audio.masterVolume}
+          masterMuted={engineState.audio.masterMuted}
+          onSetSourceVolume={setSourceVolume}
+          onSetSourcePan={setSourcePan}
+          onSetSourceMuted={setSourceMuted}
+          onSetSourceSolo={setSourceSolo}
+          onSetMasterVolume={setMasterVolume}
+          onSetMasterMuted={setMasterMuted}
+          onEnableNoiseReduction={enableNoiseReduction}
+          onAddMicrophone={addMicrophone}
+          onAddScreenShareAudio={addScreenShareAudio}
+          onRemoveSource={removeAudioSource}
+        />
+      )}
+
+      {sourcesOpen && (
+        <SourcesPanel
+          darkMode={darkMode}
+          isOpen={sourcesOpen}
+          onClose={() => setSourcesOpen(false)}
+          sources={canvasSources}
+          onAddSource={handleAddSource}
+          onRemoveSource={handleRemoveSource}
+          onToggleVisibility={handleToggleSourceVisibility}
+          onToggleLock={handleToggleSourceLock}
+          onToggleMute={handleToggleSourceMute}
+          onUpdateVolume={handleUpdateSourceVolume}
+          onReorderSources={handleReorderSources}
+          selectedSourceId={selectedSourceId}
+          onSelectSource={setSelectedSourceId}
+        />
+      )}
+
+      {buyersOpen && (
+        <BuyerSimulatorPanel
+          darkMode={darkMode}
+          isOpen={buyersOpen}
+          onClose={() => setBuyersOpen(false)}
+          buyers={buyers}
+          selectedBuyerId={selectedBuyerId}
+          onSelectBuyer={setSelectedBuyerId}
+          featuredProduct={featuredProduct}
+          featuredPrice={featuredPriceInfo}
+          flashOnFeatured={flashOnFeatured}
+          flashDiscountPct={flash.discountPct}
+          flashSecondsLeft={flash.secondsLeft}
+          flashUrgency={flashUrgency}
+          selectedBuyerHasReminder={selectedBuyerHasReminder}
+          selectedBuyerCartQty={selectedBuyerCartQty}
+          outOfStock={featuredOOS}
+          lowStock={featuredLow}
+          onBuyNow={() => selectedBuyer && featuredProduct ? buyerBuyNow(selectedBuyer.id, featuredProduct.id, 1) : void 0}
+          onAddToCart={() => selectedBuyer && featuredProduct ? buyerAddToCart(selectedBuyer.id, featuredProduct.id, 1) : void 0}
+          onRemindMe={() => selectedBuyer && featuredProduct ? buyerSetReminder(selectedBuyer.id, featuredProduct.id) : void 0}
+          transcript={transcript}
+        />
+      )}
+
+      {commerceHudOpen && (
+        <CommerceHUD
+          darkMode={darkMode}
+          targetUnits={50}
+          soldUnits={salesCount}
+          cartCount={totalCartItems}
+          last5MinSales={last5MinSales}
+          flash={flash}
+          flashUrgency={flashUrgency}
+          salesEvents={salesEvents}
+          onClose={() => setCommerceHudOpen(false)}
+        />
+      )}
+
+      {sceneManagerOpen && (
+        <SceneManagerHUD
+          darkMode={darkMode}
+          scenes={SCENES.map(s => ({
+            id: s.id,
+            name: s.label,
+            sources: []
+          }))}
+          activeSceneId={activeSceneId}
+          onSceneChange={setActiveSceneId}
+          onSourceToggle={() => { }}
+          onSourceVisibility={() => { }}
+          onClose={() => setSceneManagerOpen(false)}
+        />
+      )}
+
+      {coHostsOpen && (
+        <CoHostsHUD
+          darkMode={darkMode}
+          coHosts={coHosts}
+          onInvite={(name) => setCoHosts((p) => [...p, { id: p.length + 1, name, status: "Invited" }])}
+          onClose={() => setCoHostsOpen(false)}
+        />
+      )}
+
+      {attachmentsOpen && (
+        <AttachmentsHUD
+          darkMode={darkMode}
+          attachments={attachments}
+          onApprove={(id) => pushSystem(`Approved attachment ${id} (demo).`)}
+          onReject={(id) => pushSystem(`Rejected attachment ${id} (demo).`)}
+          onClose={() => setAttachmentsOpen(false)}
+        />
+      )}
+
       {flashConfigOpen && (
         <FlashDealDialog
           onClose={() => setFlashConfigOpen(false)}
           onStart={(durationMin, discountPct) => {
             if (highlightedProductId) {
-              startFlashDeal(durationMin, discountPct, highlightedProductId);
+              handleStartFlashDeal(durationMin, discountPct, highlightedProductId);
               setFlashConfigOpen(false);
             }
           }}
@@ -1255,6 +1567,7 @@ export default function MyLiveDealzLiveStudioFullPage() {
 
       {stageExpanded && (
         <ExpandedStageModal
+          darkMode={darkMode}
           onClose={() => setStageExpanded(false)}
           cameraHint={cameraHint}
           previewMode={previewMode}

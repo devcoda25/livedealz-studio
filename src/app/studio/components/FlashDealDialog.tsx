@@ -79,7 +79,7 @@ export function FlashDealDialog(props: { onClose: () => void; onStart: (duration
     return (
         <div
             ref={dialogRef}
-            className="fixed left-4 bottom-20 z-[70] w-80 rounded-2xl border border-slate-800 bg-slate-950 shadow-xl text-[11px] cursor-move touch-none"
+            className="fixed left-4 bottom-20 z-[70] w-80 rounded-2xl border border-border bg-muted shadow-xl text-[11px] cursor-move touch-none"
             style={{
                 transform: `translate(${position.x}px, ${position.y}px)`,
                 // ensure it's on top and reachable
@@ -91,25 +91,25 @@ export function FlashDealDialog(props: { onClose: () => void; onStart: (duration
                 <div className="flex items-center gap-1.5 pointer-events-auto">
                     <span className="material-icons text-[16px]" style={{ color: EV_ORANGE }}>bolt</span>
                     <div className="flex flex-col">
-                        <span className="text-[12px] font-semibold text-white">Flash Deal Control</span>
-                        <span className="text-[10px] text-slate-400">Countdown + urgency + buyer CTAs</span>
+                        <span className="text-[12px] font-semibold text-foreground">Flash Deal Control</span>
+                        <span className="text-[10px] text-muted-foreground">Countdown + urgency + buyer CTAs</span>
                     </div>
                 </div>
-                <button className="text-[10px] text-slate-400 hover:text-white pointer-events-auto" onClick={onClose}>Close</button>
+                <button className="text-[10px] text-muted-foreground hover:text-foreground pointer-events-auto" onClick={onClose}>Close</button>
             </div>
 
             <div className="px-4 pb-3">
-                <p className="text-[11px] text-slate-300 mb-3 pointer-events-none">
+                <p className="text-[11px] text-foreground mb-3 pointer-events-none">
                     Start a limited-time offer. Discount applies to the currently featured product.
                 </p>
 
                 <div className="flex items-center justify-between gap-2 mb-3">
-                    <span className="text-[10px] text-slate-400 pointer-events-none">Duration</span>
+                    <span className="text-[10px] text-muted-foreground pointer-events-none">Duration</span>
                     <div className="flex gap-1">
                         {durationOptions.map((d) => (
                             <button
                                 key={d}
-                                className={`px-2 py-0.5 rounded-full text-[10px] border ${duration === d ? "bg-white text-slate-900 border-white" : "bg-slate-900 text-slate-200 border-slate-700 hover:bg-slate-800"}`}
+                                className={`px-2 py-0.5 rounded-full text-[10px] border ${duration === d ? "bg-primary text-primary-foreground border-primary" : "bg-card text-foreground border-border hover:bg-secondary"}`}
                                 onClick={() => setDuration(d)}
                             >
                                 {d} min
@@ -119,15 +119,15 @@ export function FlashDealDialog(props: { onClose: () => void; onStart: (duration
                 </div>
 
                 <div className="flex items-center justify-between gap-2 mb-4">
-                    <span className="text-[10px] text-slate-400 pointer-events-none">Extra discount</span>
+                    <span className="text-[10px] text-muted-foreground pointer-events-none">Extra discount</span>
                     <div className="flex items-center gap-2">
                         <input
                             type="number"
-                            className="w-14 px-2 py-1 rounded-lg border border-slate-700 bg-slate-900 text-slate-100 text-[11px] outline-none"
+                            className="w-14 px-2 py-1 rounded-lg border border-border bg-card text-foreground text-[11px] outline-none"
                             value={discount}
                             onChange={(e) => setDiscount(Number(e.target.value) || 0)}
                         />
-                        <span className="text-[10px] text-slate-400 pointer-events-none">%</span>
+                        <span className="text-[10px] text-muted-foreground pointer-events-none">%</span>
                     </div>
                 </div>
 

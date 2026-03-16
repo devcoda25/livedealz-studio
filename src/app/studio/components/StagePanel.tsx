@@ -17,6 +17,7 @@ function sourceLabel(id: SourceId, pm: ProductionMode, et: ExternalTool) {
 }
 
 export function StagePanel(props: {
+    darkMode?: boolean;
     mode: Mode;
     activeSceneId: SceneId;
     onChangeScene: (id: SceneId) => void;
@@ -45,6 +46,7 @@ export function StagePanel(props: {
     activeFilter: string;
 }) {
     const {
+        darkMode = true,
         mode,
         activeSceneId,
         onChangeScene,
@@ -76,22 +78,23 @@ export function StagePanel(props: {
     const activeScene = SCENES.find((s) => s.id === activeSceneId) ?? SCENES[0];
 
     return (
-        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-3 md:p-4 flex flex-col gap-3">
+        <div className={`flex-1 min-h-0 rounded-3xl p-3 md:p-4 flex flex-col gap-3 ${darkMode ? "bg-slate-950 border border-slate-800" : "bg-white border border-slate-200"}`}>
             <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                    <span className="text-[11px] text-slate-300">Camera view</span>
-                    <span className="text-[10px] text-slate-500">{cameraHint}</span>
+                    <span className={`text-[11px] ${darkMode ? "text-slate-300" : "text-slate-600"}`}>Camera view</span>
+                    <span className={`text-[10px] ${darkMode ? "text-slate-500" : "text-slate-400"}`}>{cameraHint}</span>
                 </div>
                 <PreviewModeToggle previewMode={previewMode} onChange={onChangePreviewMode} />
             </div>
 
             {mode === "lobby" ? (
-                <div className="rounded-2xl bg-slate-950 border border-slate-800 p-6 text-center">
-                    <div className="text-[11px] text-slate-300 font-semibold">Pre-live lobby</div>
-                    <div className="text-[10px] text-slate-500 mt-1">Device and scene check before going live</div>
+                <div className={`flex-1 rounded-2xl p-4 md:p-6 text-center flex flex-col items-center justify-center min-h-[300px] md:min-h-[400px] ${resolvedPreviewMode === 'mobile' ? 'max-w-[280px] mx-auto' : 'w-full'} ${darkMode ? "bg-slate-950 border border-slate-800" : "bg-slate-50 border border-slate-200"}`}>
+                    <div className={`text-[11px] md:text-[13px] ${darkMode ? "text-slate-300" : "text-slate-700"} font-semibold`}>Pre-live lobby</div>
+                    <div className={`text-[10px] md:text-[11px] ${darkMode ? "text-slate-500" : "text-slate-400"} mt-1 md:mt-2`}>Device and scene check before going live</div>
                 </div>
             ) : (
                 <StagePreview
+                    darkMode={darkMode}
                     resolvedPreviewMode={resolvedPreviewMode}
                     activeSceneLabel={activeScene.label}
                     liveTimerLabel={liveTimerLabel}
@@ -114,27 +117,6 @@ export function StagePanel(props: {
                     activeFilter={activeFilter}
                 />
             )}
-
-            <div className="flex items-center justify-between text-[10px] text-slate-400">
-                <span>Scene presets</span>
-                <span>Active: {activeScene.label}</span>
-            </div>
-
-            <div className="flex gap-1 overflow-x-auto pb-1">
-                {SCENES.map((s) => (
-                    <button
-                        key={s.id}
-                        className={`px-2.5 py-1 rounded-xl border text-[10px] min-w-[120px] text-left ${s.id === activeSceneId
-                            ? "bg-[#f77f00] border-[#f77f00] text-white"
-                            : "bg-slate-950 border-slate-800 text-slate-200 hover:bg-slate-900"
-                            }`}
-                        onClick={() => onChangeScene(s.id)}
-                    >
-                        <span className="font-semibold">{s.label}</span>
-                        <span className="block text-[9px] text-slate-400">{s.desc}</span>
-                    </button>
-                ))}
-            </div>
         </div>
     );
 }

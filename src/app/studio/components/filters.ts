@@ -1,49 +1,121 @@
-import { FilterCategory } from "./types";
+import { FilterCategory, FilterDefinition } from "../../../engines/media/types";
 
-export const FILTER_CATEGORIES: FilterCategory[] = [
+// Filter Categories with all TikTok-style filters
+export const FILTER_CATEGORIES: { id: FilterCategory; label: string; icon: string; filters: FilterDefinition[] }[] = [
     {
-        id: "beauty",
+        id: FilterCategory.BEAUTY,
         label: "Beauty",
+        icon: "face_retouching_natural",
         filters: [
-            { label: "None", style: "none", icon: "block" },
-            { label: "Soft Glam", style: "url(#filter-beauty-soft) contrast(1.05)", icon: "face_retouching_natural" },
-            { label: "Radiance", style: "url(#filter-beauty-glam) brightness(1.1)", icon: "flare" },
-            { label: "Porcelain", style: "brightness(1.1) contrast(0.9) saturate(0.9)", icon: "face" },
+            { id: "none", name: "None", category: FilterCategory.BEAUTY, icon: "block" },
+            { id: "soft_glam", name: "Soft Glam", category: FilterCategory.BEAUTY, icon: "face_retouching_natural" },
+            { id: "radiance", name: "Radiance", category: FilterCategory.BEAUTY, icon: "flare" },
+            { id: "porcelain", name: "Porcelain", category: FilterCategory.BEAUTY, icon: "face" },
+            { id: "acne_remove", name: "Clean Skin", category: FilterCategory.BEAUTY, icon: "auto_fix_high" },
         ]
     },
     {
-        id: "mood",
-        label: "Mood",
+        id: FilterCategory.COLOR,
+        label: "Filters",
+        icon: "palette",
         filters: [
-            { label: "Warmth", style: "sepia(0.4) saturate(1.4) brightness(0.9)", icon: "wb_sunny" },
-            { label: "Cool", style: "hue-rotate(180deg) opacity(0.9) brightness(1.1) saturate(0.8)", icon: "ac_unit" },
-            { label: "Noir", style: "grayscale(1) contrast(1.2) brightness(0.9)", icon: "filter_b_and_w" },
-            { label: "Dramatic", style: "contrast(1.4) brightness(0.9) saturate(1.2)", icon: "theaters" },
+            { id: "none", name: "None", category: FilterCategory.COLOR, icon: "block" },
+            { id: "classic", name: "Classic", category: FilterCategory.COLOR, icon: "movie" },
+            { id: "warm", name: "Warm", category: FilterCategory.COLOR, icon: "wb_sunny" },
+            { id: "cool", name: "Cool", category: FilterCategory.COLOR, icon: "ac_unit" },
+            { id: "vintage", name: "Vintage", category: FilterCategory.COLOR, icon: "filter_vintage" },
+            { id: "cinematic", name: "Cinematic", category: FilterCategory.COLOR, icon: "theaters" },
+            { id: "dramatic", name: "Dramatic", category: FilterCategory.COLOR, icon: "flash_on" },
+            { id: "dreamy", name: "Dreamy", category: FilterCategory.COLOR, icon: "cloud" },
+            { id: "noir", name: "Noir", category: FilterCategory.COLOR, icon: "filter_b_and_w" },
+            { id: "neon", name: "Neon", category: FilterCategory.COLOR, icon: "bolt" },
+            { id: "invert", name: "Invert", category: FilterCategory.COLOR, icon: "invert_colors" },
         ]
     },
     {
-        id: "fun",
-        label: "Fun",
+        id: FilterCategory.AR_FACE,
+        label: "AR",
+        icon: "face",
         filters: [
-            { label: "Neon", style: "hue-rotate(320deg) contrast(1.5) saturate(2)", icon: "bolt" },
-            { label: "Pixel", style: "contrast(2) brightness(1.5) saturate(0)", icon: "grid_4x4" }, // CSS can't do real pixelate easily without SVG/Canvas, using fake high-contrast
-            { label: "Invert", style: "invert(1)", icon: "swap_horiz" },
+            { id: "none", name: "None", category: FilterCategory.AR_FACE, icon: "block" },
+            { id: "cat_ears", name: "Cat Ears", category: FilterCategory.AR_FACE, icon: "pets" },
+            { id: "dog_ears", name: "Dog Ears", category: FilterCategory.AR_FACE, icon: "pets" },
+            { id: "crown", name: "Crown", category: FilterCategory.AR_FACE, icon: "star" },
+            { id: "horns", name: "Devil Horns", category: FilterCategory.AR_FACE, icon: "whatshot" },
+            { id: "butterfly", name: "Butterfly", category: FilterCategory.AR_FACE, icon: "bug_report" },
+            { id: "heart_glasses", name: "Heart Glasses", category: FilterCategory.AR_FACE, icon: "favorite" },
+            { id: "aviators", name: "Aviators", category: FilterCategory.AR_FACE, icon: "visibility" },
+            { id: "pixel_glasses", name: "Pixel Glasses", category: FilterCategory.AR_FACE, icon: "grid_4x4" },
+            { id: "fire", name: "Fire", category: FilterCategory.AR_FACE, icon: "local_fire_department" },
+            { id: "rainbow", name: "Rainbow", category: FilterCategory.AR_FACE, icon: "palette" },
+            { id: "sparkles", name: "Sparkles", category: FilterCategory.AR_FACE, icon: "auto_awesome" },
+            { id: "hearts", name: "Hearts", category: FilterCategory.AR_FACE, icon: "favorite_border" },
+            { id: "snow", name: "Snow", category: FilterCategory.AR_FACE, icon: "ac_unit" },
+            { id: "bunnymask", name: "Bunny", category: FilterCategory.AR_FACE, icon: "cruelty_free" },
+            { id: "foxmask", name: "Fox", category: FilterCategory.AR_FACE, icon: "pets" },
         ]
     },
     {
-        id: "background",
-        label: "BG",
+        id: FilterCategory.BACKGROUND,
+        label: "Background",
+        icon: "wallpaper",
         filters: [
-            { label: "Blur Lite", style: "blur(2px)", icon: "blur_on" }, // Simulates background blur (whole video)
-            { label: "Dim", style: "brightness(0.6)", icon: "dark_mode" },
+            { id: "bg_none", name: "None", category: FilterCategory.BACKGROUND, icon: "wallpaper" },
+            { id: "bg_blur_lite", name: "Blur Lite", category: FilterCategory.BACKGROUND, icon: "blur_on" },
+            { id: "bg_blur_medium", name: "Blur Medium", category: FilterCategory.BACKGROUND, icon: "blur_on" },
+            { id: "bg_blur_heavy", name: "Blur Heavy", category: FilterCategory.BACKGROUND, icon: "blur_on" },
+            { id: "bg_dim", name: "Dim", category: FilterCategory.BACKGROUND, icon: "dark_mode" },
+            { id: "bg_black", name: "Black", category: FilterCategory.BACKGROUND, icon: "black" },
+        ]
+    },
+    {
+        id: FilterCategory.GREEN_SCREEN,
+        label: "Chroma",
+        icon: "green_screen",
+        filters: [
+            { id: "chroma_off", name: "Off", category: FilterCategory.GREEN_SCREEN, icon: "green_screen" },
+            { id: "chroma_green", name: "Green Screen", category: FilterCategory.GREEN_SCREEN, icon: "green_screen" },
+            { id: "chroma_blue", name: "Blue Screen", category: FilterCategory.GREEN_SCREEN, icon: "green_screen" },
+        ]
+    },
+    {
+        id: FilterCategory.GESTURE,
+        label: "Gesture",
+        icon: "pan_tool",
+        filters: [
+            { id: "none", name: "Off", category: FilterCategory.GESTURE, icon: "pan_tool" },
+            { id: "gesture_wave", name: "Wave Magic", category: FilterCategory.GESTURE, icon: "pan_tool" },
+            { id: "gesture_thumbsup", name: "Hearts", category: FilterCategory.GESTURE, icon: "thumb_up" },
+            { id: "gesture_peace", name: "Peace Split", category: FilterCategory.GESTURE, icon: "vpn_key" },
+            { id: "gesture_open_hand", name: "Slow Motion", category: FilterCategory.GESTURE, icon: "slow_motion_video" },
+        ]
+    },
+    {
+        id: FilterCategory.TIME,
+        label: "Time",
+        icon: "slow_motion_video",
+        filters: [
+            { id: "time_normal", name: "Normal", category: FilterCategory.TIME, icon: "play_arrow" },
+            { id: "time_slow_05", name: "Slow 0.5x", category: FilterCategory.TIME, icon: "slow_motion_video" },
+            { id: "time_slow_025", name: "Slow 0.25x", category: FilterCategory.TIME, icon: "slow_motion_video" },
+            { id: "time_fast_2", name: "Fast 2x", category: FilterCategory.TIME, icon: "fast_forward" },
+            { id: "time_fast_4", name: "Fast 4x", category: FilterCategory.TIME, icon: "fast_forward" },
+            { id: "time_freeze", name: "Freeze", category: FilterCategory.TIME, icon: "pause_circle" },
+            { id: "time_motion_blur", name: "Motion Blur", category: FilterCategory.TIME, icon: "motion_photos_on" },
+            { id: "time_echo", name: "Echo", category: FilterCategory.TIME, icon: "replay" },
         ]
     },
 ];
 
 export const getFilterStyle = (name: string) => {
     for (const cat of FILTER_CATEGORIES) {
-        const found = cat.filters.find(f => f.label === name);
-        if (found) return found.style;
+        const found = cat.filters.find(f => f.name === name);
+        if (found) return found;
     }
-    return "none";
+    return null;
+};
+
+export const getFilterByCategory = (category: FilterCategory) => {
+    const cat = FILTER_CATEGORIES.find(c => c.id === category);
+    return cat?.filters || [];
 };
