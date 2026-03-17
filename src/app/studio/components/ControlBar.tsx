@@ -160,15 +160,14 @@ export function ControlBar(props: {
             {/* Center - Go Live Button */}
             <div className="flex items-center justify-center">
                 <button
-                    className={`h-11 px-10 rounded-full text-[12px] font-bold tracking-wide shadow-lg transition-all flex items-center gap-2 mx-4 ${isLive
+                    className={`h-11 w-11 rounded-full text-[12px] font-bold tracking-wide shadow-lg transition-all flex items-center justify-center mx-4 ${isLive
                         ? darkMode ? "bg-red-600 hover:bg-red-700 text-white shadow-red-900/30" : "bg-red-500 hover:bg-red-600 text-white shadow-red-900/20"
                         : darkMode ? "bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-orange-900/30" : "bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-orange-900/20"
                         }`}
                     onClick={onToggleLive}
                     title={isLive ? "End Live Stream" : "Go Live"}
                 >
-                    <span className="material-icons text-[18px]">{isLive ? "stop_circle" : "videocam"}</span>
-                    {isLive ? "End Live Stream" : "Go Live"}
+                    <span className="material-icons text-[20px]">{isLive ? "stop_circle" : "videocam"}</span>
                 </button>
             </div>
 

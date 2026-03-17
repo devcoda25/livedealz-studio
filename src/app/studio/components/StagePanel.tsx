@@ -79,7 +79,7 @@ export function StagePanel(props: {
 
     return (
         <div className={`flex-1 min-h-0 rounded-3xl p-3 md:p-4 flex flex-col gap-3 ${darkMode ? "bg-slate-950 border border-slate-800" : "bg-white border border-slate-200"}`}>
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center justify-between gap-2 flex-shrink-0">
                 <div className="flex items-center gap-2">
                     <span className={`text-[11px] ${darkMode ? "text-slate-300" : "text-slate-600"}`}>Camera view</span>
                     <span className={`text-[10px] ${darkMode ? "text-slate-500" : "text-slate-400"}`}>{cameraHint}</span>
@@ -88,7 +88,7 @@ export function StagePanel(props: {
             </div>
 
             {mode === "lobby" ? (
-                <div className={`flex-1 rounded-2xl p-4 md:p-6 text-center flex flex-col items-center justify-center min-h-[300px] md:min-h-[400px] ${resolvedPreviewMode === 'mobile' ? 'max-w-[280px] mx-auto' : 'w-full'} ${darkMode ? "bg-slate-950 border border-slate-800" : "bg-slate-50 border border-slate-200"}`}>
+                <div className={`flex-1 rounded-2xl p-4 md:p-6 text-center flex flex-col items-center justify-center min-h-[200px] md:min-h-[300px] ${resolvedPreviewMode === 'mobile' ? 'max-w-[280px] mx-auto' : 'w-full'} ${darkMode ? "bg-slate-950 border border-slate-800" : "bg-slate-50 border border-slate-200"}`}>
                     <div className={`text-[11px] md:text-[13px] ${darkMode ? "text-slate-300" : "text-slate-700"} font-semibold`}>Pre-live lobby</div>
                     <div className={`text-[10px] md:text-[11px] ${darkMode ? "text-slate-500" : "text-slate-400"} mt-1 md:mt-2`}>Device and scene check before going live</div>
                 </div>

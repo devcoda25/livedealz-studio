@@ -26,6 +26,7 @@ import { ProductionPanel } from "./components/ProductionPanel";
 import { InventoryPanel } from "./components/InventoryPanel";
 import { StagePanel } from "./components/StagePanel";
 import { BuyerSimulatorPanel } from "./components/BuyerSimulatorPanel";
+import { BuyerAppShell } from "./components/BuyerAppShell";
 import { TeleprompterPanel } from "./components/TeleprompterPanel";
 import { AIPromptsToast } from "./components/AIPromptsToast";
 import { CommercePanel } from "./components/CommercePanel";
@@ -1268,10 +1269,10 @@ export default function MyLiveDealzLiveStudioFullPage() {
       {/* Main Content */}
       <main className="flex-1 flex flex-col md:flex-row overflow-hidden">
         {/* Responsive wrapper */}
-        <div className="flex-1 flex flex-col md:flex-row gap-3 p-3 min-w-0 overflow-hidden">
+        <div className="flex-1 flex flex-col md:flex-row gap-3 p-3 min-w-0 overflow-hidden h-full">
 
-          {/* Left Column (visible on all sizes, but stacked on mobile) */}
-          <section className="flex flex-col gap-3 w-full md:w-72 lg:w-80 flex-shrink-0 overflow-y-auto">
+          {/* Left Column (hidden on mobile, visible on desktop) */}
+          <section className="hidden md:flex flex-col gap-3 w-full md:w-72 lg:w-80 flex-shrink-0 overflow-y-auto">
             <TeleprompterPanel />
             <InventoryPanel
               products={products}
@@ -1287,9 +1288,9 @@ export default function MyLiveDealzLiveStudioFullPage() {
           </section>
 
           {/* Center and Right columns wrapper */}
-          <div className="flex-1 flex flex-col md:flex-row gap-3 min-w-0 min-h-0">
+          <div className="flex-1 flex flex-col md:flex-row gap-3 min-w-0 min-h-0 h-full">
             {/* Center column - Camera/Stage */}
-            <section className="flex-1 flex flex-col gap-3 min-w-0 min-h-0">
+            <section className="flex-1 flex flex-col gap-3 min-w-0 min-h-0 h-full">
               <StagePanel
                 darkMode={darkMode}
                 mode={mode}
@@ -1478,27 +1479,10 @@ export default function MyLiveDealzLiveStudioFullPage() {
       )}
 
       {buyersOpen && (
-        <BuyerSimulatorPanel
+        <BuyerAppShell
           darkMode={darkMode}
           isOpen={buyersOpen}
           onClose={() => setBuyersOpen(false)}
-          buyers={buyers}
-          selectedBuyerId={selectedBuyerId}
-          onSelectBuyer={setSelectedBuyerId}
-          featuredProduct={featuredProduct}
-          featuredPrice={featuredPriceInfo}
-          flashOnFeatured={flashOnFeatured}
-          flashDiscountPct={flash.discountPct}
-          flashSecondsLeft={flash.secondsLeft}
-          flashUrgency={flashUrgency}
-          selectedBuyerHasReminder={selectedBuyerHasReminder}
-          selectedBuyerCartQty={selectedBuyerCartQty}
-          outOfStock={featuredOOS}
-          lowStock={featuredLow}
-          onBuyNow={() => selectedBuyer && featuredProduct ? buyerBuyNow(selectedBuyer.id, featuredProduct.id, 1) : void 0}
-          onAddToCart={() => selectedBuyer && featuredProduct ? buyerAddToCart(selectedBuyer.id, featuredProduct.id, 1) : void 0}
-          onRemindMe={() => selectedBuyer && featuredProduct ? buyerSetReminder(selectedBuyer.id, featuredProduct.id) : void 0}
-          transcript={transcript}
         />
       )}
 

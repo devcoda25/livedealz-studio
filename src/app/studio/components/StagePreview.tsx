@@ -20,6 +20,7 @@ function pad2(n: number) {
 }
 
 export function StagePreview(props: {
+    darkMode?: boolean;
     resolvedPreviewMode: "mobile" | "desktop";
     activeSceneLabel: string;
     liveTimerLabel: string;
@@ -41,6 +42,7 @@ export function StagePreview(props: {
     activeFilter: string;
 }) {
     const {
+        darkMode = true,
         resolvedPreviewMode,
         activeSceneLabel,
         liveTimerLabel,
@@ -121,7 +123,7 @@ export function StagePreview(props: {
             title="Tap to expand preview"
         >
             <div
-                className={"relative rounded-2xl border overflow-hidden shadow-[0_24px_80px_rgba(15,23,42,0.7)] bg-slate-950 border-slate-800 " + (isMobile ? "w-[360px] max-w-[80%]" : "w-full")}
+                className={"relative rounded-2xl border overflow-hidden shadow-[0_24px_80px_rgba(15,23,42,0.7)] " + (isMobile ? "w-[360px] max-w-[80%] " : "w-full ") + (darkMode ? "bg-slate-950 border-slate-800" : "bg-black border-slate-300")}
                 style={{ aspectRatio: aspect }}
             >
                 <video
