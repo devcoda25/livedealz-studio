@@ -20,6 +20,129 @@ interface EncodedFrame {
   duration: number;
 }
 
+/**
+ * Adaptive Bitrate Controller
+ * Monitors network conditions and adjusts encoding quality dynamically
+ */
+export class AdaptiveBitrateController {
+  private config: {
+    minBitrate: number;      // kbps
+    maxBitrate: number;      // kbps
+    initialBitrate: number;  // kbps
+    degradationThreshold: number;  // ms of latency before degrading
+    recoveryThreshold: number;    // ms of good latency before recovering
+    checkInterval: number;    // ms between checks
+  };
+
+  private currentBitrate: number;
+  private networkLatency: number = 0;
+  private packetLoss: number = 0;
+  private lastAdjustment: number = 0;
+  private consecutiveDegradations: number = 0;
+  private consecutiveRecoveries: number = 0;
+
+  constructor(config?: Partial<typeof AdaptiveBitrateController.prototype.config>) {
+    this.config = {
+      minBitrate: 400,
+      maxBitrate: 8000,
+      initialBitrate: 2500,
+      degradationThreshold: 1500,  // 1.5s latency
+      recoveryThreshold: 500,       // 500ms latency
+      checkInterval: 5000,         // 5 seconds
+      ...config,
+    };
+    this.currentBitrate = this.config.initialBitrate;
+  }
+
+  /**
+   * Update network metrics
+   */
+  updateNetworkMetrics(latency: number, packetLoss: number): void {
+    this.networkLatency = latency;
+    this.packetLoss = packetLoss;
+  }
+
+  /**
+   * Calculate recommended bitrate based on conditions
+   */
+  calculateBitrate(): number {
+    const now = Date.now();
+    if (now - this.lastAdjustment < this.config.checkInterval) {
+      return this.currentBitrate;
+    }
+
+    let newBitrate = this.currentBitrate;
+
+    // Network is degraded - reduce quality
+    if (this.networkLatency > this.config.degradationThreshold || this.packetLoss > 5) {
+      this.consecutiveDegradations++;
+      this.consecutiveRecoveries = 0;
+
+      // Aggressive reduction for packet loss
+      if (this.packetLoss > 10) {
+        newBitrate = Math.max(this.config.minBitrate, this.currentBitrate * 0.5);
+      } else if (this.packetLoss > 5) {
+        newBitrate = Math.max(this.config.minBitrate, this.currentBitrate * 0.7);
+      } else if (this.networkLatency > this.config.degradationThreshold * 2) {
+        newBitrate = Math.max(this.config.minBitrate, this.currentBitrate * 0.6);
+      } else {
+        newBitrate = Math.max(this.config.minBitrate, this.currentBitrate * 0.8);
+      }
+    }
+    // Network is good - potentially increase quality
+    else if (this.networkLatency < this.config.recoveryThreshold && this.packetLoss < 1) {
+      this.consecutiveRecoveries++;
+      this.consecutiveDegradations = 0;
+
+      // Gradual recovery
+      if (this.consecutiveRecoveries >= 3) {
+        newBitrate = Math.min(this.config.maxBitrate, this.currentBitrate * 1.2);
+      }
+    } else {
+      this.consecutiveDegradations = 0;
+      this.consecutiveRecoveries = 0;
+    }
+
+    // Apply change
+    if (newBitrate !== this.currentBitrate) {
+      this.currentBitrate = Math.round(newBitrate);
+      this.lastAdjustment = now;
+    }
+
+    return this.currentBitrate;
+  }
+
+  /**
+   * Get current bitrate
+   */
+  getBitrate(): number {
+    return this.currentBitrate;
+  }
+
+  /**
+   * Get quality level (0-3)
+   */
+  getQualityLevel(): number {
+    const ratio = (this.currentBitrate - this.config.minBitrate) / 
+                  (this.config.maxBitrate - this.config.minBitrate);
+    if (ratio < 0.25) return 0;  // Low
+    if (ratio < 0.5) return 1;   // Medium
+    if (ratio < 0.75) return 2; // High
+    return 3;                     // Ultra
+  }
+
+  /**
+   * Reset controller
+   */
+  reset(): void {
+    this.currentBitrate = this.config.initialBitrate;
+    this.networkLatency = 0;
+    this.packetLoss = 0;
+    this.consecutiveDegradations = 0;
+    this.consecutiveRecoveries = 0;
+  }
+}
+
 type EncoderEventCallback = (frame: EncodedFrame) => void;
 
 export class VideoEncoder {
@@ -36,12 +159,17 @@ export class VideoEncoder {
   private onEncodedFrame: EncoderEventCallback | null = null;
   private onError: ((error: Error) => void) | null = null;
 
+  // Adaptive bitrate
+  private adaptiveController: AdaptiveBitrateController | null = null;
+  private useAdaptiveBitrate: boolean = false;
+
   // Stats
   private stats = {
     framesEncoded: 0,
     bytesEncoded: 0,
     lastEncodeTime: 0,
     encodeErrors: 0,
+    currentBitrate: 2500,
   };
 
   constructor(config?: Partial<StreamConfig>) {
@@ -401,9 +529,13 @@ export class VideoEncoder {
    * Get encoder statistics
    */
   getStats() {
+    const actualBitrate = this.stats.bytesEncoded / ((Date.now() - this.stats.lastEncodeTime) / 1000) * 8 / 1000;
     return {
       ...this.stats,
-      bitrate: this.stats.bytesEncoded / ((Date.now() - this.stats.lastEncodeTime) / 1000) * 8 / 1000,
+      bitrate: actualBitrate,
+      targetBitrate: this.stats.currentBitrate,
+      adaptiveEnabled: this.useAdaptiveBitrate,
+      adaptiveQuality: this.adaptiveController?.getQualityLevel() || 0,
       errorRate: this.stats.framesEncoded > 0
         ? this.stats.encodeErrors / this.stats.framesEncoded
         : 0,
@@ -415,6 +547,33 @@ export class VideoEncoder {
    */
   getConfig(): StreamConfig {
     return { ...this.config };
+  }
+
+  /**
+   * Enable adaptive bitrate streaming
+   */
+  enableAdaptiveBitrate(enabled: boolean): void {
+    this.useAdaptiveBitrate = enabled;
+    if (enabled && !this.adaptiveController) {
+      this.adaptiveController = new AdaptiveBitrateController({
+        initialBitrate: this.config.bitrate.target,
+        minBitrate: this.config.bitrate.min,
+        maxBitrate: this.config.bitrate.max,
+      });
+    }
+  }
+
+  /**
+   * Update network metrics for adaptive bitrate
+   */
+  updateNetworkMetrics(latency: number, packetLoss: number): void {
+    if (this.useAdaptiveBitrate && this.adaptiveController) {
+      const newBitrate = this.adaptiveController.calculateBitrate();
+      if (newBitrate !== this.stats.currentBitrate) {
+        this.stats.currentBitrate = newBitrate;
+        this.updateConfig({ bitrate: { target: newBitrate, min: newBitrate * 0.8, max: newBitrate * 1.2 } });
+      }
+    }
   }
 
   /**

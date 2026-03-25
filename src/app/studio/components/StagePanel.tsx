@@ -24,6 +24,7 @@ export function StagePanel(props: {
     previewMode: PreviewMode;
     onChangePreviewMode: (m: PreviewMode) => void;
     resolvedPreviewMode: "mobile" | "desktop";
+    forceMobileMode?: boolean; // Force mobile view
     cameraHint: string;
     liveTimerLabel: string;
     viewerCount: number;
@@ -96,6 +97,7 @@ export function StagePanel(props: {
                 <StagePreview
                     darkMode={darkMode}
                     resolvedPreviewMode={resolvedPreviewMode}
+                    forceMobileMode={props.forceMobileMode}
                     activeSceneLabel={activeScene.label}
                     liveTimerLabel={liveTimerLabel}
                     viewerCount={viewerCount}

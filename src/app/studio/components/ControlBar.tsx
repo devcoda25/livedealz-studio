@@ -4,6 +4,7 @@ import { Mode, PreviewMode } from "./types";
 export function ControlBar(props: {
     darkMode?: boolean;
     mode: Mode;
+    onToggleRehearsal: () => void;
     onToggleLive: () => void;
     micOn: boolean;
     onToggleMic: () => void;
@@ -40,13 +41,13 @@ export function ControlBar(props: {
     const {
         darkMode,
         mode,
+        onToggleRehearsal,
         onToggleLive,
         micOn,
         onToggleMic,
         camOn,
         onToggleCam,
         screenShareOn,
-        onToggleScreenShare,
         onCyclePreviewMode,
         flashActive,
         onOpenFlashConfig,
@@ -70,189 +71,213 @@ export function ControlBar(props: {
     } = props;
 
     const isLive = mode === "live";
+    const isRehearsal = mode === "rehearsal";
+
+    // Button base styles for consistent sizing
+    const btnBase = "h-9 px-2.5 sm:px-3 rounded-full border text-[10px] sm:text-[11px] font-medium flex items-center justify-center gap-1.5 transition-all shrink-0";
 
     return (
-        <div className="flex items-center justify-between px-4 md:px-6 py-3 border-t border-border bg-background/95">
+        <div className="flex items-center justify-between px-2 sm:px-4 md:px-6 py-2 sm:py-3 border-t border-border bg-background/95 overflow-x-auto">
             {/* Left Group - Audio/Video Controls */}
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
                 {/* Mic Button */}
                 <button
-                    className={`h-10 px-3.5 rounded-full border text-[11px] font-medium flex items-center gap-2 transition-all ${micOn
+                    className={`${btnBase} ${micOn
                         ? "bg-secondary border-border text-foreground hover:bg-accent"
                         : "bg-red-500/10 border-red-500/40 text-red-400 hover:bg-red-500/20"
                         }`}
                     onClick={onToggleMic}
                     title={micOn ? "Mute Microphone" : "Unmute Microphone"}
                 >
-                    <span className="material-icons text-[18px]">{micOn ? "mic" : "mic_off"}</span>
-                    <span className="hidden md:inline">{micOn ? "Mic" : "Muted"}</span>
+                    <span className="material-icons text-[16px] sm:text-[18px]">{micOn ? "mic" : "mic_off"}</span>
+                    <span className="hidden lg:inline">{micOn ? "Mic" : "Muted"}</span>
                 </button>
 
                 {/* Camera Button */}
                 <button
-                    className={`h-10 px-3.5 rounded-full border text-[11px] font-medium flex items-center gap-2 transition-all ${camOn
+                    className={`${btnBase} ${camOn
                         ? "bg-secondary border-border text-foreground hover:bg-accent"
                         : "bg-red-500/10 border-red-500/40 text-red-400 hover:bg-red-500/20"
                         }`}
                     onClick={onToggleCam}
                     title={camOn ? "Turn Off Camera" : "Turn On Camera"}
                 >
-                    <span className="material-icons text-[18px]">{camOn ? "videocam" : "videocam_off"}</span>
-                    <span className="hidden md:inline">{camOn ? "Camera" : "No Cam"}</span>
+                    <span className="material-icons text-[16px] sm:text-[18px]">{camOn ? "videocam" : "videocam_off"}</span>
+                    <span className="hidden lg:inline">{camOn ? "Camera" : "No Cam"}</span>
                 </button>
 
                 {/* Sources Button */}
                 <button
-                    className={`h-10 px-3.5 rounded-full border text-[11px] font-medium flex items-center gap-2 transition-all ${showSources
+                    className={`${btnBase} ${showSources
                         ? darkMode ? "bg-emerald-600 border-emerald-500 text-white" : "bg-emerald-500 border-emerald-400 text-white"
                         : "bg-muted border-border text-muted-foreground hover:text-foreground hover:bg-muted/80"
                         }`}
                     onClick={onToggleSources}
                     title="Sources"
                 >
-                    <span className="material-icons text-[18px]">add_circle</span>
-                    <span className="hidden md:inline">Sources</span>
+                    <span className="material-icons text-[16px] sm:text-[18px]">add_circle</span>
+                    <span className="hidden lg:inline">Sources</span>
                 </button>
 
                 {/* Divider */}
-                <div className={`w-px h-6 mx-1 ${darkMode ? "bg-slate-700" : "bg-slate-300"}`} />
+                <div className={`w-px h-5 sm:h-6 mx-1 sm:mx-1.5 ${darkMode ? "bg-slate-700" : "bg-slate-300"}`} />
 
                 {/* Buyers */}
                 <button
-                    className={`h-10 px-3.5 rounded-full border text-[11px] font-medium flex items-center gap-2 transition-all ${showBuyers
+                    className={`${btnBase} ${showBuyers
                         ? darkMode ? "bg-sky-600 border-sky-500 text-white" : "bg-sky-500 border-sky-400 text-white"
                         : "bg-muted border-border text-muted-foreground hover:text-foreground hover:bg-muted/80"
                         }`}
                     onClick={onToggleBuyers}
                     title="Buyers"
                 >
-                    <span className="material-icons text-[18px]">groups</span>
-                    <span className="hidden md:inline">Buyers</span>
+                    <span className="material-icons text-[16px] sm:text-[18px]">groups</span>
+                    <span className="hidden lg:inline">Buyers</span>
                 </button>
 
                 {/* Audio Mixer */}
                 <button
-                    className={`h-10 px-3.5 rounded-full border text-[11px] font-medium flex items-center gap-2 transition-all ${audioMixerOpen
+                    className={`${btnBase} ${audioMixerOpen
                         ? darkMode ? "bg-cyan-600 border-cyan-500 text-white" : "bg-cyan-500 border-cyan-400 text-white"
                         : "bg-muted border-border text-muted-foreground hover:text-foreground hover:bg-muted/80"
                         }`}
                     onClick={onToggleAudioMixer}
                     title="Audio Mixer"
                 >
-                    <span className="material-icons text-[18px]">graphic_eq</span>
-                    <span className="hidden md:inline">Mixer</span>
+                    <span className="material-icons text-[16px] sm:text-[18px]">graphic_eq</span>
+                    <span className="hidden lg:inline">Mixer</span>
                 </button>
 
                 {/* Multi-Cam */}
                 <button
-                    className={`h-10 px-3.5 rounded-full border text-[11px] font-medium flex items-center gap-2 transition-all ${showProduction
+                    className={`${btnBase} ${showProduction
                         ? darkMode ? "bg-purple-600 border-purple-500 text-white" : "bg-purple-500 border-purple-400 text-white"
                         : "bg-muted border-border text-muted-foreground hover:text-foreground hover:bg-muted/80"
                         }`}
                     onClick={onToggleProduction}
                     title="Multi-Camera"
                 >
-                    <span className="material-icons text-[18px]">cameraswitch</span>
-                    <span className="hidden md:inline">Multi-Cam</span>
+                    <span className="material-icons text-[16px] sm:text-[18px]">cameraswitch</span>
+                    <span className="hidden lg:inline">Multi-Cam</span>
                 </button>
             </div>
 
-            {/* Center - Go Live Button */}
-            <div className="flex items-center justify-center">
+            {/* Divider */}
+            <div className={`w-px h-5 sm:h-6 mx-1 sm:mx-1.5 ${darkMode ? "bg-slate-700" : "bg-slate-300"}`} />
+
+            {/* Center - Rehearsal & Go Live Buttons */}
+            <div className="flex items-center justify-center gap-1.5 sm:gap-2 shrink-0">
+                {/* Rehearsal Button */}
                 <button
-                    className={`h-11 w-11 rounded-full text-[12px] font-bold tracking-wide shadow-lg transition-all flex items-center justify-center mx-4 ${isLive
+                    className={`h-9 sm:h-10 px-3 sm:px-4 rounded-full text-[10px] sm:text-[11px] font-bold tracking-wide shadow-lg transition-all flex items-center gap-1.5 ${isRehearsal
+                        ? darkMode ? "bg-amber-600 hover:bg-amber-700 text-white shadow-amber-900/30" : "bg-amber-500 hover:bg-amber-600 text-white shadow-amber-900/20"
+                        : darkMode ? "bg-slate-700 hover:bg-slate-600 text-slate-200 shadow-slate-900/30" : "bg-slate-200 hover:bg-slate-300 text-slate-700 shadow-slate-900/20"
+                        }`}
+                    onClick={onToggleRehearsal}
+                    title={isRehearsal ? "End Rehearsal" : "Start Rehearsal"}
+                >
+                    <span className="material-icons text-[14px] sm:text-[16px]">{isRehearsal ? "stop" : "play_arrow"}</span>
+                    <span className="hidden sm:inline">{isRehearsal ? "End" : "Rehearsal"}</span>
+                </button>
+
+                {/* Go Live Button */}
+                <button
+                    className={`h-10 w-10 sm:h-11 sm:w-11 rounded-full text-[12px] font-bold tracking-wide shadow-lg transition-all flex items-center justify-center ${isLive
                         ? darkMode ? "bg-red-600 hover:bg-red-700 text-white shadow-red-900/30" : "bg-red-500 hover:bg-red-600 text-white shadow-red-900/20"
                         : darkMode ? "bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-orange-900/30" : "bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-orange-900/20"
                         }`}
                     onClick={onToggleLive}
                     title={isLive ? "End Live Stream" : "Go Live"}
                 >
-                    <span className="material-icons text-[20px]">{isLive ? "stop_circle" : "videocam"}</span>
+                    <span className="material-icons text-[18px] sm:text-[20px]">{isLive ? "stop_circle" : "videocam"}</span>
                 </button>
             </div>
 
+            {/* Divider */}
+            <div className={`w-px h-5 sm:h-6 mx-1 sm:mx-1.5 ${darkMode ? "bg-slate-700" : "bg-slate-300"}`} />
+
             {/* Right Group - Production & Tools */}
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
                 {/* Scenes */}
                 <button
-                    className={`h-10 px-3.5 rounded-full border text-[11px] font-medium flex items-center gap-2 transition-all ${darkMode ? "border-indigo-500/40 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20" : "border-indigo-400/40 bg-indigo-50 text-indigo-600 hover:bg-indigo-100"}`}
+                    className={`${btnBase} ${darkMode ? "border-indigo-500/40 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20" : "border-indigo-400/40 bg-indigo-50 text-indigo-600 hover:bg-indigo-100"}`}
                     onClick={onToggleSceneManager}
                     title="Scene Manager"
                 >
-                    <span className="material-icons text-[18px]">theaters</span>
-                    <span className="hidden md:inline">Scenes</span>
+                    <span className="material-icons text-[16px] sm:text-[18px]">theaters</span>
+                    <span className="hidden lg:inline">Scenes</span>
                 </button>
 
                 {/* Filters */}
                 <button
-                    className="h-10 px-3.5 rounded-full border border-border bg-secondary text-[11px] font-medium text-foreground hover:bg-accent flex items-center gap-2 transition-all"
+                    className={`${btnBase} bg-secondary border-border text-foreground hover:bg-accent`}
                     onClick={onToggleFilters}
                     title="Filters"
                 >
-                    <span className="material-icons text-[18px]">auto_awesome</span>
-                    <span className="hidden md:inline">Filters</span>
+                    <span className="material-icons text-[16px] sm:text-[18px]">auto_awesome</span>
+                    <span className="hidden lg:inline">Filters</span>
                 </button>
 
                 {/* Captions */}
                 <button
-                    className={`h-10 px-3.5 rounded-full border text-[11px] font-medium flex items-center gap-2 transition-all ${transcriptionOn
+                    className={`${btnBase} ${transcriptionOn
                         ? "bg-primary text-primary-foreground"
                         : "bg-secondary border-border text-foreground hover:bg-accent"
                         }`}
                     onClick={onToggleTranscription}
                     title={transcriptionOn ? "Turn Off Captions" : "Turn On Captions"}
                 >
-                    <span className="material-icons text-[18px]">closed_caption</span>
-                    <span className="hidden md:inline">Captions</span>
+                    <span className="material-icons text-[16px] sm:text-[18px]">closed_caption</span>
+                    <span className="hidden lg:inline">Captions</span>
                 </button>
 
                 {/* Divider */}
-                <div className={`w-px h-6 mx-1 ${darkMode ? "bg-slate-700" : "bg-slate-300"}`} />
+                <div className={`w-px h-5 sm:h-6 mx-1 sm:mx-1.5 ${darkMode ? "bg-slate-700" : "bg-slate-300"}`} />
 
                 {/* Commerce/Feeds */}
                 <button
-                    className={`h-10 px-3.5 rounded-full border text-[11px] font-medium flex items-center gap-2 transition-all ${commerceHudOpen
+                    className={`${btnBase} ${commerceHudOpen
                         ? "bg-primary text-primary-foreground"
                         : "bg-secondary border-border text-foreground hover:bg-accent"
                         }`}
                     onClick={onToggleCommerceHud}
                     title="Product Feeds"
                 >
-                    <span className="material-icons text-[18px]">shopping_bag</span>
-                    <span className="hidden md:inline">Feeds</span>
+                    <span className="material-icons text-[16px] sm:text-[18px]">shopping_bag</span>
+                    <span className="hidden lg:inline">Feeds</span>
                 </button>
 
                 {/* Co-hosts */}
                 <button
-                    className={`h-10 px-3.5 rounded-full border text-[11px] font-medium flex items-center gap-2 transition-all ${coHostsOpen
+                    className={`${btnBase} ${coHostsOpen
                         ? "bg-purple-600 border-purple-500 text-white"
                         : "bg-secondary border-border text-foreground hover:bg-accent"
                         }`}
                     onClick={onToggleCoHosts}
                     title="Co-hosts"
                 >
-                    <span className="material-icons text-[18px]">group</span>
-                    <span className="hidden md:inline">Co-hosts</span>
+                    <span className="material-icons text-[16px] sm:text-[18px]">group</span>
+                    <span className="hidden lg:inline">Co-hosts</span>
                 </button>
 
                 {/* Flash Deal */}
                 {flashActive ? (
                     <button
-                        className="h-10 px-3.5 rounded-full border border-rose-500/50 bg-rose-500/20 text-[11px] font-medium text-rose-300 hover:bg-rose-500/30 flex items-center gap-2 transition-all animate-pulse"
+                        className={`${btnBase} border-rose-500/50 bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 animate-pulse`}
                         onClick={onStopFlash}
                         title="Stop Flash Deal"
                     >
-                        <span className="material-icons text-[18px]">bolt</span>
-                        <span className="hidden md:inline">Stop Deal</span>
+                        <span className="material-icons text-[16px] sm:text-[18px]">bolt</span>
+                        <span className="hidden lg:inline">Stop Deal</span>
                     </button>
                 ) : (
                     <button
-                        className="h-10 px-3.5 rounded-full border border-orange-500/50 bg-orange-500/10 text-[11px] font-medium text-orange-300 hover:bg-orange-500/20 flex items-center gap-2 transition-all"
+                        className={`${btnBase} border-orange-500/50 bg-orange-500/10 text-orange-300 hover:bg-orange-500/20`}
                         onClick={onOpenFlashConfig}
                         title="Start Flash Deal"
                     >
-                        <span className="material-icons text-[18px]">bolt</span>
-                        <span className="hidden md:inline">Start Deal</span>
+                        <span className="material-icons text-[16px] sm:text-[18px]">bolt</span>
+                        <span className="hidden lg:inline">Start Deal</span>
                     </button>
                 )}
             </div>

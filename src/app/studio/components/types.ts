@@ -1,6 +1,6 @@
-export type Mode = "lobby" | "live";
+export type Mode = "lobby" | "rehearsal" | "live";
 export type PreviewMode = "auto" | "desktop" | "mobile";
-export type AudienceTab = "chat" | "qa" | "viewers";
+export type AudienceTab = "chat" | "qa" | "viewers" | "polls";
 export type ProductionMode = "inapp" | "external";
 export type ExternalTool = "OBS" | "vMix";
 export type SourceId = "cam1" | "cam2" | "screen" | "obs" | "vmix";
@@ -72,6 +72,22 @@ export type QaItem = {
     from: string;
     status: "unanswered" | "pinned" | "answered";
     langTag?: string;
+    createdAt: number;
+};
+
+export type PollOption = {
+    id: string;
+    text: string;
+    votes: number;
+};
+
+export type LivePoll = {
+    id: string;
+    question: string;
+    options: PollOption[];
+    totalVotes: number;
+    isActive: boolean;
+    endsAt: number | null;
     createdAt: number;
 };
 

@@ -1,6 +1,7 @@
 // Enhanced Filter Engine - TikTok-style filter system
-import * as mpFaceMesh from "@mediapipe/face_mesh";
-import type { FaceMesh, Results } from "@mediapipe/face_mesh";
+// FaceMesh will be loaded dynamically to avoid SSR issues
+let mpFaceMesh: typeof import("@mediapipe/face_mesh") | null = null;
+type FaceMeshType = import("@mediapipe/face_mesh").FaceMesh;
 
 // Import processors
 import {
@@ -35,7 +36,7 @@ export type FilterType = "None" | "Soft Glow" | "Warmth" | "Noir" | "Neon" | "Ca
 
 export class FilterEngine {
     // MediaPipe instances
-    private faceMesh: FaceMesh | null = null;
+    private faceMesh: FaceMeshType | null = null;
     
     // Processors
     private colorProcessor: ColorFilterProcessor;
@@ -92,32 +93,28 @@ export class FilterEngine {
         if (this.faceMesh) return;
         
         console.log("Initializing FilterEngine FaceMesh...");
-        // Handle CJS/ESM interop
-        // @ts-ignore
-        const FaceMeshConstructor = mpFaceMesh.FaceMesh || mpFaceMesh.default?.FaceMesh || mpFaceMesh;
-
-        if (!FaceMeshConstructor) {
-            console.error("Failed to load FaceMesh constructor", mpFaceMesh);
-            throw new Error("FaceMesh constructor not found");
-        }
-
+        
         try {
+            // Dynamic import to handle ESM/CJS properly
+            if (!mpFaceMesh) {
+                mpFaceMesh = await import("@mediapipe/face_mesh");
+            }
+            
+            const FaceMeshConstructor = mpFaceMesh?.FaceMesh || mpFaceMesh?.default?.FaceMesh;
+
+            if (!FaceMeshConstructor) {
+                console.warn("FaceMesh constructor not available, skipping AR filters");
+                return;
+            }
+
             this.faceMesh = new FaceMeshConstructor({
                 locateFile: (file: string) => {
                     return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`;
                 },
             });
         } catch (e) {
-            if (typeof FaceMeshConstructor === 'function') {
-                // @ts-ignore
-                this.faceMesh = new FaceMeshConstructor({
-                    locateFile: (file: string) => {
-                        return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`;
-                    },
-                });
-            } else {
-                throw e;
-            }
+            console.warn("Failed to initialize FaceMesh, AR filters unavailable:", e);
+            return;
         }
 
         this.faceMesh.setOptions({
@@ -312,7 +309,7 @@ export class FilterEngine {
         this.animationFrameId = requestAnimationFrame(this.loop.bind(this));
     }
 
-    private onFaceMeshResults(results: Results): void {
+    private onFaceMeshResults(results: { multiFaceLandmarks?: unknown[] }): void {
         if (!this.canvasCtx || !this.canvasElement) return;
 
         const ctx = this.canvasCtx;

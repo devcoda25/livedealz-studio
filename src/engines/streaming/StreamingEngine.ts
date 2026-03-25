@@ -19,6 +19,7 @@ import { SceneManager } from './SceneManager';
 import { VideoEncoder, AudioEncoder } from './VideoEncoder';
 import { StreamOutput, WebRTCViewer } from './StreamOutput';
 import { StreamHealthMonitor } from './StreamHealth';
+import { StreamRecorder, RecordingOptions } from './StreamRecorder';
 
 type EngineEventCallback = (event: StreamingEvent) => void;
 

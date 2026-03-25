@@ -1,5 +1,6 @@
 // Background Processor - Background blur, virtual backgrounds, and segmentation
-import * as mpSelfie from "@mediapipe/selfie_segmentation";
+// SelfieSegmentation loaded dynamically
+let mpSelfie: typeof import("@mediapipe/selfie_segmentation") | null = null;
 import { BackgroundFilterConfig, BACKGROUND_FILTERS } from '../types';
 
 export type BackgroundType = 'none' | 'blur' | 'solid' | 'image' | 'video' | 'ar';
@@ -29,13 +30,18 @@ export class BackgroundProcessor {
         console.log("Initializing BackgroundProcessor with SelfieSegmentation...");
 
         try {
-            // Handle CJS/ESM interop
-            // @ts-ignore
-            const SelfieSegmentationConstructor = mpSelfie.SelfieSegmentation || mpSelfie.default?.SelfieSegmentation || mpSelfie;
+            // Dynamic import for ESM/CJS compatibility
+            if (!mpSelfie) {
+                mpSelfie = await import("@mediapipe/selfie_segmentation");
+            }
+            
+            // @ts-ignore - handle different export styles
+            const SelfieSegmentationConstructor = mpSelfie?.SelfieSegmentation || mpSelfie?.default?.SelfieSegmentation;
 
             if (!SelfieSegmentationConstructor) {
-                console.error("Failed to load SelfieSegmentation constructor");
-                throw new Error("SelfieSegmentation constructor not found");
+                console.warn("SelfieSegmentation not available, background effects disabled");
+                this.isInitialized = true; // Mark as initialized (just without segmentation)
+                return;
             }
 
             this.selfieSegmentation = new SelfieSegmentationConstructor({

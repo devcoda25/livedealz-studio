@@ -22,6 +22,7 @@ function pad2(n: number) {
 export function StagePreview(props: {
     darkMode?: boolean;
     resolvedPreviewMode: "mobile" | "desktop";
+    forceMobileMode?: boolean; // Force mobile view on all screen sizes
     activeSceneLabel: string;
     liveTimerLabel: string;
     viewerCount: number;
@@ -44,6 +45,7 @@ export function StagePreview(props: {
     const {
         darkMode = true,
         resolvedPreviewMode,
+        forceMobileMode = false,
         activeSceneLabel,
         liveTimerLabel,
         viewerCount,
@@ -64,7 +66,7 @@ export function StagePreview(props: {
         activeFilter,
     } = props;
 
-    const isMobile = resolvedPreviewMode === "mobile";
+    const isMobile = resolvedPreviewMode === "mobile" || forceMobileMode;
     const aspect = isMobile ? "9 / 16" : "16 / 9";
 
     const flashTone =

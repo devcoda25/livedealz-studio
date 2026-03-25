@@ -1,5 +1,6 @@
 // Gesture Processor - Hand gesture detection for interactive filters
-import * as mpHands from "@mediapipe/hands";
+// Hands loaded dynamically
+let mpHands: typeof import("@mediapipe/hands") | null = null;
 import { GestureFilterConfig, GESTURE_FILTERS } from '../types';
 
 export type GestureType = 
@@ -58,13 +59,18 @@ export class GestureProcessor {
         console.log("Initializing GestureProcessor with MediaPipe Hands...");
         
         try {
-            // Handle CJS/ESM interop
-            // @ts-ignore
-            const HandsConstructor = mpHands.Hands || mpHands.default?.Hands || mpHands;
+            // Dynamic import for ESM/CJS compatibility
+            if (!mpHands) {
+                mpHands = await import("@mediapipe/hands");
+            }
+            
+            // @ts-ignore - handle different export styles
+            const HandsConstructor = mpHands?.Hands || mpHands?.default?.Hands;
             
             if (!HandsConstructor) {
-                console.error("Failed to load Hands constructor");
-                throw new Error("Hands constructor not found");
+                console.warn("Hands not available, gesture effects disabled");
+                this.isInitialized = true;
+                return;
             }
             
             this.hands = new HandsConstructor({
