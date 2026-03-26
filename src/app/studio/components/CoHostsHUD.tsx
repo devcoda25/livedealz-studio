@@ -2,12 +2,25 @@ import React, { useState, useRef, useEffect } from "react";
 
 interface CoHostsHUDProps {
     darkMode?: boolean;
-    coHosts: { id: number; name: string; status: string }[];
+    coHosts: { id: number; name: string; status: string; isMainPresenter?: boolean; isPresenting?: boolean }[];
+    mainPresenterId: number | null;
     onInvite: (name: string) => void;
+    onRemove: (id: number) => void;
+    onSetMainPresenter: (id: number) => void;
+    onTogglePresenting: (id: number) => void;
     onClose: () => void;
 }
 
-export function CoHostsHUD({ darkMode = true, coHosts, onInvite, onClose }: CoHostsHUDProps) {
+export function CoHostsHUD({
+    darkMode = true,
+    coHosts,
+    mainPresenterId,
+    onInvite,
+    onRemove,
+    onSetMainPresenter,
+    onTogglePresenting,
+    onClose
+}: CoHostsHUDProps) {
     const [position, setPosition] = useState({ x: 0, y: 0 });
     const dragStartRef = useRef<{ x: number; y: number } | null>(null);
     const dialogRef = useRef<HTMLDivElement>(null);
@@ -72,18 +85,17 @@ export function CoHostsHUD({ darkMode = true, coHosts, onInvite, onClose }: CoHo
     return (
         <div
             ref={dialogRef}
-            className={`fixed left-4 bottom-4 z-[70] w-80 sm:w-96 rounded-2xl border shadow-xl cursor-move touch-none ${
-                darkMode 
-                    ? "border-slate-800/80 bg-slate-950/80" 
-                    : "border-slate-200 bg-white"
-            }`}
+            className={`fixed left-4 bottom-4 z-[70] w-96 sm:w-[500px] rounded-2xl border shadow-xl cursor-move touch-none ${darkMode
+                ? "border-slate-800/80 bg-slate-950/80"
+                : "border-slate-200 bg-white"
+                }`}
             style={{
                 transform: `translate(${position.x}px, ${position.y}px)`,
             }}
             onMouseDown={handleMouseDown}
             onTouchStart={handleTouchStart}
         >
-            <div className="w-full max-w-sm sm:max-w-xl rounded-3xl px-4 py-4">
+            <div className="w-full max-w-sm sm:max-w-2xl rounded-3xl px-6 py-4">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
@@ -97,7 +109,7 @@ export function CoHostsHUD({ darkMode = true, coHosts, onInvite, onClose }: CoHo
 
                 {/* Invite Button */}
                 <div className="mb-4">
-                    <button 
+                    <button
                         className="w-full py-2 px-4 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-[11px] font-semibold flex items-center justify-center gap-2"
                         onClick={() => { const name = window.prompt("Enter co-host name:"); if (name) onInvite(name); }}
                     >
@@ -116,24 +128,42 @@ export function CoHostsHUD({ darkMode = true, coHosts, onInvite, onClose }: CoHo
                         coHosts.map((c) => (
                             <div key={c.id} className={`flex items-center justify-between p-3 rounded-xl ${darkMode ? "bg-slate-900/50 border-slate-800" : "bg-slate-50 border-slate-200"}`}>
                                 <div className="flex items-center gap-3 min-w-0">
-                                    <div className={`h-10 w-10 rounded-full flex items-center justify-center text-[12px] font-semibold ${darkMode ? "bg-slate-800 text-slate-100" : "bg-slate-200 text-slate-600"}`}>
+                                    <div className={`h-12 w-12 rounded-full flex items-center justify-center text-[14px] font-semibold ${darkMode ? "bg-slate-800 text-slate-100" : "bg-slate-200 text-slate-600"} ${c.id === mainPresenterId ? 'ring-2 ring-purple-500' : ''} ${c.isPresenting ? 'ring-2 ring-emerald-500' : ''}`}>
                                         {c.name.split(" ").map((w) => w[0]).join("")}
                                     </div>
                                     <div className="min-w-0">
-                                        <div className={`text-[11px] font-semibold ${darkMode ? "text-slate-100" : "text-slate-700"} truncate`}>{c.name}</div>
-                                        <div className={`text-[9px] ${darkMode ? "text-slate-500" : "text-slate-400"}`}>{c.status}</div>
+                                        <div className={`text-[13px] font-semibold ${darkMode ? "text-slate-100" : "text-slate-700"} truncate`}>
+                                            {c.name}
+                                            {c.id === mainPresenterId && <span className="ml-1 text-purple-400">★ Main</span>}
+                                            {c.isPresenting && <span className="ml-1 text-emerald-400">● Live</span>}
+                                        </div>
+                                        <div className={`text-[10px] ${darkMode ? "text-slate-500" : "text-slate-400"}`}>{c.status}</div>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <button 
-                                        className="px-3 py-1.5 rounded-full border border-emerald-500/50 bg-emerald-500/10 text-emerald-300 text-[9px] hover:bg-emerald-500/20"
-                                        onClick={() => alert("Accept (demo)")}
+                                <div className="flex items-center gap-3">
+                                    <button
+                                        className={`px-3 py-1.5 rounded-full border text-[9px] ${c.isPresenting
+                                            ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20'
+                                            : 'border-slate-600 bg-slate-700 text-slate-300 hover:bg-slate-600'
+                                            }`}
+                                        onClick={() => onTogglePresenting(c.id)}
+                                        title={c.isPresenting ? "Stop Presenting" : "Start Presenting"}
                                     >
-                                        Accept
+                                        {c.isPresenting ? '⏹ Stop' : '▶ Present'}
                                     </button>
-                                    <button 
-                                        className="px-3 py-1.5 rounded-full border border-slate-700 bg-muted text-muted-foreground text-[9px] hover:bg-muted/80"
-                                        onClick={() => alert("Remove (demo)")}
+                                    {c.id !== mainPresenterId && (
+                                        <button
+                                            className="px-3 py-1.5 rounded-full border border-purple-500/50 bg-purple-500/10 text-purple-300 text-[9px] hover:bg-purple-500/20"
+                                            onClick={() => onSetMainPresenter(c.id)}
+                                            title="Make Main Presenter"
+                                        >
+                                            ★ Set as Main
+                                        </button>
+                                    )}
+                                    <button
+                                        className="px-3 py-1.5 rounded-full border border-red-500/50 bg-red-500/10 text-red-300 text-[9px] hover:bg-red-500/20"
+                                        onClick={() => onRemove(c.id)}
+                                        title="Remove Co-host"
                                     >
                                         Remove
                                     </button>

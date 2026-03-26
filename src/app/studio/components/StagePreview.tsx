@@ -1,5 +1,5 @@
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { FlashDealState, CurrentSpeaker } from "./types";
+import { FlashDealState, CurrentSpeaker, Mode } from "./types";
 import { getFilterStyle } from "./filters";
 import { FilterEngine, FilterType } from "@/engines/media/FilterEngine";
 import { useRef, useEffect } from "react";
@@ -36,11 +36,18 @@ export function StagePreview(props: {
     currentSpeaker: CurrentSpeaker | null;
     speakerSecondsLeft: number;
     onExpand: () => void;
-    videoRef: React.RefObject<HTMLVideoElement>;
+    videoRef: React.RefObject<HTMLVideoElement | null>;
     hasCameraPermission: boolean;
     transcriptionOn: boolean;
     transcript: string;
     activeFilter: string;
+    retryCameraAccess?: () => void;
+    isDemoMode?: boolean;
+    cameraError?: string | null;
+    coHosts?: { id: number; name: string; status: string; isMainPresenter?: boolean; isPresenting?: boolean }[];
+    mainPresenterId?: number | null;
+    hostPresenting?: boolean;
+    mode?: Mode;
 }) {
     const {
         darkMode = true,
@@ -64,10 +71,29 @@ export function StagePreview(props: {
         transcriptionOn,
         transcript,
         activeFilter,
+        retryCameraAccess,
+        isDemoMode,
+        cameraError,
+        coHosts,
+        mainPresenterId,
+        hostPresenting,
+        mode,
     } = props;
 
     const isMobile = resolvedPreviewMode === "mobile" || forceMobileMode;
     const aspect = isMobile ? "9 / 16" : "16 / 9";
+
+    // Determine presenting state for split-screen logic
+    const presentingCoHosts = coHosts?.filter(c => c.isPresenting) || [];
+    const onlyHostPresenting = hostPresenting && presentingCoHosts.length === 0;
+    const onlyCoHostPresenting = !hostPresenting && presentingCoHosts.length === 1;
+    const multiplePresenters = hostPresenting && presentingCoHosts.length >= 1;
+    const hasMultipleCoHostsPresenting = presentingCoHosts.length > 1;
+    // Single presenter (anyone) gets larger area in top-left
+    const singlePresenter = (onlyHostPresenting || onlyCoHostPresenting) && !multiplePresenters;
+    // When main presenter is presenting, give them larger screen
+    const mainPresenter = mainPresenterId ? presentingCoHosts.find(c => c.id === mainPresenterId) : null;
+    const showMainPresenterLarger = mainPresenter && onlyCoHostPresenting;
 
     const flashTone =
         flashUrgency === "critical"
@@ -77,7 +103,28 @@ export function StagePreview(props: {
                 : "bg-[#f77f00] border-[#f77f00]/70";
 
     const canvasRef = useRef<HTMLCanvasElement>(null);
+    const localVideoRef = useRef<HTMLVideoElement>(null);
     const filterEngineRef = useRef<FilterEngine | null>(null);
+
+    // Sync stream from parent's videoRef to local video element
+    useEffect(() => {
+        const syncVideo = () => {
+            if (videoRef.current && localVideoRef.current) {
+                // Only sync if parent has a stream and local doesn't
+                if (videoRef.current.srcObject && !localVideoRef.current.srcObject) {
+                    localVideoRef.current.srcObject = videoRef.current.srcObject;
+                    console.log('Video stream synced to local ref');
+                }
+            }
+        };
+
+        // Initial sync immediately
+        syncVideo();
+
+        // Poll for updates (in case parent sets stream after mount)
+        const interval = setInterval(syncVideo, 500);
+        return () => clearInterval(interval);
+    }, [videoRef]);
 
     useEffect(() => {
         // Initialize engine
@@ -87,14 +134,14 @@ export function StagePreview(props: {
         const engine = filterEngineRef.current;
 
         const initEngine = async () => {
-            if (videoRef.current && canvasRef.current) {
+            if (localVideoRef.current && canvasRef.current) {
                 // Ensure canvas dimensions match video or container
                 // For now, allow CSS to handle display size, but we might need to set internal width/height?
                 // FilterEngine/FaceMesh usually requires correct internal resolution.
                 // We'll set it to videoWidth/videoHeight in the engine or here once loaded.
                 // Actually FilterEngine attaches and usually handles resize?
                 // Let's attach.
-                engine.attach(videoRef.current, canvasRef.current);
+                engine.attach(localVideoRef.current, canvasRef.current);
                 await engine.initialize();
                 engine.start();
             }
@@ -125,34 +172,116 @@ export function StagePreview(props: {
             title="Tap to expand preview"
         >
             <div
-                className={"relative rounded-2xl border overflow-hidden shadow-[0_24px_80px_rgba(15,23,42,0.7)] " + (isMobile ? "w-[360px] max-w-[80%] " : "w-full ") + (darkMode ? "bg-slate-950 border-slate-800" : "bg-black border-slate-300")}
-                style={{ aspectRatio: aspect }}
+                className={`relative rounded-2xl border overflow-hidden shadow-[0_24px_80px_rgba(15,23,42,0.7)] ${isMobile ? 'pb-8' : ''} ` + (isMobile ? "w-[360px] max-w-[95%] " : "w-full ") + (darkMode ? "bg-slate-950 border-slate-800" : "bg-black border-slate-300")}
+                style={{ aspectRatio: aspect, maxHeight: isMobile ? 'calc(100vh - 220px)' : undefined }}
             >
                 <video
-                    ref={videoRef}
-                    className="absolute inset-0 w-full h-full object-cover transition-all duration-300"
+                    ref={localVideoRef}
+                    className={`absolute inset-0 w-full h-full object-cover transition-all duration-300 ${multiplePresenters
+                        ? (isMobile
+                            ? 'w-full h-1/2 top-0 left-0'
+                            : 'w-1/2 h-full top-0 left-0')
+                        : singlePresenter
+                            ? 'w-2/3 h-full top-0 left-0'
+                            : ''
+                        }`}
                     autoPlay muted playsInline
-                    style={{ filter: getFilterStyle(activeFilter) }}
+                    style={{ filter: getFilterStyle(activeFilter) ? (getFilterStyle(activeFilter) as any).cssFilter || '' : '' }}
                 />
+
+                {/* Co-host video for split-screen or main presenter mode */}
+                {presentingCoHosts.length > 0 && (multiplePresenters || singlePresenter) && (
+                    <div
+                        className={`absolute inset-0 w-full h-full transition-all duration-300 ${multiplePresenters
+                            ? (isMobile
+                                ? 'w-full h-1/2 bottom-0 left-0 top-auto'
+                                : 'w-1/2 h-full top-0 right-0 left-auto')
+                            : 'w-1/3 h-1/3 top-2 left-2 right-auto bottom-auto'
+                            }`}
+                    >
+                        {/* If multiple presenters, show grid; otherwise show single */}
+                        {multiplePresenters || hasMultipleCoHostsPresenting ? (
+                            <div className="w-full h-full grid grid-cols-2 gap-1 p-1">
+                                {presentingCoHosts.slice(0, 4).map((coHost) => (
+                                    <div key={coHost.id} className="rounded-lg overflow-hidden border border-purple-500/50 bg-slate-900 flex items-center justify-center">
+                                        <div className="text-center">
+                                            <div className="h-8 w-8 rounded-full bg-purple-600 flex items-center justify-center text-[10px] font-semibold text-white mx-auto mb-1">
+                                                {coHost.name.split(" ").map((w: string) => w[0]).join("")}
+                                            </div>
+                                            <div className="text-[8px] text-white truncate px-1">{coHost.name}</div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="w-full h-full rounded-lg overflow-hidden border-2 border-purple-500 shadow-lg bg-slate-900">
+                                <div className="w-full h-full flex items-center justify-center">
+                                    <div className="text-center">
+                                        <div className="h-12 w-12 rounded-full bg-purple-600 flex items-center justify-center text-sm font-semibold text-white mx-auto mb-2">
+                                            {presentingCoHosts[0].name.split(" ").map((w: string) => w[0]).join("")}
+                                        </div>
+                                        <div className="text-xs text-white font-medium">{presentingCoHosts[0].name}</div>
+                                        {showMainPresenterLarger && <div className="text-[10px] text-purple-300">Main Presenter</div>}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                        {/* Green live indicator */}
+                        <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/20 border border-green-400 text-green-300 text-[10px]">
+                            <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                            LIVE
+                            {presentingCoHosts.length > 1 && <span className="ml-1">+{presentingCoHosts.length - 1}</span>}
+                        </div>
+                    </div>
+                )}
+
+                {/* Split screen divider line removed */}
+                {false && (
+                    <div
+                        className={`absolute bg-white/30 z-10 ${isMobile ? 'left-0 right-0 h-0.5' : 'top-0 bottom-0 w-0.5'}`}
+                        style={isMobile ? { top: '50%', transform: 'translateY(-50%)' } : { left: '50%', transform: 'translateX(-50%)' }}
+                    />
+                )}
                 <canvas
                     ref={canvasRef}
-                    className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+                    className={`absolute inset-0 w-full h-full object-cover pointer-events-none transition-all duration-300 ${multiplePresenters
+                        ? (isMobile
+                            ? 'w-full h-1/2 top-0 left-0'
+                            : 'w-1/2 h-full top-0 left-0')
+                        : singlePresenter
+                            ? 'w-2/3 h-full top-0 left-0'
+                            : ''
+                        }`}
                     width={1280}
                     height={720}
                 />
 
-                {!hasCameraPermission && (
+                {(isDemoMode || !hasCameraPermission) && (
                     <div className="absolute inset-0 bg-black/50 flex items-center justify-center p-4">
-                        <Alert variant="destructive">
-                            <AlertTitle>Camera Access Required</AlertTitle>
-                            <AlertDescription>
-                                Please allow camera and microphone access to use the preview.
-                            </AlertDescription>
-                        </Alert>
+                        <div className="flex flex-col items-center gap-4">
+                            <Alert variant="destructive">
+                                <AlertTitle>Camera Access Required</AlertTitle>
+                                <AlertDescription>
+                                    Please allow camera and microphone access to use the preview.
+                                </AlertDescription>
+                            </Alert>
+                            {retryCameraAccess && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        retryCameraAccess();
+                                    }}
+                                    className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-sm font-medium transition-colors"
+                                >
+                                    Try Again
+                                </button>
+                            )}
+                        </div>
                     </div>
                 )}
 
-                {/* Live pill */}
+                {/* Live pill - moved to header */}
+                {/*
                 <div className="absolute top-2 left-2 flex flex-col gap-1 text-[10px]">
                     <div className="inline-flex items-center gap-2 px-2 py-1 rounded-full bg-black/60 border border-white/10 text-slate-100">
                         <span className="inline-flex items-center gap-1">
@@ -167,8 +296,10 @@ export function StagePreview(props: {
                         <span>{viewerCount.toLocaleString()} viewers</span>
                     </div>
                 </div>
+                */}
 
-                {/* AI chips */}
+                {/* AI chips - moved to header */}
+                {/*
                 <div className="absolute top-2 right-2 flex flex-col gap-1 text-[10px] items-end">
                     <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/60 text-emerald-200 border border-emerald-400/60">
                         <span className="material-icons text-[14px]">graphic_eq</span>
@@ -179,6 +310,7 @@ export function StagePreview(props: {
                         <span>Captions: ON</span>
                     </div>
                 </div>
+                */}
 
                 {/* Speaker */}
                 {currentSpeaker && (
@@ -213,12 +345,15 @@ export function StagePreview(props: {
                     </div>
                 )}
 
-                {/* Scene label */}
+                {/* Scene label - moved to header */}
+                {/*
                 <div className="absolute top-12 left-2 text-[10px] px-2 py-0.5 rounded-full bg-black/55 border border-white/10 text-slate-100">
                     Scene: <span className="font-semibold">{activeSceneLabel}</span>
                 </div>
+                */}
 
-                {/* Source + language mix */}
+                {/* Language mix bar - moved to header */}
+                {/*
                 <div className="absolute left-2 right-2 bottom-2">
                     <div className="flex items-center justify-between gap-2 mb-1">
                         <span className="text-[10px] text-slate-200">Viewer languages (sample)</span>
@@ -235,6 +370,7 @@ export function StagePreview(props: {
                         ))}
                     </div>
                 </div>
+                */}
 
                 {/* Status */}
                 {screenShareOn && (
@@ -248,6 +384,8 @@ export function StagePreview(props: {
                     </div>
                 )}
 
+                {/* Status - mic and camera - moved to header */}
+                {/*
                 <div className="absolute bottom-24 right-2 flex flex-col items-end gap-1 text-[10px]">
                     <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/60 text-slate-100 border border-white/10">
                         <span className="material-icons text-[14px]">{micOn ? "mic" : "mic_off"}</span>
@@ -258,6 +396,7 @@ export function StagePreview(props: {
                         <span>{camOn ? "Camera on" : "Camera off"}</span>
                     </div>
                 </div>
+                */}
 
                 {/* Live Captions (YouTube Style Overlay) */}
                 {transcriptionOn && (
@@ -275,6 +414,28 @@ export function StagePreview(props: {
                                 </span>
                             )}
                         </div>
+                    </div>
+                )}
+
+                {/* Co-hosts Grid (side by side) - hide presenting co-host */}
+                {coHosts && coHosts.length > 0 && (
+                    <div className="absolute right-2 top-20 flex flex-col gap-2 max-h-[200px] overflow-y-auto">
+                        {coHosts.filter(c => c.id !== mainPresenterId && !c.isPresenting).map((coHost) => (
+                            <div
+                                key={coHost.id}
+                                className="w-20 h-24 rounded-lg overflow-hidden border-2 border-purple-500/50 shadow-lg"
+                                title={coHost.name}
+                            >
+                                <div className="w-full h-full bg-slate-800 flex items-center justify-center">
+                                    <div className="text-center">
+                                        <div className="h-10 w-10 rounded-full bg-slate-700 flex items-center justify-center text-[10px] font-semibold text-white mx-auto mb-1">
+                                            {coHost.name.split(" ").map((w) => w[0]).join("")}
+                                        </div>
+                                        <div className="text-[8px] text-slate-300 truncate px-1">{coHost.name}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 )}
 

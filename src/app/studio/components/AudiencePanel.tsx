@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { AudienceTab, ChatMsg, QaItem, LiveViewer, AudioRequest, CurrentSpeaker, LivePoll, PollOption } from "./types";
+import { AudienceTab, ChatMsg, QaItem, LiveViewer, AudioRequest, CurrentSpeaker, LivePoll, PollOption, Giveaway } from "./types";
 import { uid } from "./utils";
 import { langTag, formatHMS } from "./utils";
 import { EV_ORANGE } from "./constants";
@@ -32,6 +32,11 @@ export function AudiencePanel(props: {
     onVotePoll?: (pollId: string, optionId: string) => void;
     onClosePoll?: (pollId: string) => void;
     onDeletePoll?: (pollId: string) => void;
+    // Giveaway props
+    giveaways: Giveaway[];
+    onPickWinner?: (giveawayId: string) => void;
+    onCreateGiveaway?: (data: { title: string; description: string; prizeValue?: number }) => void;
+    pickingWinner?: { giveawayId: string; isAnimating: boolean; winner: { id: string; name: string } | null } | null;
 }) {
     const {
         activeTab,
@@ -59,6 +64,10 @@ export function AudiencePanel(props: {
         onVotePoll,
         onClosePoll,
         onDeletePoll,
+        giveaways,
+        onPickWinner,
+        onCreateGiveaway,
+        pickingWinner,
     } = props;
 
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -212,6 +221,12 @@ export function AudiencePanel(props: {
     const [newPollQuestion, setNewPollQuestion] = useState("");
     const [newPollOptions, setNewPollOptions] = useState(["", ""]);
 
+    // Giveaway state for creating new giveaways
+    const [showGiveawayCreator, setShowGiveawayCreator] = useState(false);
+    const [newGiveawayTitle, setNewGiveawayTitle] = useState("");
+    const [newGiveawayDescription, setNewGiveawayDescription] = useState("");
+    const [newGiveawayValue, setNewGiveawayValue] = useState<number | undefined>(undefined);
+
     const handleCreatePoll = () => {
         const validOptions = newPollOptions.filter(o => o.trim() !== "");
         if (newPollQuestion.trim() && validOptions.length >= 2) {
@@ -238,6 +253,20 @@ export function AudiencePanel(props: {
         if (newPollOptions.length > 2) {
             const updated = newPollOptions.filter((_, i) => i !== index);
             setNewPollOptions(updated);
+        }
+    };
+
+    const handleCreateGiveaway = () => {
+        if (newGiveawayTitle.trim()) {
+            onCreateGiveaway?.({
+                title: newGiveawayTitle.trim(),
+                description: newGiveawayDescription.trim(),
+                prizeValue: newGiveawayValue,
+            });
+            setNewGiveawayTitle("");
+            setNewGiveawayDescription("");
+            setNewGiveawayValue(undefined);
+            setShowGiveawayCreator(false);
         }
     };
 
@@ -398,10 +427,78 @@ export function AudiencePanel(props: {
         </div>
     );
 
+    const renderGiveawaysTab = () => (
+        <div className="space-y-3">
+            {/* Active Giveaways */}
+            {giveaways.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground text-[11px]">
+                    No active giveaways. Start one to boost engagement!
+                </div>
+            ) : (
+                <div className="space-y-2">
+                    {giveaways.map((giveaway) => (
+                        <div
+                            key={giveaway.id}
+                            className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3"
+                        >
+                            <div className="flex items-start justify-between mb-2">
+                                <div className="flex-1">
+                                    <div className="font-medium text-foreground text-[11px]">{giveaway.title}</div>
+                                    {giveaway.description && (
+                                        <div className="text-[10px] text-muted-foreground mt-1">{giveaway.description}</div>
+                                    )}
+                                </div>
+                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-medium ${
+                                    giveaway.status === "active" ? "bg-amber-500/20 text-amber-500" :
+                                    giveaway.status === "completed" ? "bg-green-500/20 text-green-500" :
+                                    "bg-rose-500/20 text-rose-500"
+                                }`}>
+                                    {giveaway.status}
+                                </span>
+                            </div>
+                            
+                            <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-2">
+                                <span>{giveaway.participants.length} entries</span>
+                                {giveaway.prizeValue && <span>Prize: ${giveaway.prizeValue} Gift Box</span>}
+                            </div>
+
+                            {giveaway.status === "active" && (
+                                <div className="flex gap-2">
+                                    {pickingWinner?.giveawayId === giveaway.id ? (
+                                        <div className="flex-1 py-1.5 rounded-lg bg-amber-500/50 text-white text-[10px] font-medium flex items-center justify-center gap-2">
+                                            <span className="animate-spin">🎰</span>
+                                            {pickingWinner.isAnimating ? "Selecting..." : `Winner: ${pickingWinner.winner?.name}!`}
+                                        </div>
+                                    ) : (
+                                        <button
+                                            onClick={() => onPickWinner?.(giveaway.id)}
+                                            className="flex-1 py-1.5 rounded-lg bg-amber-500 text-white hover:bg-amber-600 text-[10px] font-medium"
+                                        >
+                                            Pick Winner 🎉
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+
+                            {giveaway.status === "completed" && giveaway.winnerName && (
+                                <div className="mt-2 p-2 rounded-lg bg-green-500/10 border border-green-500/20">
+                                    <div className="text-[10px] text-green-500 font-medium">
+                                        🎉 Winner: {giveaway.winnerName}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+
     const renderBody = () => {
         if (activeTab === "qa") return renderQATab();
         if (activeTab === "viewers") return renderViewersTab();
         if (activeTab === "polls") return renderPollsTab();
+        if (activeTab === "giveaways") return renderGiveawaysTab();
         return renderChatTab();
     };
 
@@ -439,17 +536,13 @@ export function AudiencePanel(props: {
                         >
                             📊 Polls
                         </button>
+                        <button 
+                            className={`px-3 py-1 rounded-full transition-all ${activeTab === "giveaways" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`} 
+                            onClick={() => onTabChange("giveaways")}
+                        >
+                            🎁 Giveaways
+                        </button>
                     </div>
-                    {/* Language mix badges */}
-                    {liveLangMix.length > 0 && (
-                        <div className="flex flex-wrap gap-1 justify-end">
-                            {liveLangMix.map((s) => (
-                                <span key={s.label} className="px-2 py-0.5 rounded-full border border-border bg-muted/50 text-[9px] text-muted-foreground">
-                                    {s.label} {s.pct}%
-                                </span>
-                            ))}
-                        </div>
-                    )}
                 </div>
             </div>
 

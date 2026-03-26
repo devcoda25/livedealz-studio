@@ -10,7 +10,7 @@ import { useEngines } from "@/hooks/useEngines";
 import {
   Mode, PreviewMode, AudienceTab, ProductionMode, ExternalTool, SourceId,
   ViewerLang, ListenMode, Product, BuyerAgent, LiveViewer, ChatMsg,
-  SaleEvent, AiHint, QaItem, AudioRequest, CurrentSpeaker, FlashDealState, SceneId, SCENES, LivePoll
+  SaleEvent, AiHint, QaItem, AudioRequest, CurrentSpeaker, FlashDealState, SceneId, SCENES, LivePoll, Giveaway
 } from "../components/types";
 import {
   INITIAL_PRODUCTS, INITIAL_BUYERS, EV_ORANGE
@@ -106,9 +106,25 @@ export default function MyLiveDealzLiveStudioFullPage() {
     removeAudioSource,
   } = useEngines();
 
-  // Defaults
-  const [darkMode, setDarkMode] = useState(true);
+  // Detect system color scheme preference on mount
+  const [darkMode, setDarkMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    return false; // Default to light mode
+  });
   const [mode, setMode] = useState<Mode>("lobby");
+
+  // Listen for system theme changes
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = (e: MediaQueryListEvent) => {
+      setDarkMode(e.matches);
+    };
+
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
 
   // Sync darkMode with document class for CSS variables
   useEffect(() => {
@@ -141,7 +157,33 @@ export default function MyLiveDealzLiveStudioFullPage() {
   const streamRef = useRef<MediaStream | null>(null);
 
   const [hasCameraPermission, setHasCameraPermission] = useState(true);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  // Track if we're in demo mode (no real camera available)
+  const [isDemoMode, setIsDemoMode] = useState(false);
   const { toast } = useToast();
+
+  // Retry camera access - trigger full camera re-initialization
+  const retryCameraAccess = useCallback(async () => {
+    setCameraError(null);
+    setHasCameraPermission(true);
+    setIsDemoMode(false); // Reset demo mode to try for real camera
+
+    // Stop existing stream if any
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+
+    // Reset video element
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+
+    console.log("Retrying camera access...");
+    // The camera will be re-initialized by the useEffect on mount
+    // For now, we'll dispatch an event that triggers re-initialization
+    window.dispatchEvent(new CustomEvent('retryCameraAccess'));
+  }, []);
 
   // Production
   const [productionMode, setProductionMode] = useState<ProductionMode>("inapp");
@@ -155,40 +197,40 @@ export default function MyLiveDealzLiveStudioFullPage() {
   // Handle camera switching from ProductionPanel
   const handleCameraSwitch = useCallback(async (deviceId: string | null) => {
     if (!deviceId || isSwitchingCamera.current) return;
-    
+
     // Prevent rapid consecutive switches
     isSwitchingCamera.current = true;
     setTimeout(() => { isSwitchingCamera.current = false; }, 1000);
-    
+
     setActiveCameraDeviceId(deviceId);
     console.log("Switching to camera:", deviceId);
-    
+
     // Stop existing stream
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
     }
-    
+
     // Small delay to allow camera to be released
     await new Promise(resolve => setTimeout(resolve, 100));
-    
+
     try {
       // Request new camera stream with fallback constraints
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { 
+        video: {
           deviceId: { exact: deviceId },
           width: { ideal: 1280 },
           height: { ideal: 720 }
         },
         audio: true
       });
-      
+
       streamRef.current = stream;
-      
+
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
-      
+
       console.log("Camera switched successfully");
       toast({
         title: 'Camera Switched',
@@ -196,11 +238,11 @@ export default function MyLiveDealzLiveStudioFullPage() {
       });
     } catch (err: any) {
       console.error("Failed to switch camera:", err);
-      
+
       // Provide specific error message based on error type
       let errorMessage = 'Could not switch to the selected camera. Please try again.';
       let errorTitle = 'Camera Switch Failed';
-      
+
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
         errorTitle = 'Camera Access Denied';
         errorMessage = 'Camera permission was denied. Please check if another app is using the camera, or allow camera access in your browser settings.';
@@ -214,7 +256,7 @@ export default function MyLiveDealzLiveStudioFullPage() {
         errorTitle = 'Camera Not Compatible';
         errorMessage = 'The selected camera does not support the required settings.';
       }
-      
+
       toast({
         variant: 'destructive',
         title: errorTitle,
@@ -226,6 +268,7 @@ export default function MyLiveDealzLiveStudioFullPage() {
   // Scenes + preview
   const [activeSceneId, setActiveSceneId] = useState<SceneId>("intro_host");
   const [previewMode, setPreviewMode] = useState<PreviewMode>("auto");
+  const activeSceneLabel = SCENES.find(s => s.id === activeSceneId)?.label || activeSceneId;
 
   // Canvas sources management
   const [canvasSources, setCanvasSources] = useState<CanvasSource[]>([]);
@@ -331,7 +374,7 @@ export default function MyLiveDealzLiveStudioFullPage() {
   const deviceKind = useDeviceKind();
   const resolvedPreviewMode: Exclude<PreviewMode, "auto"> =
     previewMode === "auto" ? deviceKind : previewMode;
-  
+
   // Mobile state
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const isMobile = deviceKind === "mobile";
@@ -355,17 +398,20 @@ export default function MyLiveDealzLiveStudioFullPage() {
   const setProducts = engineProducts.length > 0 ? (() => { }) : setLocalProducts;
   const [highlightedProductId, setHighlightedProductId] = useState<string | null>(null);
 
-  const [coHosts, setCoHosts] = useState<{ id: number; name: string; status: string }[]>([]);
+  const [coHosts, setCoHosts] = useState<{ id: number; name: string; status: string; isPresenting?: boolean }[]>([]);
+  const [mainPresenterId, setMainPresenterId] = useState<number | null>(null);
+  // Track if host is presenting (for split screen)
+  const [hostPresenting, setHostPresenting] = useState(false);
 
   const [attachments] = useState<{ id: number; from: string; type: string; label: string; status: string }[]>([]);
 
   // Audience state
   const [audienceTab, setAudienceTab] = useState<AudienceTab>("chat");
   const [chatDraft, setChatDraft] = useState("");
-  
+
   // Live Polls state
   const [polls, setPolls] = useState<LivePoll[]>([]);
-  
+
   const handleCreatePoll = (question: string, options: string[]) => {
     const newPoll: LivePoll = {
       id: uid("poll"),
@@ -379,30 +425,127 @@ export default function MyLiveDealzLiveStudioFullPage() {
     setPolls(prev => [newPoll, ...prev]);
     pushSystem(`📊 Poll created: "${question}"`);
   };
-  
+
   const handleVotePoll = (pollId: string, optionId: string) => {
     setPolls(prev => prev.map(poll => {
       if (poll.id !== pollId) return poll;
       return {
         ...poll,
-        options: poll.options.map(opt => 
+        options: poll.options.map(opt =>
           opt.id === optionId ? { ...opt, votes: opt.votes + 1 } : opt
         ),
         totalVotes: poll.totalVotes + 1,
       };
     }));
   };
-  
+
   const handleClosePoll = (pollId: string) => {
-    setPolls(prev => prev.map(poll => 
+    setPolls(prev => prev.map(poll =>
       poll.id === pollId ? { ...poll, isActive: false } : poll
     ));
     pushSystem("📊 Poll ended. Results are now visible to viewers.");
   };
-  
+
   const handleDeletePoll = (pollId: string) => {
     setPolls(prev => prev.filter(poll => poll.id !== pollId));
     pushSystem("📊 Poll deleted.");
+  };
+
+  // Giveaways state - pre-populated from seller platform
+  const [giveaways, setGiveaways] = useState<Giveaway[]>([
+    {
+      id: uid("gaw"),
+      title: "Mystery Gift Box",
+      description: "A surprise gift worth over $50!",
+      prizeValue: 50,
+      status: "active",
+      participants: Array.from({ length: 46 }, (_, i) => ({
+        id: uid("p"),
+        name: `User${Math.floor(Math.random() * 1000)}`,
+        avatar: undefined,
+        joinedAt: Date.now() - Math.random() * 3600000,
+      })),
+      createdAt: Date.now() - 300000,
+      endsAt: null,
+    },
+    {
+      id: uid("gaw"),
+      title: "Free Shipping Voucher",
+      description: "Win free shipping on your next order!",
+      prizeValue: 0,
+      status: "active",
+      participants: Array.from({ length: 128 }, (_, i) => ({
+        id: uid("p"),
+        name: `Shopper${Math.floor(Math.random() * 2000)}`,
+        avatar: undefined,
+        joinedAt: Date.now() - Math.random() * 7200000,
+      })),
+      createdAt: Date.now() - 600000,
+      endsAt: null,
+    },
+    {
+      id: uid("gaw"),
+      title: "$100 Store Credit",
+      description: "Credit to use on any product in the store",
+      prizeValue: 100,
+      status: "active",
+      participants: Array.from({ length: 89 }, (_, i) => ({
+        id: uid("p"),
+        name: `Buyer${Math.floor(Math.random() * 1500)}`,
+        avatar: undefined,
+        joinedAt: Date.now() - Math.random() * 1800000,
+      })),
+      createdAt: Date.now() - 120000,
+      endsAt: null,
+    },
+  ]);
+
+  const handleCreateGiveaway = (data: { title: string; description: string; prizeValue?: number }) => {
+    const newGiveaway: Giveaway = {
+      id: uid("gaw"),
+      title: data.title,
+      description: data.description,
+      prizeValue: data.prizeValue,
+      status: "active",
+      participants: [],
+      createdAt: Date.now(),
+      endsAt: null,
+    };
+    setGiveaways(prev => [newGiveaway, ...prev]);
+    pushSystem(`🎁 Giveaway started: "${data.title}"`);
+  };
+
+  // Giveaway winner picking state
+  const [pickingWinner, setPickingWinner] = useState<{ giveawayId: string; isAnimating: boolean; winner: { id: string; name: string } | null } | null>(null);
+
+  const handlePickWinner = (giveawayId: string) => {
+    const giveaway = giveaways.find(g => g.id === giveawayId);
+    if (!giveaway || giveaway.participants.length === 0) return;
+    
+    // Start animation
+    setPickingWinner({ giveawayId, isAnimating: true, winner: null });
+    
+    // Simulate spinning animation then pick winner
+    setTimeout(() => {
+      const winner = giveaway.participants[Math.floor(Math.random() * giveaway.participants.length)];
+      setPickingWinner(prev => prev ? { ...prev, winner: { id: winner.id, name: winner.name }, isAnimating: false } : null);
+      
+      // Update the giveaway after animation completes
+      setTimeout(() => {
+        setGiveaways(prev => prev.map(g => {
+          if (g.id !== giveawayId) return g;
+          return {
+            ...g,
+            status: "completed" as const,
+            winnerId: winner.id,
+            winnerName: winner.name,
+            winnerAvatar: winner.avatar,
+          };
+        }));
+        setPickingWinner(null);
+        pushSystem(`🎉 Winner selected: ${winner.name}!`);
+      }, 1500);
+    }, 2000);
   };
 
   const [viewers, setViewers] = useState<LiveViewer[]>([]);
@@ -538,9 +681,13 @@ export default function MyLiveDealzLiveStudioFullPage() {
       setHighlightedProductId(engineProducts[0]?.id ?? null);
     }
     setCoHosts([
-      { id: 1, name: "Dacy (Producer)", status: "Accepted" },
-      { id: 2, name: "Grace (Brand rep)", status: "Pending" },
+      { id: 1, name: "Sarah Chen", status: "Accepted", isPresenting: true },
+      { id: 2, name: "Mike Johnson", status: "Accepted", isPresenting: false },
+      { id: 3, name: "Emily Davis", status: "Accepted", isPresenting: false },
+      { id: 4, name: "Alex Kim", status: "Pending", isPresenting: false },
     ]);
+    setMainPresenterId(1);
+    setHostPresenting(true);
 
     setSimulate(true);
     // setMode("live"); // Don't force live, let logic decide
@@ -643,6 +790,25 @@ export default function MyLiveDealzLiveStudioFullPage() {
       }
 
       try {
+        // First check the permission status using the Permissions API
+        if (navigator.permissions && navigator.permissions.query) {
+          try {
+            const cameraPermission = await navigator.permissions.query({ name: 'camera' as PermissionName });
+            console.log('Camera permission status:', cameraPermission.state);
+            if (cameraPermission.state === 'denied') {
+              setHasCameraPermission(false);
+              toast({
+                variant: 'destructive',
+                title: 'Camera Permission Denied',
+                description: 'Camera permission was previously denied. Please reset it in your browser settings and refresh the page.',
+              });
+              return;
+            }
+          } catch (permError) {
+            console.log('Permissions API not supported or error:', permError);
+          }
+        }
+
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         streamRef.current = stream;
         setHasCameraPermission(true);
@@ -653,38 +819,63 @@ export default function MyLiveDealzLiveStudioFullPage() {
       } catch (error) {
         console.error('Error accessing camera:', error);
         setHasCameraPermission(false);
-        
+
         // Check error type for better message
         let errorMessage = 'Please enable camera permissions in your browser settings to use this app.';
         let errorTitle = 'Camera Access Denied';
-        
+
         if (error instanceof Error) {
           if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-            // User denied or system denied
-            errorMessage = 'Camera access was denied. Please click the camera icon in your browser\'s address bar to allow access, or check if another app is using the camera.';
+            // Check for system-level denial
+            const errorMessageStr = error.message || '';
+            if (errorMessageStr.includes('system') || errorMessageStr.includes('System')) {
+              // System-level denial - camera might be in use or blocked by policy
+              errorTitle = 'Camera Blocked by System';
+              errorMessage = 'Camera is being used by another application (like TikTok Live Studio, OBS, Zoom, etc.). Please close the other app completely, then try again. If the issue persists, disconnect and reconnect your camera.';
+            } else {
+              // User denied or system denied
+              errorMessage = 'Camera permission was denied. Please click the camera/lock icon in your browser\'s address bar to allow access, reset the permission, then refresh the page. Alternatively, check if another app is using the camera.';
+            }
           } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
             errorTitle = 'No Camera Found';
             errorMessage = 'No camera device was found. Please connect a camera and try again.';
           } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
             errorTitle = 'Camera In Use';
-            errorMessage = 'Camera is already in use by another application. Please close other apps using the camera.';
+            errorMessage = 'Camera is currently in use by another application (like TikTok Live Studio, OBS, Zoom, etc.). Please close the other app using the camera, then click the "Try Again" button below.';
           } else if (error.name === 'OverconstrainedError') {
             errorTitle = 'Camera Not Compatible';
             errorMessage = 'Your camera does not meet the required settings. Try a different camera or browser.';
           }
         }
-        
+
         toast({
           variant: 'destructive',
           title: errorTitle,
           description: errorMessage,
         });
+
+        // If camera access fails, enable demo mode with a placeholder
+        // This allows the studio to work without a real camera
+        setIsDemoMode(true);
+        setHasCameraPermission(true); // Allow preview to show even in demo mode
       }
     };
 
     getCameraPermission();
+
+    // Listen for retry events
+    const handleRetry = () => {
+      console.log("Retry camera access event received");
+      // Reset demo mode to try again
+      setIsDemoMode(false);
+      setHasCameraPermission(true);
+      getCameraPermission();
+    };
+    window.addEventListener('retryCameraAccess', handleRetry);
+
     // Cleanup function
     return () => {
+      window.removeEventListener('retryCameraAccess', handleRetry);
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
       }
@@ -699,7 +890,7 @@ export default function MyLiveDealzLiveStudioFullPage() {
         targetRef.current.play().catch(e => console.warn("Auto-play error", e));
       }
     }
-  }, [stageExpanded, mode]);
+  }, [stageExpanded, mode, streamRef.current]);
 
 
   // keep active source synced to production mode/tool
@@ -1360,58 +1551,85 @@ export default function MyLiveDealzLiveStudioFullPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="hidden lg:flex items-center gap-2 text-[10px] mr-2">
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-900 text-slate-50 border border-slate-700">
-              <span className={`h-1.5 w-1.5 rounded-full ${mode === 'live' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-500'}`} />
-              <span>
-                {typeLabel} · {liveTimerLabel}
-              </span>
+          {/* Live status - Mic, Camera, Scene info */}
+          <div className="hidden md:flex items-center gap-2 text-[10px]">
+            {/* Mic status */}
+            <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border ${micOn ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-200' : 'bg-red-500/10 border-red-500/40 text-red-300'}`}>
+              <span className="material-icons text-[12px]">{micOn ? 'mic' : 'mic_off'}</span>
+              <span>{micOn ? 'Mic' : 'Muted'}</span>
+            </div>
+            {/* Camera status */}
+            <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border ${camOn ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-200' : 'bg-red-500/10 border-red-500/40 text-red-300'}`}>
+              <span className="material-icons text-[12px]">{camOn ? 'videocam' : 'videocam_off'}</span>
+              <span>{camOn ? 'Cam' : 'Off'}</span>
+            </div>
+            {/* Scene label */}
+            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-900 border border-slate-700 text-slate-300">
+              <span className="material-icons text-[12px]">movie</span>
+              <span>Scene: {activeSceneLabel}</span>
+            </div>
+            {/* AI Audio */}
+            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/40 text-emerald-200">
+              <span className="material-icons text-[12px]">graphic_eq</span>
+              <span>AI</span>
+            </div>
+            {/* Captions */}
+            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-sky-500/10 border border-sky-500/40 text-sky-200">
+              <span className="material-icons text-[12px]">subtitles</span>
+              <span>CC</span>
+            </div>
+          </div>
+
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-900 text-slate-50 border border-slate-700">
+            <span className={`h-1.5 w-1.5 rounded-full ${mode === 'live' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-500'}`} />
+            <span>
+              {typeLabel} · {liveTimerLabel}
             </span>
-            <StatPill label="Viewers" value={viewerCount.toLocaleString()} />
-            <StatPill label="Sales" value={String(salesCount)} />
-            <StatPill label="Carts" value={String(totalCartItems)} />
-            <StatPill label="Reminders" value={String(totalReminders)} />
-          </div>
+          </span>
+          <StatPill label="Viewers" value={viewerCount.toLocaleString()} />
+          <StatPill label="Sales" value={String(salesCount)} />
+          <StatPill label="Carts" value={String(totalCartItems)} />
+          <StatPill label="Reminders" value={String(totalReminders)} />
+        </div>
 
-          <button
-            onClick={() => setSimulate((v) => !v)}
-            className={
-              "hidden md:inline-flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-full border " +
-              (simulate ? "border-emerald-500/60 bg-emerald-500/10 text-emerald-200" : "border-slate-700 bg-slate-900 text-slate-200")
-            }
-            title="Toggle simulation"
-          >
-            <span className="material-icons text-sm">online_prediction</span>
-            {simulate ? "Simulating" : "Paused"}
-          </button>
+        <button
+          onClick={() => setSimulate((v) => !v)}
+          className={
+            "hidden md:inline-flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-full border " +
+            (simulate ? "border-emerald-500/60 bg-emerald-500/10 text-emerald-200" : "border-slate-700 bg-slate-900 text-slate-200")
+          }
+          title="Toggle simulation"
+        >
+          <span className="material-icons text-sm">online_prediction</span>
+          {simulate ? "Simulating" : "Paused"}
+        </button>
 
-          <button
-            onClick={() => setLanguagePanelOpen(true)}
-            className="hidden md:inline-flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-full border border-slate-700 bg-slate-900 text-slate-100"
-          >
-            <span className="material-icons text-sm">translate</span>
-            Language
-          </button>
+        <button
+          onClick={() => setLanguagePanelOpen(true)}
+          className="hidden md:inline-flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-full border border-slate-700 bg-slate-900 text-slate-100"
+        >
+          <span className="material-icons text-sm">translate</span>
+          Language
+        </button>
 
-          <button
-            onClick={() => setDarkMode((v) => !v)}
-            className={
-              "inline-flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-full border " +
-              (darkMode ? "border-slate-700 bg-slate-900 text-slate-100" : "border-slate-300 bg-white text-slate-700")
-            }
-          >
-            <span className="text-sm" role="img" aria-label="theme">{darkMode ? "🌙" : "☀️"}</span>
-            <span className="hidden sm:inline">{darkMode ? "Dark" : "Light"}</span>
-          </button>
+        <button
+          onClick={() => setDarkMode((v) => !v)}
+          className={
+            "inline-flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-full border " +
+            (darkMode ? "border-slate-700 bg-slate-900 text-slate-100" : "border-slate-300 bg-white text-slate-700")
+          }
+        >
+          <span className="text-sm" role="img" aria-label="theme">{darkMode ? "🌙" : "☀️"}</span>
+          <span className="hidden sm:inline">{darkMode ? "Dark" : "Light"}</span>
+        </button>
 
-          <div className="h-8 w-8 rounded-full bg-slate-400 flex items-center justify-center text-xs font-semibold text-white">
-            CR
-          </div>
+        <div className="h-8 w-8 rounded-full bg-slate-400 flex items-center justify-center text-xs font-semibold text-white">
+          CR
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col md:flex-row overflow-hidden">
+      <main className="flex-1 flex flex-col md:flex-row overflow-hidden pb-16 md:pb-0">
         {/* Responsive wrapper */}
         <div className="flex-1 flex flex-col md:flex-row gap-3 p-3 min-w-0 overflow-hidden h-full">
 
@@ -1429,7 +1647,7 @@ export default function MyLiveDealzLiveStudioFullPage() {
               onRestock={restockProduct}
               getPriceForProduct={getPriceForProduct}
             />
-          </section>
+          </section >
 
           {/* Center and Right columns wrapper */}
           <div className="flex-1 flex flex-col md:flex-row gap-3 min-w-0 min-h-0 h-full">
@@ -1464,6 +1682,12 @@ export default function MyLiveDealzLiveStudioFullPage() {
                 transcriptionOn={transcriptionOn}
                 transcript={transcript}
                 activeFilter={activeFilter}
+                retryCameraAccess={retryCameraAccess}
+                isDemoMode={isDemoMode}
+                cameraError={cameraError}
+                coHosts={coHosts}
+                mainPresenterId={mainPresenterId}
+                hostPresenting={hostPresenting}
                 canvasSources={canvasSources}
                 selectedSourceId={selectedSourceId}
                 onSelectSource={setSelectedSourceId}
@@ -1478,7 +1702,7 @@ export default function MyLiveDealzLiveStudioFullPage() {
                   ));
                 }}
               />
-            </section>
+            </section >
 
             {/* Right Column - Chat/Audience */}
             <section className="w-full md:w-80 lg:w-96 flex-shrink-0 flex flex-col gap-3 min-h-0 overflow-hidden">
@@ -1525,16 +1749,20 @@ export default function MyLiveDealzLiveStudioFullPage() {
                 onVotePoll={handleVotePoll}
                 onClosePoll={handleClosePoll}
                 onDeletePoll={handleDeletePoll}
+                giveaways={giveaways}
+                onCreateGiveaway={handleCreateGiveaway}
+                onPickWinner={handlePickWinner}
+                pickingWinner={pickingWinner}
               />
               {/* AI Prompts Toast */}
-              <AIPromptsToast 
+              <AIPromptsToast
                 prompts={aiHints}
                 onDismiss={(id) => setAiHints(prev => prev.filter(h => h.id !== id))}
               />
-            </section>
-          </div>
-        </div>
-      </main>
+            </section >
+          </div >
+        </div >
+      </main >
 
       {/* Bottom control bar - hidden on mobile */}
       <div className="sticky bottom-0 z-40 hidden md:flex">
@@ -1592,8 +1820,10 @@ export default function MyLiveDealzLiveStudioFullPage() {
           onToggleBuyers={() => setBuyersOpen(v => !v)}
           showSources={sourcesOpen}
           onToggleSources={() => setSourcesOpen(v => !v)}
+          hostPresenting={hostPresenting}
+          onToggleHostPresenting={() => setHostPresenting(v => !v)}
         />
-      </div>
+      </div >
 
       {/* Mobile bottom nav - only visible on mobile */}
       <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden">
@@ -1623,12 +1853,13 @@ export default function MyLiveDealzLiveStudioFullPage() {
           onStopFlash={handleStopFlashDeal}
           onOpenSlideMenu={() => setMobileMenuOpen(true)}
         />
-      </div>
+      </div >
 
       {/* Mobile slide menu */}
-      <MobileSlideMenu
+      < MobileSlideMenu
         isOpen={mobileMenuOpen}
-        onClose={() => setMobileMenuOpen(false)}
+        onClose={() => setMobileMenuOpen(false)
+        }
         filtersOpen={filtersOpen}
         onToggleFilters={() => setFiltersOpen((v) => !v)}
         onToggleSceneManager={() => setSceneManagerOpen(v => !v)}
@@ -1642,167 +1873,193 @@ export default function MyLiveDealzLiveStudioFullPage() {
       />
 
       {/* Production Overlay */}
-      {showProduction && (
-        <ProductionPanel
-          productionMode={productionMode}
-          externalTool={externalTool}
-          activeSourceId={activeSourceId}
-          onChangeProductionMode={setProductionMode}
-          onChangeExternalTool={setExternalTool}
-          onChangeSource={setActiveSourceId}
-          onClose={() => setShowProduction(false)}
-          onCameraSwitch={handleCameraSwitch}
-        />
-      )}
+      {
+        showProduction && (
+          <ProductionPanel
+            productionMode={productionMode}
+            externalTool={externalTool}
+            activeSourceId={activeSourceId}
+            onChangeProductionMode={setProductionMode}
+            onChangeExternalTool={setExternalTool}
+            onChangeSource={setActiveSourceId}
+            onClose={() => setShowProduction(false)}
+            onCameraSwitch={handleCameraSwitch}
+          />
+        )
+      }
 
       {/* Overlays */}
-      {filtersOpen && (
-        <FiltersTray
-          darkMode={darkMode}
-          activeFilter={activeFilter}
-          onSelectFilter={(f) => {
-            setActiveFilter(f);
-            // Optional: simulate socket event or additional side effects here
-          }}
-          onClose={() => setFiltersOpen(false)}
-        />
-      )}
+      {
+        filtersOpen && (
+          <FiltersTray
+            darkMode={darkMode}
+            activeFilter={activeFilter}
+            onSelectFilter={(f) => {
+              setActiveFilter(f);
+              // Optional: simulate socket event or additional side effects here
+            }}
+            onClose={() => setFiltersOpen(false)}
+          />
+        )
+      }
 
-      {audioMixerOpen && (
-        <AudioMixerPanel
-          darkMode={darkMode}
-          isOpen={audioMixerOpen}
-          onClose={() => setAudioMixerOpen(false)}
-          sources={getAudioSources()}
-          masterVolume={engineState.audio.masterVolume}
-          masterMuted={engineState.audio.masterMuted}
-          onSetSourceVolume={setSourceVolume}
-          onSetSourcePan={setSourcePan}
-          onSetSourceMuted={setSourceMuted}
-          onSetSourceSolo={setSourceSolo}
-          onSetMasterVolume={setMasterVolume}
-          onSetMasterMuted={setMasterMuted}
-          onEnableNoiseReduction={enableNoiseReduction}
-          onAddMicrophone={addMicrophone}
-          onAddScreenShareAudio={addScreenShareAudio}
-          onRemoveSource={removeAudioSource}
-        />
-      )}
+      {
+        audioMixerOpen && (
+          <AudioMixerPanel
+            darkMode={darkMode}
+            isOpen={audioMixerOpen}
+            onClose={() => setAudioMixerOpen(false)}
+            sources={getAudioSources()}
+            masterVolume={engineState.audio.masterVolume}
+            masterMuted={engineState.audio.masterMuted}
+            onSetSourceVolume={setSourceVolume}
+            onSetSourcePan={setSourcePan}
+            onSetSourceMuted={setSourceMuted}
+            onSetSourceSolo={setSourceSolo}
+            onSetMasterVolume={setMasterVolume}
+            onSetMasterMuted={setMasterMuted}
+            onEnableNoiseReduction={enableNoiseReduction}
+            onAddMicrophone={addMicrophone}
+            onAddScreenShareAudio={addScreenShareAudio}
+            onRemoveSource={removeAudioSource}
+          />
+        )
+      }
 
-      {sourcesOpen && (
-        <SourcesPanel
-          darkMode={darkMode}
-          isOpen={sourcesOpen}
-          onClose={() => setSourcesOpen(false)}
-          sources={canvasSources}
-          onAddSource={handleAddSource}
-          onRemoveSource={handleRemoveSource}
-          onToggleVisibility={handleToggleSourceVisibility}
-          onToggleLock={handleToggleSourceLock}
-          onToggleMute={handleToggleSourceMute}
-          onUpdateVolume={handleUpdateSourceVolume}
-          onReorderSources={handleReorderSources}
-          selectedSourceId={selectedSourceId}
-          onSelectSource={setSelectedSourceId}
-        />
-      )}
+      {
+        sourcesOpen && (
+          <SourcesPanel
+            darkMode={darkMode}
+            isOpen={sourcesOpen}
+            onClose={() => setSourcesOpen(false)}
+            sources={canvasSources}
+            onAddSource={handleAddSource}
+            onRemoveSource={handleRemoveSource}
+            onToggleVisibility={handleToggleSourceVisibility}
+            onToggleLock={handleToggleSourceLock}
+            onToggleMute={handleToggleSourceMute}
+            onUpdateVolume={handleUpdateSourceVolume}
+            onReorderSources={handleReorderSources}
+            selectedSourceId={selectedSourceId}
+            onSelectSource={setSelectedSourceId}
+          />
+        )
+      }
 
-      {buyersOpen && (
-        <BuyerAppShell
-          darkMode={darkMode}
-          isOpen={buyersOpen}
-          onClose={() => setBuyersOpen(false)}
-        />
-      )}
+      {
+        buyersOpen && (
+          <BuyerAppShell
+            darkMode={darkMode}
+            isOpen={buyersOpen}
+            onClose={() => setBuyersOpen(false)}
+          />
+        )
+      }
 
-      {commerceHudOpen && (
-        <CommerceHUD
-          darkMode={darkMode}
-          targetUnits={50}
-          soldUnits={salesCount}
-          cartCount={totalCartItems}
-          last5MinSales={last5MinSales}
-          flash={flash}
-          flashUrgency={flashUrgency}
-          salesEvents={salesEvents}
-          onClose={() => setCommerceHudOpen(false)}
-        />
-      )}
+      {
+        commerceHudOpen && (
+          <CommerceHUD
+            darkMode={darkMode}
+            targetUnits={50}
+            soldUnits={salesCount}
+            cartCount={totalCartItems}
+            last5MinSales={last5MinSales}
+            flash={flash}
+            flashUrgency={flashUrgency}
+            salesEvents={salesEvents}
+            onClose={() => setCommerceHudOpen(false)}
+          />
+        )
+      }
 
-      {sceneManagerOpen && (
-        <SceneManagerHUD
-          darkMode={darkMode}
-          scenes={SCENES.map(s => ({
-            id: s.id,
-            name: s.label,
-            sources: []
-          }))}
-          activeSceneId={activeSceneId}
-          onSceneChange={setActiveSceneId}
-          onSourceToggle={() => { }}
-          onSourceVisibility={() => { }}
-          onClose={() => setSceneManagerOpen(false)}
-        />
-      )}
+      {
+        sceneManagerOpen && (
+          <SceneManagerHUD
+            darkMode={darkMode}
+            scenes={SCENES.map(s => ({
+              id: s.id,
+              name: s.label,
+              sources: []
+            }))}
+            activeSceneId={activeSceneId}
+            onSceneChange={setActiveSceneId}
+            onSourceToggle={() => { }}
+            onSourceVisibility={() => { }}
+            onClose={() => setSceneManagerOpen(false)}
+          />
+        )
+      }
 
-      {coHostsOpen && (
-        <CoHostsHUD
-          darkMode={darkMode}
-          coHosts={coHosts}
-          onInvite={(name) => setCoHosts((p) => [...p, { id: p.length + 1, name, status: "Invited" }])}
-          onClose={() => setCoHostsOpen(false)}
-        />
-      )}
+      {
+        coHostsOpen && (
+          <CoHostsHUD
+            darkMode={darkMode}
+            coHosts={coHosts}
+            mainPresenterId={mainPresenterId}
+            onInvite={(name) => setCoHosts((p) => [...p, { id: p.length + 1, name, status: "Invited" }])}
+            onRemove={(id) => setCoHosts((p) => p.filter(c => c.id !== id))}
+            onSetMainPresenter={(id) => setMainPresenterId(id)}
+            onTogglePresenting={(id) => setCoHosts((p) => p.map(c => c.id === id ? { ...c, isPresenting: !c.isPresenting } : c))}
+            onClose={() => setCoHostsOpen(false)}
+          />
+        )
+      }
 
-      {attachmentsOpen && (
-        <AttachmentsHUD
-          darkMode={darkMode}
-          attachments={attachments}
-          onApprove={(id) => pushSystem(`Approved attachment ${id} (demo).`)}
-          onReject={(id) => pushSystem(`Rejected attachment ${id} (demo).`)}
-          onClose={() => setAttachmentsOpen(false)}
-        />
-      )}
+      {
+        attachmentsOpen && (
+          <AttachmentsHUD
+            darkMode={darkMode}
+            attachments={attachments}
+            onApprove={(id) => pushSystem(`Approved attachment ${id} (demo).`)}
+            onReject={(id) => pushSystem(`Rejected attachment ${id} (demo).`)}
+            onClose={() => setAttachmentsOpen(false)}
+          />
+        )
+      }
 
-      {flashConfigOpen && (
-        <FlashDealDialog
-          onClose={() => setFlashConfigOpen(false)}
-          onStart={(durationMin, discountPct) => {
-            if (highlightedProductId) {
-              handleStartFlashDeal(durationMin, discountPct, highlightedProductId);
-              setFlashConfigOpen(false);
-            }
-          }}
-        />
-      )}
+      {
+        flashConfigOpen && (
+          <FlashDealDialog
+            onClose={() => setFlashConfigOpen(false)}
+            onStart={(durationMin, discountPct) => {
+              if (highlightedProductId) {
+                handleStartFlashDeal(durationMin, discountPct, highlightedProductId);
+                setFlashConfigOpen(false);
+              }
+            }}
+          />
+        )
+      }
 
       {languagePanelOpen && <LanguagePanel onClose={() => setLanguagePanelOpen(false)} liveLangMix={liveLangMix} />}
 
-      {stageExpanded && (
-        <ExpandedStageModal
-          darkMode={darkMode}
-          onClose={() => setStageExpanded(false)}
-          cameraHint={cameraHint}
-          previewMode={previewMode}
-          onChangePreviewMode={setPreviewMode}
-          resolvedPreviewMode={resolvedPreviewMode}
-          liveTimerLabel={liveTimerLabel}
-          viewerCount={viewerCount}
-          liveLangMix={liveLangMix}
-          productionMode={productionMode}
-          externalTool={externalTool}
-          activeSourceId={activeSourceId}
-          flash={flash}
-          flashUrgency={flashUrgency}
-          currentSpeaker={currentSpeaker}
-          speakerSecondsLeft={speakerSecondsLeft}
-          videoRef={expandedVideoRef}
-          hasCameraPermission={hasCameraPermission}
-          transcriptionOn={transcriptionOn}
-          transcript={transcript}
-          activeFilter={activeFilter}
-        />
-      )}
+      {
+        stageExpanded && (
+          <ExpandedStageModal
+            darkMode={darkMode}
+            onClose={() => setStageExpanded(false)}
+            cameraHint={cameraHint}
+            previewMode={previewMode}
+            onChangePreviewMode={setPreviewMode}
+            resolvedPreviewMode={resolvedPreviewMode}
+            liveTimerLabel={liveTimerLabel}
+            viewerCount={viewerCount}
+            liveLangMix={liveLangMix}
+            productionMode={productionMode}
+            externalTool={externalTool}
+            activeSourceId={activeSourceId}
+            flash={flash}
+            flashUrgency={flashUrgency}
+            currentSpeaker={currentSpeaker}
+            speakerSecondsLeft={speakerSecondsLeft}
+            videoRef={expandedVideoRef}
+            hasCameraPermission={hasCameraPermission}
+            transcriptionOn={transcriptionOn}
+            transcript={transcript}
+            activeFilter={activeFilter}
+          />
+        )
+      }
       {/* SVG Filters (Hidden but accessible via ID) */}
       <svg className="hidden">
         <defs>
@@ -1818,6 +2075,6 @@ export default function MyLiveDealzLiveStudioFullPage() {
           </filter>
         </defs>
       </svg>
-    </div>
+    </div >
   );
 }

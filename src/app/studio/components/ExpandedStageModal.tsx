@@ -157,6 +157,7 @@ export function ExpandedStageModal(props: {
                         onSelectSource={() => { }}
                         onUpdateSourcePosition={() => { }}
                         onUpdateSourceSize={() => { }}
+                        hostPresenting={false}
                     />
                     <div className="mt-3 text-[11px] text-slate-300 flex items-center justify-between">
                         <span>Tip: double-click the preview to toggle fullscreen.</span>

@@ -45,6 +45,17 @@ export function StagePanel(props: {
     transcriptionOn: boolean;
     transcript: string;
     activeFilter: string;
+    retryCameraAccess?: () => void;
+    canvasSources?: any[];
+    selectedSourceId?: string | null;
+    onSelectSource?: (id: string) => void;
+    onUpdateSourcePosition?: (id: string, position: any) => void;
+    onUpdateSourceSize?: (id: string, size: any) => void;
+    isDemoMode?: boolean;
+    cameraError?: string | null;
+    coHosts?: { id: number; name: string; status: string; isMainPresenter?: boolean }[];
+    mainPresenterId?: number | null;
+    hostPresenting?: boolean;
 }) {
     const {
         darkMode = true,
@@ -74,6 +85,17 @@ export function StagePanel(props: {
         transcriptionOn,
         transcript,
         activeFilter,
+        retryCameraAccess,
+        canvasSources,
+        selectedSourceId,
+        onSelectSource,
+        onUpdateSourcePosition,
+        onUpdateSourceSize,
+        isDemoMode,
+        cameraError,
+        coHosts,
+        mainPresenterId,
+        hostPresenting,
     } = props;
 
     const activeScene = SCENES.find((s) => s.id === activeSceneId) ?? SCENES[0];
@@ -117,6 +139,13 @@ export function StagePanel(props: {
                     transcriptionOn={transcriptionOn}
                     transcript={transcript}
                     activeFilter={activeFilter}
+                    retryCameraAccess={retryCameraAccess}
+                    isDemoMode={props.isDemoMode}
+                    cameraError={props.cameraError}
+                    coHosts={coHosts}
+                    mainPresenterId={mainPresenterId}
+                    hostPresenting={hostPresenting}
+                    mode={mode}
                 />
             )}
         </div>

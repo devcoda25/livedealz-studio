@@ -37,6 +37,8 @@ export function ControlBar(props: {
     onToggleBuyers: () => void;
     showSources: boolean;
     onToggleSources: () => void;
+    hostPresenting?: boolean;
+    onToggleHostPresenting?: () => void;
 }) {
     const {
         darkMode,
@@ -68,6 +70,8 @@ export function ControlBar(props: {
         onToggleBuyers,
         showSources,
         onToggleSources,
+        hostPresenting,
+        onToggleHostPresenting,
     } = props;
 
     const isLive = mode === "live";
@@ -105,6 +109,21 @@ export function ControlBar(props: {
                     <span className="material-icons text-[16px] sm:text-[18px]">{camOn ? "videocam" : "videocam_off"}</span>
                     <span className="hidden lg:inline">{camOn ? "Camera" : "No Cam"}</span>
                 </button>
+
+                {/* Present Toggle Button */}
+                {onToggleHostPresenting && (
+                    <button
+                        className={`${btnBase} ${hostPresenting
+                            ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-300 hover:bg-emerald-500/30"
+                            : "bg-muted border-border text-muted-foreground hover:text-foreground hover:bg-muted/80"
+                            }`}
+                        onClick={onToggleHostPresenting}
+                        title={hostPresenting ? "Stop Presenting" : "Start Presenting"}
+                    >
+                        <span className="material-icons text-[16px] sm:text-[18px]">{hostPresenting ? "stop_circle" : "play_circle"}</span>
+                        <span className="hidden lg:inline">{hostPresenting ? "Present" : "Present"}</span>
+                    </button>
+                )}
 
                 {/* Sources Button */}
                 <button

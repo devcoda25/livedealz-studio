@@ -1,6 +1,6 @@
 export type Mode = "lobby" | "rehearsal" | "live";
 export type PreviewMode = "auto" | "desktop" | "mobile";
-export type AudienceTab = "chat" | "qa" | "viewers" | "polls";
+export type AudienceTab = "chat" | "qa" | "viewers" | "polls" | "giveaways";
 export type ProductionMode = "inapp" | "external";
 export type ExternalTool = "OBS" | "vMix";
 export type SourceId = "cam1" | "cam2" | "screen" | "obs" | "vmix";
@@ -89,6 +89,21 @@ export type LivePoll = {
     isActive: boolean;
     endsAt: number | null;
     createdAt: number;
+};
+
+export type Giveaway = {
+    id: string;
+    title: string;
+    description: string;
+    imageUrl?: string;
+    prizeValue?: number;
+    status: "active" | "completed" | "cancelled";
+    winnerId?: string;
+    winnerName?: string;
+    winnerAvatar?: string;
+    participants: { id: string; name: string; avatar?: string; joinedAt: number }[];
+    createdAt: number;
+    endsAt: number | null;
 };
 
 export type AudioRequest = {
