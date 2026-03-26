@@ -35,8 +35,6 @@ export function AudiencePanel(props: {
     // Giveaway props
     giveaways: Giveaway[];
     onPickWinner?: (giveawayId: string) => void;
-    onCreateGiveaway?: (data: { title: string; description: string; prizeValue?: number }) => void;
-    pickingWinner?: { giveawayId: string; isAnimating: boolean; winner: { id: string; name: string } | null } | null;
 }) {
     const {
         activeTab,
@@ -66,8 +64,6 @@ export function AudiencePanel(props: {
         onDeletePoll,
         giveaways,
         onPickWinner,
-        onCreateGiveaway,
-        pickingWinner,
     } = props;
 
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -106,13 +102,12 @@ export function AudiencePanel(props: {
                             <span className="text-[9px] text-muted-foreground shrink-0">{q.langTag}</span>
                         </div>
                         <div className="flex items-center justify-between">
-                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] border ${
-                                q.status === "pinned"
-                                    ? "bg-amber-100/10 text-amber-300 border-amber-500/50"
-                                    : q.status === "answered"
-                                        ? "bg-emerald-100/10 text-emerald-300 border-emerald-500/50"
-                                        : "bg-muted text-muted-foreground border-border"
-                            }`}>
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] border ${q.status === "pinned"
+                                ? "bg-amber-100/10 text-amber-300 border-amber-500/50"
+                                : q.status === "answered"
+                                    ? "bg-emerald-100/10 text-emerald-300 border-emerald-500/50"
+                                    : "bg-muted text-muted-foreground border-border"
+                                }`}>
                                 <span className="material-icons text-[12px]">
                                     {q.status === "pinned" ? "push_pin" : q.status === "answered" ? "check_circle" : "help_outline"}
                                 </span>
@@ -120,7 +115,7 @@ export function AudiencePanel(props: {
                             </span>
                             <div className="flex gap-1">
                                 {q.status !== "pinned" && (
-                                    <button 
+                                    <button
                                         onClick={() => onPinQuestion?.(q.id)}
                                         className="px-2 py-0.5 rounded-full border border-amber-500/50 text-amber-300 hover:bg-amber-500/20 text-[9px]"
                                     >
@@ -128,7 +123,7 @@ export function AudiencePanel(props: {
                                     </button>
                                 )}
                                 {q.status !== "answered" && (
-                                    <button 
+                                    <button
                                         onClick={() => onAnswerQuestion?.(q.id)}
                                         className="px-2 py-0.5 rounded-full border border-emerald-500/50 text-emerald-300 hover:bg-emerald-500/20 text-[9px]"
                                     >
@@ -169,14 +164,14 @@ export function AudiencePanel(props: {
                         </div>
                     </div>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button 
+                        <button
                             onClick={() => onMuteViewer?.(v.id)}
                             className="p-1.5 rounded-full border border-border text-muted-foreground hover:bg-amber-500/20 hover:text-amber-300 hover:border-amber-500/50"
                             title="Mute"
                         >
                             <span className="material-icons text-[14px]">volume_off</span>
                         </button>
-                        <button 
+                        <button
                             onClick={() => onBanViewer?.(v.id)}
                             className="p-1.5 rounded-full border border-rose-500/50 text-rose-400 hover:bg-rose-500/20 hover:border-rose-500"
                             title="Ban"
@@ -221,11 +216,7 @@ export function AudiencePanel(props: {
     const [newPollQuestion, setNewPollQuestion] = useState("");
     const [newPollOptions, setNewPollOptions] = useState(["", ""]);
 
-    // Giveaway state for creating new giveaways
-    const [showGiveawayCreator, setShowGiveawayCreator] = useState(false);
-    const [newGiveawayTitle, setNewGiveawayTitle] = useState("");
-    const [newGiveawayDescription, setNewGiveawayDescription] = useState("");
-    const [newGiveawayValue, setNewGiveawayValue] = useState<number | undefined>(undefined);
+    // Poll state for creating new polls
 
     const handleCreatePoll = () => {
         const validOptions = newPollOptions.filter(o => o.trim() !== "");
@@ -256,19 +247,8 @@ export function AudiencePanel(props: {
         }
     };
 
-    const handleCreateGiveaway = () => {
-        if (newGiveawayTitle.trim()) {
-            onCreateGiveaway?.({
-                title: newGiveawayTitle.trim(),
-                description: newGiveawayDescription.trim(),
-                prizeValue: newGiveawayValue,
-            });
-            setNewGiveawayTitle("");
-            setNewGiveawayDescription("");
-            setNewGiveawayValue(undefined);
-            setShowGiveawayCreator(false);
-        }
-    };
+    // Giveaway winner picking state
+    const [pickingWinner, setPickingWinner] = useState<{ giveawayId: string; isAnimating: boolean; winner: { id: string; name: string } | null } | null>(null);
 
     const renderPollsTab = () => (
         <div className="space-y-3">
@@ -372,11 +352,10 @@ export function AudiencePanel(props: {
                                     return (
                                         <div
                                             key={opt.id}
-                                            className={`relative rounded-lg border overflow-hidden cursor-pointer transition-colors ${
-                                                poll.isActive 
-                                                    ? "hover:border-primary/50" 
-                                                    : ""
-                                            }`}
+                                            className={`relative rounded-lg border overflow-hidden cursor-pointer transition-colors ${poll.isActive
+                                                ? "hover:border-primary/50"
+                                                : ""
+                                                }`}
                                             onClick={() => poll.isActive && onVotePoll?.(poll.id, opt.id)}
                                         >
                                             <div
@@ -448,15 +427,14 @@ export function AudiencePanel(props: {
                                         <div className="text-[10px] text-muted-foreground mt-1">{giveaway.description}</div>
                                     )}
                                 </div>
-                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-medium ${
-                                    giveaway.status === "active" ? "bg-amber-500/20 text-amber-500" :
+                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-medium ${giveaway.status === "active" ? "bg-amber-500/20 text-amber-500" :
                                     giveaway.status === "completed" ? "bg-green-500/20 text-green-500" :
-                                    "bg-rose-500/20 text-rose-500"
-                                }`}>
+                                        "bg-rose-500/20 text-rose-500"
+                                    }`}>
                                     {giveaway.status}
                                 </span>
                             </div>
-                            
+
                             <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-2">
                                 <span>{giveaway.participants.length} entries</span>
                                 {giveaway.prizeValue && <span>Prize: ${giveaway.prizeValue} Gift Box</span>}
@@ -512,32 +490,32 @@ export function AudiencePanel(props: {
                 <div className="flex flex-col items-end gap-2">
                     {/* Tab buttons */}
                     <div className="inline-flex rounded-full bg-muted/50 border border-border p-0.5 text-[10px]">
-                        <button 
-                            className={`px-3 py-1 rounded-full transition-all ${activeTab === "chat" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`} 
+                        <button
+                            className={`px-3 py-1 rounded-full transition-all ${activeTab === "chat" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                             onClick={() => onTabChange("chat")}
                         >
                             💬 Chat
                         </button>
-                        <button 
-                            className={`px-3 py-1 rounded-full transition-all ${activeTab === "qa" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`} 
+                        <button
+                            className={`px-3 py-1 rounded-full transition-all ${activeTab === "qa" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                             onClick={() => onTabChange("qa")}
                         >
                             ❓ Q&A
                         </button>
-                        <button 
-                            className={`px-3 py-1 rounded-full transition-all ${activeTab === "viewers" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`} 
+                        <button
+                            className={`px-3 py-1 rounded-full transition-all ${activeTab === "viewers" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                             onClick={() => onTabChange("viewers")}
                         >
                             👁️ Viewers
                         </button>
-                        <button 
-                            className={`px-3 py-1 rounded-full transition-all ${activeTab === "polls" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`} 
+                        <button
+                            className={`px-3 py-1 rounded-full transition-all ${activeTab === "polls" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                             onClick={() => onTabChange("polls")}
                         >
                             📊 Polls
                         </button>
-                        <button 
-                            className={`px-3 py-1 rounded-full transition-all ${activeTab === "giveaways" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`} 
+                        <button
+                            className={`px-3 py-1 rounded-full transition-all ${activeTab === "giveaways" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                             onClick={() => onTabChange("giveaways")}
                         >
                             🎁 Giveaways
@@ -559,8 +537,8 @@ export function AudiencePanel(props: {
                         )}
                     </div>
                     {currentSpeaker ? (
-                        <button 
-                            className="px-2.5 py-1 rounded-full border border-rose-500/70 bg-rose-500/10 text-[10px] text-rose-300 hover:bg-rose-500/30 transition-colors" 
+                        <button
+                            className="px-2.5 py-1 rounded-full border border-rose-500/70 bg-rose-500/10 text-[10px] text-rose-300 hover:bg-rose-500/30 transition-colors"
                             onClick={onEndSpeaker}
                         >
                             End Session
@@ -599,14 +577,14 @@ export function AudiencePanel(props: {
                                     <div className="text-muted-foreground text-[9px]">{r.langTag}</div>
                                 </div>
                                 <div className="flex items-center gap-1.5 shrink-0">
-                                    <button 
-                                        className="px-2 py-1 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white text-[9px] font-medium transition-colors" 
+                                    <button
+                                        className="px-2 py-1 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white text-[9px] font-medium transition-colors"
                                         onClick={() => onAcceptAudio(r.id)}
                                     >
                                         Accept
                                     </button>
-                                    <button 
-                                        className="px-2 py-1 rounded-full bg-muted hover:bg-secondary text-foreground text-[9px] transition-colors" 
+                                    <button
+                                        className="px-2 py-1 rounded-full bg-muted hover:bg-secondary text-foreground text-[9px] transition-colors"
                                         onClick={() => onDeclineAudio(r.id)}
                                     >
                                         Decline
@@ -632,8 +610,8 @@ export function AudiencePanel(props: {
                     accept="image/*,video/*,.pdf,.doc,.docx"
                     onChange={handleFileChange}
                 />
-                <button 
-                    className="h-8 w-8 rounded-full border border-border text-muted-foreground hover:text-foreground hover:bg-muted flex items-center justify-center transition-colors" 
+                <button
+                    className="h-8 w-8 rounded-full border border-border text-muted-foreground hover:text-foreground hover:bg-muted flex items-center justify-center transition-colors"
                     title="Attach file"
                     onClick={handleAttach}
                 >
@@ -651,9 +629,9 @@ export function AudiencePanel(props: {
                         }
                     }}
                 />
-                <button 
-                    className="px-4 py-1.5 rounded-full text-[11px] font-semibold text-white hover:brightness-110 transition-all" 
-                    style={{ backgroundColor: EV_ORANGE }} 
+                <button
+                    className="px-4 py-1.5 rounded-full text-[11px] font-semibold text-white hover:brightness-110 transition-all"
+                    style={{ backgroundColor: EV_ORANGE }}
                     onClick={onSend}
                 >
                     Send

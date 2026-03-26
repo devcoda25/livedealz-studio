@@ -10,7 +10,7 @@ import { useEngines } from "@/hooks/useEngines";
 import {
   Mode, PreviewMode, AudienceTab, ProductionMode, ExternalTool, SourceId,
   ViewerLang, ListenMode, Product, BuyerAgent, LiveViewer, ChatMsg,
-  SaleEvent, AiHint, QaItem, AudioRequest, CurrentSpeaker, FlashDealState, SceneId, SCENES, LivePoll, Giveaway
+  SaleEvent, AiHint, QaItem, AudioRequest, CurrentSpeaker, FlashDealState, SceneId, SCENES, LivePoll, Giveaway, Campaign, CampaignSession
 } from "../components/types";
 import {
   INITIAL_PRODUCTS, INITIAL_BUYERS, EV_ORANGE
@@ -28,6 +28,7 @@ import { StagePanel } from "../components/StagePanel";
 import { BuyerSimulatorPanel } from "../components/BuyerSimulatorPanel";
 import { BuyerAppShell } from "../components/BuyerAppShell";
 import { TeleprompterPanel } from "../components/TeleprompterPanel";
+import { CampaignModal } from "../components/CampaignModal";
 import { AIPromptsToast } from "../components/AIPromptsToast";
 import { CommercePanel } from "../components/CommercePanel";
 import { AudiencePanel } from "../components/AudiencePanel";
@@ -390,6 +391,7 @@ export default function MyLiveDealzLiveStudioFullPage() {
   const [sceneManagerOpen, setSceneManagerOpen] = useState(false);
   const [coHostsOpen, setCoHostsOpen] = useState(false);
   const [attachmentsOpen, setAttachmentsOpen] = useState(false);
+  const [campaignModalOpen, setCampaignModalOpen] = useState(false);
 
   // Left panels
   // Use engine products if available, otherwise use local state
@@ -517,6 +519,43 @@ export default function MyLiveDealzLiveStudioFullPage() {
 
   // Giveaway winner picking state
   const [pickingWinner, setPickingWinner] = useState<{ giveawayId: string; isAnimating: boolean; winner: { id: string; name: string } | null } | null>(null);
+
+  // Campaigns/Teleprompter state
+  const [campaigns, setCampaigns] = useState<Campaign[]>([
+    {
+      id: uid("camp"),
+      name: "Summer Sale Event",
+      description: "Main summer promotional campaign",
+      sessions: [
+        { id: uid("sess"), name: "Morning Session", description: "9AM - 12PM", duration: 10800, scriptCues: [], runOfShow: [] },
+        { id: uid("sess"), name: "Afternoon Session", description: "2PM - 5PM", duration: 10800, scriptCues: [], runOfShow: [] },
+        { id: uid("sess"), name: "Evening Session", description: "6PM - 9PM", duration: 10800, scriptCues: [], runOfShow: [] },
+      ],
+      createdAt: Date.now() - 86400000,
+      updatedAt: Date.now() - 3600000,
+    },
+    {
+      id: uid("camp"),
+      name: "Product Launch",
+      description: "New product announcement campaign",
+      sessions: [
+        { id: uid("sess"), name: "Launch Stream", description: "Main event", duration: 7200, scriptCues: [], runOfShow: [] },
+      ],
+      createdAt: Date.now() - 172800000,
+      updatedAt: Date.now() - 7200000,
+    },
+  ]);
+  const [currentCampaign, setCurrentCampaign] = useState<Campaign | null>(null);
+  const [currentSession, setCurrentSession] = useState<CampaignSession | null>(null);
+
+  const handleSelectCampaign = (campaign: Campaign) => {
+    setCurrentCampaign(campaign);
+    setCurrentSession(null);
+  };
+
+  const handleSelectSession = (session: CampaignSession) => {
+    setCurrentSession(session);
+  };
 
   const handlePickWinner = (giveawayId: string) => {
     const giveaway = giveaways.find(g => g.id === giveawayId);
@@ -813,8 +852,12 @@ export default function MyLiveDealzLiveStudioFullPage() {
         streamRef.current = stream;
         setHasCameraPermission(true);
 
+        console.log('Setting stream, videoRef exists:', !!videoRef.current, 'videoRef.current:', videoRef.current);
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
+          console.log('Stream set to videoRef.srcObject');
+        } else {
+          console.warn('videoRef.current is null when trying to set stream!');
         }
       } catch (error) {
         console.error('Error accessing camera:', error);
@@ -882,11 +925,16 @@ export default function MyLiveDealzLiveStudioFullPage() {
     };
   }, [toast, initStreaming, engineStartCamera]);
 
+  // Sync stream to videoRef whenever it changes or stage expands
   useEffect(() => {
     if (streamRef.current) {
       const targetRef = stageExpanded ? expandedVideoRef : videoRef;
       if (targetRef.current) {
-        targetRef.current.srcObject = streamRef.current;
+        // Only set if different to avoid unnecessary re-renders
+        if (targetRef.current.srcObject !== streamRef.current) {
+          targetRef.current.srcObject = streamRef.current;
+          console.log('Stream synced to video ref:', stageExpanded ? 'expanded' : 'main');
+        }
         targetRef.current.play().catch(e => console.warn("Auto-play error", e));
       }
     }
@@ -1635,7 +1683,7 @@ export default function MyLiveDealzLiveStudioFullPage() {
 
           {/* Left Column (hidden on mobile, visible on desktop) */}
           <section className="hidden md:flex flex-col gap-3 w-full md:w-72 lg:w-80 flex-shrink-0 overflow-y-auto">
-            <TeleprompterPanel />
+            <TeleprompterPanel currentSession={currentSession} />
             <InventoryPanel
               products={products}
               highlightedId={highlightedProductId}
@@ -1750,9 +1798,7 @@ export default function MyLiveDealzLiveStudioFullPage() {
                 onClosePoll={handleClosePoll}
                 onDeletePoll={handleDeletePoll}
                 giveaways={giveaways}
-                onCreateGiveaway={handleCreateGiveaway}
                 onPickWinner={handlePickWinner}
-                pickingWinner={pickingWinner}
               />
               {/* AI Prompts Toast */}
               <AIPromptsToast
@@ -1809,8 +1855,6 @@ export default function MyLiveDealzLiveStudioFullPage() {
           coHostsOpen={coHostsOpen}
           onToggleAttachments={() => setAttachmentsOpen((v) => !v)}
           attachmentsOpen={attachmentsOpen}
-          transcriptionOn={transcriptionOn}
-          onToggleTranscription={() => setTranscriptionOn(v => !v)}
           showProduction={showProduction}
           onToggleProduction={() => setShowProduction(v => !v)}
           onToggleSceneManager={() => setSceneManagerOpen(v => !v)}
@@ -1820,6 +1864,13 @@ export default function MyLiveDealzLiveStudioFullPage() {
           onToggleBuyers={() => setBuyersOpen(v => !v)}
           showSources={sourcesOpen}
           onToggleSources={() => setSourcesOpen(v => !v)}
+          campaigns={campaigns}
+          currentCampaign={currentCampaign}
+          currentSession={currentSession}
+          onSelectCampaign={handleSelectCampaign}
+          onSelectSession={handleSelectSession}
+          campaignModalOpen={campaignModalOpen}
+          onToggleCampaignModal={() => setCampaignModalOpen(v => !v)}
           hostPresenting={hostPresenting}
           onToggleHostPresenting={() => setHostPresenting(v => !v)}
         />
@@ -2060,6 +2111,18 @@ export default function MyLiveDealzLiveStudioFullPage() {
           />
         )
       }
+
+      {/* Campaign Modal */}
+      <CampaignModal
+        isOpen={campaignModalOpen}
+        onClose={() => setCampaignModalOpen(false)}
+        campaigns={campaigns}
+        currentCampaign={currentCampaign}
+        currentSession={currentSession}
+        onSelectCampaign={handleSelectCampaign}
+        onSelectSession={handleSelectSession}
+      />
+
       {/* SVG Filters (Hidden but accessible via ID) */}
       <svg className="hidden">
         <defs>

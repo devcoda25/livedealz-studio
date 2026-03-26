@@ -1,5 +1,5 @@
-import React from "react";
-import { Mode, PreviewMode } from "./types";
+import React, { useState } from "react";
+import { Mode, PreviewMode, Campaign, CampaignSession } from "./types";
 
 export function ControlBar(props: {
     darkMode?: boolean;
@@ -26,8 +26,6 @@ export function ControlBar(props: {
     coHostsOpen: boolean;
     onToggleAttachments: () => void;
     attachmentsOpen: boolean;
-    transcriptionOn: boolean;
-    onToggleTranscription: () => void;
     showProduction: boolean;
     onToggleProduction: () => void;
     onToggleSceneManager: () => void;
@@ -37,6 +35,14 @@ export function ControlBar(props: {
     onToggleBuyers: () => void;
     showSources: boolean;
     onToggleSources: () => void;
+    // Campaign/Teleprompter
+    campaigns: Campaign[];
+    currentCampaign: Campaign | null;
+    currentSession: CampaignSession | null;
+    onSelectCampaign: (campaign: Campaign) => void;
+    onSelectSession: (session: CampaignSession) => void;
+    campaignModalOpen?: boolean;
+    onToggleCampaignModal?: () => void;
     hostPresenting?: boolean;
     onToggleHostPresenting?: () => void;
 }) {
@@ -59,8 +65,6 @@ export function ControlBar(props: {
         commerceHudOpen,
         onToggleCoHosts,
         coHostsOpen,
-        transcriptionOn,
-        onToggleTranscription,
         showProduction,
         onToggleProduction,
         onToggleSceneManager,
@@ -70,6 +74,13 @@ export function ControlBar(props: {
         onToggleBuyers,
         showSources,
         onToggleSources,
+        campaigns,
+        currentCampaign,
+        currentSession,
+        onSelectCampaign,
+        onSelectSession,
+        campaignModalOpen,
+        onToggleCampaignModal,
         hostPresenting,
         onToggleHostPresenting,
     } = props;
@@ -237,18 +248,18 @@ export function ControlBar(props: {
                     <span className="hidden lg:inline">Filters</span>
                 </button>
 
-                {/* Captions */}
-                <button
-                    className={`${btnBase} ${transcriptionOn
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-secondary border-border text-foreground hover:bg-accent"
-                        }`}
-                    onClick={onToggleTranscription}
-                    title={transcriptionOn ? "Turn Off Captions" : "Turn On Captions"}
-                >
-                    <span className="material-icons text-[16px] sm:text-[18px]">closed_caption</span>
-                    <span className="hidden lg:inline">Captions</span>
-                </button>
+                {/* My Campaigns */}
+                <div className="relative">
+                    <button
+                        className={`${btnBase} ${currentCampaign ? "bg-amber-600 border-amber-500 text-white" : "bg-secondary border-border text-foreground hover:bg-accent"}`}
+                        onClick={() => onToggleCampaignModal?.()}
+                        title={currentCampaign ? `Campaign: ${currentCampaign.name}` : "My Campaigns"}
+                    >
+                        <span className="material-icons text-[16px] sm:text-[18px]">campaign</span>
+                        <span className="hidden lg:inline">Campaigns</span>
+                        {currentSession && <span className="ml-1 px-1.5 py-0.5 rounded bg-white/20 text-[10px]">{currentSession.name.substring(0, 6)}..</span>}
+                    </button>
+                </div>
 
                 {/* Divider */}
                 <div className={`w-px h-5 sm:h-6 mx-1 sm:mx-1.5 ${darkMode ? "bg-slate-700" : "bg-slate-300"}`} />

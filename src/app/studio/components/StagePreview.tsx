@@ -110,19 +110,40 @@ export function StagePreview(props: {
     useEffect(() => {
         const syncVideo = () => {
             if (videoRef.current && localVideoRef.current) {
+                // Debug: log current state
+                console.log('Sync attempt:', {
+                    parentHasStream: !!videoRef.current.srcObject,
+                    localHasStream: !!localVideoRef.current.srcObject,
+                    parentSrcObject: videoRef.current.srcObject?.constructor?.name
+                });
+                
                 // Only sync if parent has a stream and local doesn't
                 if (videoRef.current.srcObject && !localVideoRef.current.srcObject) {
                     localVideoRef.current.srcObject = videoRef.current.srcObject;
                     console.log('Video stream synced to local ref');
+                    
+                    // Ensure video is playing
+                    localVideoRef.current.play().catch(e => {
+                        console.warn('Auto-play error on sync:', e);
+                        // Try again after a short delay in case the video wasn't ready
+                        setTimeout(() => {
+                            localVideoRef.current?.play().catch(e2 => console.warn('Retry auto-play error:', e2));
+                        }, 100);
+                    });
                 }
+            } else {
+                console.log('Sync skipped:', {
+                    videoRefExists: !!videoRef.current,
+                    localVideoRefExists: !!localVideoRef.current
+                });
             }
         };
 
-        // Initial sync immediately
-        syncVideo();
+        // Initial sync after a short delay to ensure DOM is ready
+        setTimeout(syncVideo, 100);
 
         // Poll for updates (in case parent sets stream after mount)
-        const interval = setInterval(syncVideo, 500);
+        const interval = setInterval(syncVideo, 1000);
         return () => clearInterval(interval);
     }, [videoRef]);
 

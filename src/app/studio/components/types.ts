@@ -136,3 +136,23 @@ import { SCENE_PRESETS } from "../../../engines/SceneEngine";
 export const SCENES = SCENE_PRESETS;
 
 export type SceneId = (typeof SCENES)[number]["id"];
+
+// Campaign types for Teleprompter
+export type CampaignSession = {
+    id: string;
+    name: string;
+    description: string;
+    duration: number; // in seconds
+    scriptCues: { id: string; text: string; duration?: number }[];
+    runOfShow: { id: string; label: string; window: string; scene: string; duration?: number }[];
+};
+
+export type Campaign = {
+    id: string;
+    name: string;
+    description: string;
+    thumbnail?: string;
+    sessions: CampaignSession[];
+    createdAt: number;
+    updatedAt: number;
+};
