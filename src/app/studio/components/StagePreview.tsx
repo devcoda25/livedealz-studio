@@ -48,6 +48,7 @@ export function StagePreview(props: {
     mainPresenterId?: number | null;
     hostPresenting?: boolean;
     mode?: Mode;
+    onVideoElementReady?: () => void;
 }) {
     const {
         darkMode = true,
@@ -78,6 +79,7 @@ export function StagePreview(props: {
         mainPresenterId,
         hostPresenting,
         mode,
+        onVideoElementReady,
     } = props;
 
     const isMobile = resolvedPreviewMode === "mobile" || forceMobileMode;
@@ -107,8 +109,15 @@ export function StagePreview(props: {
     const filterEngineRef = useRef<FilterEngine | null>(null);
 
     // Sync stream from parent's videoRef to local video element
+    // Also notify parent when video element is ready
     useEffect(() => {
         const syncVideo = () => {
+            // Notify parent that video element is ready
+            if (localVideoRef.current && onVideoElementReady) {
+                console.log('Video element ready, notifying parent');
+                onVideoElementReady();
+            }
+            
             if (videoRef.current && localVideoRef.current) {
                 // Debug: log current state
                 console.log('Sync attempt:', {
@@ -438,21 +447,28 @@ export function StagePreview(props: {
                     </div>
                 )}
 
-                {/* Co-hosts Grid (side by side) - hide presenting co-host */}
+                {/* Co-hosts Grid (side by side) - show all non-presenting co-hosts AND main host when not presenting */}
                 {coHosts && coHosts.length > 0 && (
                     <div className="absolute right-2 top-20 flex flex-col gap-2 max-h-[200px] overflow-y-auto">
-                        {coHosts.filter(c => c.id !== mainPresenterId && !c.isPresenting).map((coHost) => (
+                        {coHosts.filter(c => {
+                            // Always show co-hosts who are not presenting
+                            if (!c.isPresenting) return true;
+                            // Show main host in grid when not presenting
+                            if (c.id === mainPresenterId && !hostPresenting) return true;
+                            return false;
+                        }).map((coHost) => (
                             <div
                                 key={coHost.id}
-                                className="w-20 h-24 rounded-lg overflow-hidden border-2 border-purple-500/50 shadow-lg"
+                                className={`w-20 h-24 rounded-lg overflow-hidden border-2 shadow-lg ${coHost.id === mainPresenterId ? 'border-orange-500/50' : 'border-purple-500/50'}`}
                                 title={coHost.name}
                             >
                                 <div className="w-full h-full bg-slate-800 flex items-center justify-center">
                                     <div className="text-center">
-                                        <div className="h-10 w-10 rounded-full bg-slate-700 flex items-center justify-center text-[10px] font-semibold text-white mx-auto mb-1">
+                                        <div className={`h-10 w-10 rounded-full flex items-center justify-center text-[10px] font-semibold text-white mx-auto mb-1 ${coHost.id === mainPresenterId ? 'bg-orange-600' : 'bg-slate-700'}`}>
                                             {coHost.name.split(" ").map((w) => w[0]).join("")}
                                         </div>
                                         <div className="text-[8px] text-slate-300 truncate px-1">{coHost.name}</div>
+                                        {coHost.id === mainPresenterId && <div className="text-[8px] text-orange-400 font-medium">Host</div>}
                                     </div>
                                 </div>
                             </div>

@@ -42,7 +42,7 @@ export function InventoryPanel(props: {
     return (
         <div className="bg-card border border-border rounded-2xl p-3 flex flex-col gap-2 text-[11px]">
             <div className="flex items-center justify-between">
-                <h3 className="text-xs font-semibold">Products</h3>
+                <h3 className="text-xs font-semibold">Items</h3>
                 <span className="text-[10px] text-muted-foreground">{products.length} items</span>
             </div>
 

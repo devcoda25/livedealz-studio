@@ -108,13 +108,13 @@ export default function MyLiveDealzLiveStudioFullPage() {
   } = useEngines();
 
   // Detect system color scheme preference on mount
-  const [darkMode, setDarkMode] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-    }
-    return false; // Default to light mode
-  });
+  const [darkMode, setDarkMode] = useState(false); // Default to avoid SSR mismatch, useEffect will update
   const [mode, setMode] = useState<Mode>("lobby");
+
+  // Initialize dark mode from system preference on mount (client only)
+  useEffect(() => {
+    setDarkMode(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  }, []);
 
   // Listen for system theme changes
   useEffect(() => {
@@ -159,6 +159,7 @@ export default function MyLiveDealzLiveStudioFullPage() {
 
   const [hasCameraPermission, setHasCameraPermission] = useState(true);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [pendingStream, setPendingStream] = useState<MediaStream | null>(null);
   // Track if we're in demo mode (no real camera available)
   const [isDemoMode, setIsDemoMode] = useState(false);
   const { toast } = useToast();
@@ -852,13 +853,9 @@ export default function MyLiveDealzLiveStudioFullPage() {
         streamRef.current = stream;
         setHasCameraPermission(true);
 
-        console.log('Setting stream, videoRef exists:', !!videoRef.current, 'videoRef.current:', videoRef.current);
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          console.log('Stream set to videoRef.srcObject');
-        } else {
-          console.warn('videoRef.current is null when trying to set stream!');
-        }
+        // Store pending stream - will be applied when video element is ready
+        setPendingStream(stream);
+        console.log('Camera stream obtained, stored in pending stream');
       } catch (error) {
         console.error('Error accessing camera:', error);
         setHasCameraPermission(false);
@@ -925,6 +922,9 @@ export default function MyLiveDealzLiveStudioFullPage() {
     };
   }, [toast, initStreaming, engineStartCamera]);
 
+  // Video element ready flag - will be set by child component when video element mounts
+  const [videoElementReady, setVideoElementReady] = useState(false);
+
   // Sync stream to videoRef whenever it changes or stage expands
   useEffect(() => {
     if (streamRef.current) {
@@ -939,6 +939,16 @@ export default function MyLiveDealzLiveStudioFullPage() {
       }
     }
   }, [stageExpanded, mode, streamRef.current]);
+
+  // Apply pending stream when video element becomes available
+  useEffect(() => {
+    if (pendingStream && videoRef.current) {
+      console.log('Applying pending stream to videoRef');
+      videoRef.current.srcObject = pendingStream;
+      videoRef.current.play().catch(e => console.warn("Auto-play error on pending stream", e));
+      setPendingStream(null); // Clear pending stream
+    }
+  }, [pendingStream, videoElementReady]); // Changed from videoRef.current to videoElementReady
 
 
   // keep active source synced to production mode/tool
@@ -1727,6 +1737,7 @@ export default function MyLiveDealzLiveStudioFullPage() {
                 onExpand={() => setStageExpanded(true)}
                 videoRef={videoRef}
                 hasCameraPermission={hasCameraPermission}
+                onVideoElementReady={() => setVideoElementReady(true)}
                 transcriptionOn={transcriptionOn}
                 transcript={transcript}
                 activeFilter={activeFilter}

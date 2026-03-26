@@ -56,6 +56,7 @@ export function StagePanel(props: {
     coHosts?: { id: number; name: string; status: string; isMainPresenter?: boolean }[];
     mainPresenterId?: number | null;
     hostPresenting?: boolean;
+    onVideoElementReady?: () => void;
 }) {
     const {
         darkMode = true,
@@ -96,6 +97,7 @@ export function StagePanel(props: {
         coHosts,
         mainPresenterId,
         hostPresenting,
+        onVideoElementReady,
     } = props;
 
     const activeScene = SCENES.find((s) => s.id === activeSceneId) ?? SCENES[0];
@@ -146,6 +148,7 @@ export function StagePanel(props: {
                     mainPresenterId={mainPresenterId}
                     hostPresenting={hostPresenting}
                     mode={mode}
+                    onVideoElementReady={onVideoElementReady}
                 />
             )}
         </div>
