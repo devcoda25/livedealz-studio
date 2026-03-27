@@ -26,6 +26,9 @@ export function ExpandedStageModal(props: {
     transcriptionOn: boolean;
     transcript: string;
     activeFilter: string;
+    coHosts?: { id: number; name: string; status: string; isMainPresenter?: boolean; isPresenting?: boolean }[];
+    mainPresenterId?: number | null;
+    hostPresenting?: boolean;
 }) {
     const {
         darkMode,
@@ -49,6 +52,9 @@ export function ExpandedStageModal(props: {
         transcriptionOn,
         transcript,
         activeFilter,
+        coHosts,
+        mainPresenterId,
+        hostPresenting,
     } = props;
 
     const containerRef = useRef<HTMLDivElement | null>(null);
@@ -157,7 +163,9 @@ export function ExpandedStageModal(props: {
                         onSelectSource={() => { }}
                         onUpdateSourcePosition={() => { }}
                         onUpdateSourceSize={() => { }}
-                        hostPresenting={false}
+                        hostPresenting={hostPresenting}
+                        coHosts={coHosts}
+                        mainPresenterId={mainPresenterId}
                     />
                     <div className="mt-3 text-[11px] text-slate-300 flex items-center justify-between">
                         <span>Tip: double-click the preview to toggle fullscreen.</span>

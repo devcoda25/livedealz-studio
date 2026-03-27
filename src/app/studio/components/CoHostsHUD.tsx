@@ -1,10 +1,19 @@
 import React, { useState, useRef, useEffect } from "react";
 
+const DEMO_COHOSTS = [
+    { name: "Sarah Chen" },
+    { name: "Mike Johnson" },
+    { name: "Emily Davis" },
+    { name: "Alex Kim" },
+    { name: "Jordan Lee" },
+];
+
 interface CoHostsHUDProps {
     darkMode?: boolean;
     coHosts: { id: number; name: string; status: string; isMainPresenter?: boolean; isPresenting?: boolean }[];
     mainPresenterId: number | null;
     onInvite: (name: string) => void;
+    onInviteAll: (names: string[]) => void;
     onRemove: (id: number) => void;
     onSetMainPresenter: (id: number) => void;
     onTogglePresenting: (id: number) => void;
@@ -16,6 +25,7 @@ export function CoHostsHUD({
     coHosts,
     mainPresenterId,
     onInvite,
+    onInviteAll,
     onRemove,
     onSetMainPresenter,
     onTogglePresenting,
@@ -107,8 +117,8 @@ export function CoHostsHUD({
                     </button>
                 </div>
 
-                {/* Invite Button */}
-                <div className="mb-4">
+                {/* Invite Section */}
+                <div className="mb-4 space-y-2">
                     <button
                         className="w-full py-2 px-4 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-[11px] font-semibold flex items-center justify-center gap-2"
                         onClick={() => { const name = window.prompt("Enter co-host name:"); if (name) onInvite(name); }}
@@ -116,7 +126,36 @@ export function CoHostsHUD({
                         <span className="material-icons text-[16px]">person_add</span>
                         Invite Co-host
                     </button>
+                    <button
+                        className="w-full py-2 px-4 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 text-purple-300 text-[11px] font-semibold flex items-center justify-center gap-2"
+                        onClick={() => {
+                            const existingNames = coHosts.map(c => c.name);
+                            const toAdd = DEMO_COHOSTS.filter(d => !existingNames.includes(d.name)).map(d => d.name);
+                            if (toAdd.length > 0) onInviteAll(toAdd);
+                        }}
+                    >
+                        <span className="material-icons text-[16px]">group_add</span>
+                        Add All Demo Co-hosts
+                    </button>
                 </div>
+
+                {/* Individual Demo Co-hosts */}
+                {DEMO_COHOSTS.some(d => !coHosts.some(c => c.name === d.name)) && (
+                    <div className="mb-4">
+                        <div className={`text-[9px] uppercase tracking-wider mb-2 ${darkMode ? "text-slate-500" : "text-slate-400"}`}>Quick Add</div>
+                        <div className="flex flex-wrap gap-2">
+                            {DEMO_COHOSTS.filter(d => !coHosts.some(c => c.name === d.name)).map((d) => (
+                                <button
+                                    key={d.name}
+                                    className="px-3 py-1.5 rounded-full border border-slate-600 bg-slate-800 text-slate-300 text-[10px] hover:bg-slate-700 hover:border-slate-500 transition-colors"
+                                    onClick={() => onInvite(d.name)}
+                                >
+                                    + {d.name}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 {/* Co-hosts List */}
                 <div className="space-y-2 max-h-[200px] overflow-y-auto">

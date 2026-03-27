@@ -403,6 +403,7 @@ export default function MyLiveDealzLiveStudioFullPage() {
 
   const [coHosts, setCoHosts] = useState<{ id: number; name: string; status: string; isPresenting?: boolean }[]>([]);
   const [mainPresenterId, setMainPresenterId] = useState<number | null>(null);
+  const [coHostIdCounter, setCoHostIdCounter] = useState(5);
   // Track if host is presenting (for split screen)
   const [hostPresenting, setHostPresenting] = useState(false);
 
@@ -939,6 +940,18 @@ export default function MyLiveDealzLiveStudioFullPage() {
       }
     }
   }, [stageExpanded, mode, streamRef.current]);
+
+  // Re-apply stream when video element is remounted (e.g., layout changes from co-hosts)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (streamRef.current && videoRef.current && videoRef.current.srcObject !== streamRef.current) {
+        videoRef.current.srcObject = streamRef.current;
+        videoRef.current.play().catch(() => {});
+        console.log('Stream re-applied to video element after remount');
+      }
+    }, 500);
+    return () => clearInterval(interval);
+  }, []);
 
   // Apply pending stream when video element becomes available
   useEffect(() => {
@@ -2058,8 +2071,18 @@ export default function MyLiveDealzLiveStudioFullPage() {
             darkMode={darkMode}
             coHosts={coHosts}
             mainPresenterId={mainPresenterId}
-            onInvite={(name) => setCoHosts((p) => [...p, { id: p.length + 1, name, status: "Invited" }])}
-            onRemove={(id) => setCoHosts((p) => p.filter(c => c.id !== id))}
+            onInvite={(name) => { setCoHosts((p) => [...p, { id: coHostIdCounter, name, status: "Invited" }]); setCoHostIdCounter((v) => v + 1); }}
+            onInviteAll={(names) => {
+              setCoHosts((p) => {
+                const newCoHosts = [...p];
+                names.forEach((name) => {
+                  newCoHosts.push({ id: coHostIdCounter + newCoHosts.length - p.length, name, status: "Invited" });
+                });
+                return newCoHosts;
+              });
+              setCoHostIdCounter((v) => v + names.length);
+            }}
+            onRemove={(id) => { setCoHosts((p) => p.filter(c => c.id !== id)); if (mainPresenterId === id) setMainPresenterId(null); }}
             onSetMainPresenter={(id) => setMainPresenterId(id)}
             onTogglePresenting={(id) => setCoHosts((p) => p.map(c => c.id === id ? { ...c, isPresenting: !c.isPresenting } : c))}
             onClose={() => setCoHostsOpen(false)}

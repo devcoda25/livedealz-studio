@@ -132,7 +132,7 @@ export function ControlBar(props: {
                         title={hostPresenting ? "Stop Presenting" : "Start Presenting"}
                     >
                         <span className="material-icons text-[16px] sm:text-[18px]">{hostPresenting ? "stop_circle" : "play_circle"}</span>
-                        <span className="hidden lg:inline">{hostPresenting ? "Present" : "Present"}</span>
+                        <span className="hidden lg:inline">{hostPresenting ? "Stop" : "Present"}</span>
                     </button>
                 )}
 

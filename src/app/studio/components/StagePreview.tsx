@@ -105,55 +105,13 @@ export function StagePreview(props: {
                 : "bg-[#f77f00] border-[#f77f00]/70";
 
     const canvasRef = useRef<HTMLCanvasElement>(null);
-    const localVideoRef = useRef<HTMLVideoElement>(null);
     const filterEngineRef = useRef<FilterEngine | null>(null);
 
-    // Sync stream from parent's videoRef to local video element
-    // Also notify parent when video element is ready
+    // Notify parent when video element is ready
     useEffect(() => {
-        const syncVideo = () => {
-            // Notify parent that video element is ready
-            if (localVideoRef.current && onVideoElementReady) {
-                console.log('Video element ready, notifying parent');
-                onVideoElementReady();
-            }
-            
-            if (videoRef.current && localVideoRef.current) {
-                // Debug: log current state
-                console.log('Sync attempt:', {
-                    parentHasStream: !!videoRef.current.srcObject,
-                    localHasStream: !!localVideoRef.current.srcObject,
-                    parentSrcObject: videoRef.current.srcObject?.constructor?.name
-                });
-                
-                // Only sync if parent has a stream and local doesn't
-                if (videoRef.current.srcObject && !localVideoRef.current.srcObject) {
-                    localVideoRef.current.srcObject = videoRef.current.srcObject;
-                    console.log('Video stream synced to local ref');
-                    
-                    // Ensure video is playing
-                    localVideoRef.current.play().catch(e => {
-                        console.warn('Auto-play error on sync:', e);
-                        // Try again after a short delay in case the video wasn't ready
-                        setTimeout(() => {
-                            localVideoRef.current?.play().catch(e2 => console.warn('Retry auto-play error:', e2));
-                        }, 100);
-                    });
-                }
-            } else {
-                console.log('Sync skipped:', {
-                    videoRefExists: !!videoRef.current,
-                    localVideoRefExists: !!localVideoRef.current
-                });
-            }
-        };
-
-        // Initial sync after a short delay to ensure DOM is ready
-        setTimeout(syncVideo, 100);
-
-        // Poll for updates (in case parent sets stream after mount)
-        const interval = setInterval(syncVideo, 1000);
-        return () => clearInterval(interval);
+        if (videoRef.current && onVideoElementReady) {
+            onVideoElementReady();
+        }
     }, [videoRef]);
 
     useEffect(() => {
@@ -164,14 +122,14 @@ export function StagePreview(props: {
         const engine = filterEngineRef.current;
 
         const initEngine = async () => {
-            if (localVideoRef.current && canvasRef.current) {
+            if (videoRef.current && canvasRef.current) {
                 // Ensure canvas dimensions match video or container
                 // For now, allow CSS to handle display size, but we might need to set internal width/height?
                 // FilterEngine/FaceMesh usually requires correct internal resolution.
                 // We'll set it to videoWidth/videoHeight in the engine or here once loaded.
                 // Actually FilterEngine attaches and usually handles resize?
                 // Let's attach.
-                engine.attach(localVideoRef.current, canvasRef.current);
+                engine.attach(videoRef.current, canvasRef.current);
                 await engine.initialize();
                 engine.start();
             }
@@ -202,89 +160,134 @@ export function StagePreview(props: {
             title="Tap to expand preview"
         >
             <div
-                className={`relative rounded-2xl border overflow-hidden shadow-[0_24px_80px_rgba(15,23,42,0.7)] ${isMobile ? 'pb-8' : ''} ` + (isMobile ? "w-[360px] max-w-[95%] " : "w-full ") + (darkMode ? "bg-slate-950 border-slate-800" : "bg-black border-slate-300")}
+                className={`relative rounded-2xl border overflow-hidden shadow-[0_24px_80px_rgba(15,23,42,0.7)] ${isMobile ? 'pb-8' : ''} ` + (isMobile ? "w-[360px] max-w-[95%] " : "w-full ") + (darkMode ? "bg-slate-950 border-slate-800" : "bg-black border-slate-300") + (isMobile && (multiplePresenters || onlyCoHostPresenting) ? ' flex flex-col' : '')}
                 style={{ aspectRatio: aspect, maxHeight: isMobile ? 'calc(100vh - 220px)' : undefined }}
             >
-                <video
-                    ref={localVideoRef}
-                    className={`absolute inset-0 w-full h-full object-cover transition-all duration-300 ${multiplePresenters
-                        ? (isMobile
-                            ? 'w-full h-1/2 top-0 left-0'
-                            : 'w-1/2 h-full top-0 left-0')
-                        : singlePresenter
-                            ? 'w-2/3 h-full top-0 left-0'
-                            : ''
-                        }`}
-                    autoPlay muted playsInline
-                    style={{ filter: getFilterStyle(activeFilter) ? (getFilterStyle(activeFilter) as any).cssFilter || '' : '' }}
-                />
-
-                {/* Co-host video for split-screen or main presenter mode */}
-                {presentingCoHosts.length > 0 && (multiplePresenters || singlePresenter) && (
-                    <div
-                        className={`absolute inset-0 w-full h-full transition-all duration-300 ${multiplePresenters
-                            ? (isMobile
-                                ? 'w-full h-1/2 bottom-0 left-0 top-auto'
-                                : 'w-1/2 h-full top-0 right-0 left-auto')
-                            : 'w-1/3 h-1/3 top-2 left-2 right-auto bottom-auto'
-                            }`}
-                    >
-                        {/* If multiple presenters, show grid; otherwise show single */}
-                        {multiplePresenters || hasMultipleCoHostsPresenting ? (
-                            <div className="w-full h-full grid grid-cols-2 gap-1 p-1">
-                                {presentingCoHosts.slice(0, 4).map((coHost) => (
-                                    <div key={coHost.id} className="rounded-lg overflow-hidden border border-purple-500/50 bg-slate-900 flex items-center justify-center">
-                                        <div className="text-center">
-                                            <div className="h-8 w-8 rounded-full bg-purple-600 flex items-center justify-center text-[10px] font-semibold text-white mx-auto mb-1">
-                                                {coHost.name.split(" ").map((w: string) => w[0]).join("")}
+                {isMobile && (multiplePresenters || onlyCoHostPresenting) ? (
+                    /* Mobile split-screen: flex-col layout, top-to-bottom */
+                    <>
+                        <div className="w-full h-1/2 flex-shrink-0 relative">
+                            <video
+                                ref={videoRef}
+                                className="w-full h-full object-cover transition-all duration-300"
+                                autoPlay muted playsInline
+                                style={{ filter: getFilterStyle(activeFilter) ? (getFilterStyle(activeFilter) as any).cssFilter || '' : '' }}
+                            />
+                            <canvas
+                                ref={canvasRef}
+                                className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+                                width={1280}
+                                height={720}
+                            />
+                        </div>
+                        {presentingCoHosts.length > 0 && (
+                            <div className="w-full h-1/2 flex-1 relative">
+                                {/* If multiple presenters, show vertical stack; otherwise show single */}
+                                {multiplePresenters || hasMultipleCoHostsPresenting ? (
+                                    <div className="w-full h-full flex flex-col gap-1 p-1">
+                                        {presentingCoHosts.slice(0, 4).map((coHost) => (
+                                            <div key={coHost.id} className="flex-1 rounded-lg overflow-hidden border border-purple-500/50 bg-slate-900 flex items-center justify-center">
+                                                <div className="text-center">
+                                                    <div className="h-8 w-8 rounded-full bg-purple-600 flex items-center justify-center text-[10px] font-semibold text-white mx-auto mb-1">
+                                                        {coHost.name.split(" ").map((w: string) => w[0]).join("")}
+                                                    </div>
+                                                    <div className="text-[8px] text-white truncate px-1">{coHost.name}</div>
+                                                </div>
                                             </div>
-                                            <div className="text-[8px] text-white truncate px-1">{coHost.name}</div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="w-full h-full rounded-lg overflow-hidden border-2 border-purple-500 shadow-lg bg-slate-900">
+                                        <div className="w-full h-full flex items-center justify-center">
+                                            <div className="text-center">
+                                                <div className="h-12 w-12 rounded-full bg-purple-600 flex items-center justify-center text-sm font-semibold text-white mx-auto mb-2">
+                                                    {presentingCoHosts[0].name.split(" ").map((w: string) => w[0]).join("")}
+                                                </div>
+                                                <div className="text-xs text-white font-medium">{presentingCoHosts[0].name}</div>
+                                            </div>
                                         </div>
                                     </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="w-full h-full rounded-lg overflow-hidden border-2 border-purple-500 shadow-lg bg-slate-900">
-                                <div className="w-full h-full flex items-center justify-center">
-                                    <div className="text-center">
-                                        <div className="h-12 w-12 rounded-full bg-purple-600 flex items-center justify-center text-sm font-semibold text-white mx-auto mb-2">
-                                            {presentingCoHosts[0].name.split(" ").map((w: string) => w[0]).join("")}
-                                        </div>
-                                        <div className="text-xs text-white font-medium">{presentingCoHosts[0].name}</div>
-                                        {showMainPresenterLarger && <div className="text-[10px] text-purple-300">Main Presenter</div>}
-                                    </div>
+                                )}
+                                {/* Green live indicator */}
+                                <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/20 border border-green-400 text-green-300 text-[10px]">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                                    LIVE
+                                    {presentingCoHosts.length > 1 && <span className="ml-1">+{presentingCoHosts.length - 1}</span>}
                                 </div>
                             </div>
                         )}
-                        {/* Green live indicator */}
-                        <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/20 border border-green-400 text-green-300 text-[10px]">
-                            <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                            LIVE
-                            {presentingCoHosts.length > 1 && <span className="ml-1">+{presentingCoHosts.length - 1}</span>}
-                        </div>
-                    </div>
+                    </>
+                ) : (
+                    /* Desktop split-screen / single presenter: absolute positioning */
+                    <>
+                        <video
+                            ref={videoRef}
+                            className={`absolute inset-0 w-full h-full object-cover transition-all duration-300 ${multiplePresenters
+                                ? 'w-1/2 h-full top-0 left-0'
+                                : singlePresenter
+                                    ? 'w-2/3 h-full top-0 left-0'
+                                    : ''
+                                }`}
+                            autoPlay muted playsInline
+                            style={{ filter: getFilterStyle(activeFilter) ? (getFilterStyle(activeFilter) as any).cssFilter || '' : '' }}
+                        />
+                        <canvas
+                            ref={canvasRef}
+                            className={`absolute inset-0 w-full h-full object-cover pointer-events-none transition-all duration-300 ${multiplePresenters
+                                ? 'w-1/2 h-full top-0 left-0'
+                                : singlePresenter
+                                    ? 'w-2/3 h-full top-0 left-0'
+                                    : ''
+                                }`}
+                            width={1280}
+                            height={720}
+                        />
+                        {presentingCoHosts.length > 0 && (multiplePresenters || singlePresenter) && (
+                            <div
+                                className={`absolute inset-0 w-full h-full transition-all duration-300 ${multiplePresenters
+                                    ? 'w-1/2 h-full top-0 right-0 left-auto'
+                                    : onlyCoHostPresenting
+                                        ? 'w-1/2 h-full top-0 right-0 left-auto'
+                                        : 'w-1/3 h-1/3 top-2 left-2 right-auto bottom-auto'
+                                    }`}
+                            >
+                                {/* If multiple presenters, show grid; otherwise show single */}
+                                {multiplePresenters || hasMultipleCoHostsPresenting ? (
+                                    <div className="w-full h-full grid grid-cols-2 gap-1 p-1">
+                                        {presentingCoHosts.slice(0, 4).map((coHost) => (
+                                            <div key={coHost.id} className="rounded-lg overflow-hidden border border-purple-500/50 bg-slate-900 flex items-center justify-center">
+                                                <div className="text-center">
+                                                    <div className="h-8 w-8 rounded-full bg-purple-600 flex items-center justify-center text-[10px] font-semibold text-white mx-auto mb-1">
+                                                        {coHost.name.split(" ").map((w: string) => w[0]).join("")}
+                                                    </div>
+                                                    <div className="text-[8px] text-white truncate px-1">{coHost.name}</div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="w-full h-full rounded-lg overflow-hidden border-2 border-purple-500 shadow-lg bg-slate-900">
+                                        <div className="w-full h-full flex items-center justify-center">
+                                            <div className="text-center">
+                                                <div className="h-12 w-12 rounded-full bg-purple-600 flex items-center justify-center text-sm font-semibold text-white mx-auto mb-2">
+                                                    {presentingCoHosts[0].name.split(" ").map((w: string) => w[0]).join("")}
+                                                </div>
+                                                <div className="text-xs text-white font-medium">{presentingCoHosts[0].name}</div>
+                                                {showMainPresenterLarger && <div className="text-[10px] text-purple-300">Main Presenter</div>}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                                {/* Green live indicator */}
+                                <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/20 border border-green-400 text-green-300 text-[10px]">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                                    LIVE
+                                    {presentingCoHosts.length > 1 && <span className="ml-1">+{presentingCoHosts.length - 1}</span>}
+                                </div>
+                            </div>
+                        )}
+                    </>
                 )}
-
-                {/* Split screen divider line removed */}
-                {false && (
-                    <div
-                        className={`absolute bg-white/30 z-10 ${isMobile ? 'left-0 right-0 h-0.5' : 'top-0 bottom-0 w-0.5'}`}
-                        style={isMobile ? { top: '50%', transform: 'translateY(-50%)' } : { left: '50%', transform: 'translateX(-50%)' }}
-                    />
-                )}
-                <canvas
-                    ref={canvasRef}
-                    className={`absolute inset-0 w-full h-full object-cover pointer-events-none transition-all duration-300 ${multiplePresenters
-                        ? (isMobile
-                            ? 'w-full h-1/2 top-0 left-0'
-                            : 'w-1/2 h-full top-0 left-0')
-                        : singlePresenter
-                            ? 'w-2/3 h-full top-0 left-0'
-                            : ''
-                        }`}
-                    width={1280}
-                    height={720}
-                />
 
                 {(isDemoMode || !hasCameraPermission) && (
                     <div className="absolute inset-0 bg-black/50 flex items-center justify-center p-4">
