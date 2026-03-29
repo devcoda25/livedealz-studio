@@ -301,8 +301,8 @@ export class StreamingEngine {
       // Start compositor
       this.sceneManager.startCompositing();
       
-      // Get composed stream
-      const stream = this.sceneManager.getComposedStream();
+      // Get composed stream with configured framerate
+      const stream = this.sceneManager.getComposedStream(this.config.framerate);
       if (!stream) {
         throw new Error('Failed to get composed stream');
       }

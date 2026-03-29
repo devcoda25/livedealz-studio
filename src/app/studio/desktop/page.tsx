@@ -37,7 +37,8 @@ import { ControlBar } from "../components/ControlBar";
 import { MobileBottomNav } from "../components/MobileBottomNav";
 import { MobileSlideMenu } from "../components/MobileSlideMenu";
 import { FiltersTray } from "../components/FiltersTray";
-import { AudioMixerPanel } from "../components/AudioMixerPanel";
+import { FilterCategory } from "../../../engines/media/types";
+import { VideoAudioPanel } from "../components/VideoAudioPanel";
 import { CommerceHUD } from "../components/CommerceHUD";
 import { CoHostsHUD } from "../components/CoHostsHUD";
 import { AttachmentsHUD } from "../components/AttachmentsHUD";
@@ -46,6 +47,8 @@ import { FlashDealDialog } from "../components/FlashDealDialog";
 import { LanguagePanel } from "../components/LanguagePanel";
 import { ExpandedStageModal } from "../components/ExpandedStageModal";
 import { SourcesPanel, CanvasSource } from "../components/SourcesPanel";
+import { getOptimalCameraConstraints, detectDeviceCapabilities, clearCapabilitiesCache } from "@/lib/capabilityDetector";
+import { DEFAULT_STREAM_CONFIGS, StreamQuality, StreamConfig } from "@/engines/streaming/types";
 
 export default function MyLiveDealzLiveStudioFullPage() {
   // Socket & Real State
@@ -105,6 +108,8 @@ export default function MyLiveDealzLiveStudioFullPage() {
     enableNoiseReduction,
     getAudioSources,
     removeAudioSource,
+    getStreamConfig,
+    setStreamConfig,
   } = useEngines();
 
   // Detect system color scheme preference on mount
@@ -144,7 +149,9 @@ export default function MyLiveDealzLiveStudioFullPage() {
   const [streamKey, setStreamKey] = useState<string | null>(null);
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
   const [isProvisioning, setIsProvisioning] = useState(false);
-  const [activeFilter, setActiveFilter] = useState("None");
+  const [activeFilter, setActiveFilter] = useState("none");
+  const [activeFilterCategory, setActiveFilterCategory] = useState<FilterCategory | null>(null);
+  const [filterIntensity, setFilterIntensity] = useState(100);
 
 
   // Controls
@@ -196,6 +203,9 @@ export default function MyLiveDealzLiveStudioFullPage() {
   // Track if camera switch is in progress
   const isSwitchingCamera = useRef(false);
 
+  // Current video quality preset
+  const [currentQuality, setCurrentQuality] = useState<StreamQuality>("medium");
+
   // Handle camera switching from ProductionPanel
   const handleCameraSwitch = useCallback(async (deviceId: string | null) => {
     if (!deviceId || isSwitchingCamera.current) return;
@@ -217,15 +227,9 @@ export default function MyLiveDealzLiveStudioFullPage() {
     await new Promise(resolve => setTimeout(resolve, 100));
 
     try {
-      // Request new camera stream with fallback constraints
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          deviceId: { exact: deviceId },
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        },
-        audio: true
-      });
+      // Request new camera stream with optimal constraints based on detected capabilities
+      const constraints = await getOptimalCameraConstraints(deviceId);
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
 
       streamRef.current = stream;
 
@@ -266,6 +270,156 @@ export default function MyLiveDealzLiveStudioFullPage() {
       });
     }
   }, [toast]);
+
+  // Handle quality preset change - resizes canvas, re-acquires camera, reconfigures encoder
+  const handleQualityChange = useCallback(async (quality: StreamQuality) => {
+    const preset = DEFAULT_STREAM_CONFIGS[quality];
+    if (!preset) return;
+
+    console.log(`[QualityChange] Switching to ${quality}:`, preset.resolution, `${preset.framerate}fps`);
+
+    // 1. Update streaming engine config (encoder, bitrate, codec)
+    setStreamConfig({
+      resolution: preset.resolution,
+      framerate: preset.framerate,
+      bitrate: preset.bitrate,
+      codec: preset.codec,
+      audioCodec: preset.audioCodec,
+      audioBitrate: preset.audioBitrate,
+      keyframeInterval: preset.keyframeInterval,
+      profile: preset.profile,
+    });
+
+    // 2. Resize canvas
+    if (canvasRef.current) {
+      canvasRef.current.width = preset.resolution.width;
+      canvasRef.current.height = preset.resolution.height;
+    }
+
+    // 3. Re-acquire camera with new resolution/framerate constraints
+    try {
+      // Stop existing tracks
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      const constraints: MediaStreamConstraints = {
+        video: {
+          width: { ideal: preset.resolution.width },
+          height: { ideal: preset.resolution.height },
+          frameRate: { ideal: preset.framerate },
+          ...(activeCameraDeviceId ? { deviceId: { exact: activeCameraDeviceId } } : {}),
+        },
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      streamRef.current = stream;
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+
+      setCurrentQuality(quality);
+
+      toast({
+        title: 'Quality Updated',
+        description: `Switched to ${preset.resolution.width}x${preset.resolution.height} @ ${preset.framerate}fps`,
+      });
+
+      console.log(`[QualityChange] Successfully switched to ${quality}`);
+    } catch (err: any) {
+      console.error('[QualityChange] Failed to re-acquire camera:', err);
+
+      // Quality config was still applied to encoder, just camera re-acquisition failed
+      setCurrentQuality(quality);
+
+      toast({
+        variant: 'destructive',
+        title: 'Camera Reconfiguration Warning',
+        description: `Quality settings applied but camera couldn't be reconfigured. It may be in use by another app.`,
+      });
+    }
+  }, [toast, activeCameraDeviceId, setStreamConfig]);
+
+  // Handle individual video config changes (resolution, framerate, bitrate)
+  const handleVideoConfigChange = useCallback(async (config: Partial<StreamConfig>) => {
+    // Update encoder config
+    setStreamConfig(config);
+
+    // If resolution changed, resize canvas and re-acquire camera
+    if (config.resolution) {
+      if (canvasRef.current) {
+        canvasRef.current.width = config.resolution.width;
+        canvasRef.current.height = config.resolution.height;
+      }
+
+      try {
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach(track => track.stop());
+        }
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        const constraints: MediaStreamConstraints = {
+          video: {
+            width: { ideal: config.resolution.width },
+            height: { ideal: config.resolution.height },
+            frameRate: { ideal: config.framerate || DEFAULT_STREAM_CONFIGS[currentQuality].framerate },
+            ...(activeCameraDeviceId ? { deviceId: { exact: activeCameraDeviceId } } : {}),
+          },
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+        };
+
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      } catch (err) {
+        console.error('[VideoConfig] Failed to re-acquire camera:', err);
+      }
+    }
+
+    // If only framerate changed, try applying constraints without full camera restart
+    if (config.framerate && !config.resolution && streamRef.current) {
+      const videoTrack = streamRef.current.getVideoTracks()[0];
+      if (videoTrack && videoTrack.applyConstraints) {
+        try {
+          await videoTrack.applyConstraints({ frameRate: { ideal: config.framerate } });
+        } catch {
+          // Fallback: full camera restart
+          if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => track.stop());
+          }
+          await new Promise(resolve => setTimeout(resolve, 100));
+          const constraints: MediaStreamConstraints = {
+            video: {
+              width: { ideal: DEFAULT_STREAM_CONFIGS[currentQuality].resolution.width },
+              height: { ideal: DEFAULT_STREAM_CONFIGS[currentQuality].resolution.height },
+              frameRate: { ideal: config.framerate },
+              ...(activeCameraDeviceId ? { deviceId: { exact: activeCameraDeviceId } } : {}),
+            },
+            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+          };
+          const stream = await navigator.mediaDevices.getUserMedia(constraints);
+          streamRef.current = stream;
+          if (videoRef.current) videoRef.current.srcObject = stream;
+        }
+      }
+    }
+
+    toast({ title: 'Video Config Updated', description: 'Settings applied successfully.' });
+  }, [setStreamConfig, currentQuality, activeCameraDeviceId, toast]);
 
   // Scenes + preview
   const [activeSceneId, setActiveSceneId] = useState<SceneId>("intro_host");
@@ -791,25 +945,34 @@ export default function MyLiveDealzLiveStudioFullPage() {
   useEffect(() => {
     const getCameraPermission = async () => {
       // Try using streaming engine first
-      try {
+        try {
         // Create canvas for compositing if not exists
         let canvas = canvasRef.current;
+
+        // Detect optimal capabilities for resolution/FPS
+        const caps = await detectDeviceCapabilities();
+        const canvasWidth = caps.cameraMaxResolution.width;
+        const canvasHeight = caps.cameraMaxResolution.height;
+
         if (!canvas) {
           canvas = document.createElement('canvas');
-          canvas.width = 1920;
-          canvas.height = 1080;
+          canvas.width = canvasWidth;
+          canvas.height = canvasHeight;
           canvasRef.current = canvas;
+        } else {
+          canvas.width = canvasWidth;
+          canvas.height = canvasHeight;
         }
 
         // Initialize streaming engine
         if (initStreaming && videoRef.current) {
           const success = await initStreaming(canvas, videoRef.current);
           if (success) {
-            // Start camera using engine
+            // Start camera using engine with optimal constraints
             const source = await engineStartCamera("cam1", "Camera 1");
             if (source) {
               setHasCameraPermission(true);
-              console.log("Streaming engine camera initialized");
+              console.log("Streaming engine camera initialized at", canvasWidth + "x" + canvasHeight);
               return;
             }
           }
@@ -850,7 +1013,9 @@ export default function MyLiveDealzLiveStudioFullPage() {
           }
         }
 
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        const stream = await navigator.mediaDevices.getUserMedia(
+          await getOptimalCameraConstraints()
+        );
         streamRef.current = stream;
         setHasCameraPermission(true);
 
@@ -1754,6 +1919,8 @@ export default function MyLiveDealzLiveStudioFullPage() {
                 transcriptionOn={transcriptionOn}
                 transcript={transcript}
                 activeFilter={activeFilter}
+                activeFilterCategory={activeFilterCategory}
+                filterIntensity={filterIntensity}
                 retryCameraAccess={retryCameraAccess}
                 isDemoMode={isDemoMode}
                 cameraError={cameraError}
@@ -1835,7 +2002,7 @@ export default function MyLiveDealzLiveStudioFullPage() {
       </main >
 
       {/* Bottom control bar - hidden on mobile */}
-      <div className="sticky bottom-0 z-40 hidden md:flex">
+      <div className="sticky bottom-0 z-40 hidden md:flex w-full">
         <ControlBar
           darkMode={darkMode}
           mode={mode}
@@ -1969,9 +2136,13 @@ export default function MyLiveDealzLiveStudioFullPage() {
           <FiltersTray
             darkMode={darkMode}
             activeFilter={activeFilter}
-            onSelectFilter={(f) => {
+            intensity={filterIntensity}
+            onSelectFilter={(f, category) => {
               setActiveFilter(f);
-              // Optional: simulate socket event or additional side effects here
+              setActiveFilterCategory(category);
+            }}
+            onIntensityChange={(value) => {
+              setFilterIntensity(value);
             }}
             onClose={() => setFiltersOpen(false)}
           />
@@ -1980,7 +2151,7 @@ export default function MyLiveDealzLiveStudioFullPage() {
 
       {
         audioMixerOpen && (
-          <AudioMixerPanel
+          <VideoAudioPanel
             darkMode={darkMode}
             isOpen={audioMixerOpen}
             onClose={() => setAudioMixerOpen(false)}
@@ -1997,6 +2168,10 @@ export default function MyLiveDealzLiveStudioFullPage() {
             onAddMicrophone={addMicrophone}
             onAddScreenShareAudio={addScreenShareAudio}
             onRemoveSource={removeAudioSource}
+            streamConfig={getStreamConfig() ?? undefined}
+            onStreamConfigChange={handleVideoConfigChange}
+            currentQuality={currentQuality}
+            onQualityChange={handleQualityChange}
           />
         )
       }
@@ -2142,6 +2317,8 @@ export default function MyLiveDealzLiveStudioFullPage() {
             transcriptionOn={transcriptionOn}
             transcript={transcript}
             activeFilter={activeFilter}
+            activeFilterCategory={activeFilterCategory}
+            filterIntensity={filterIntensity}
           />
         )
       }

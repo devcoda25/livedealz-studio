@@ -778,9 +778,9 @@ export class SceneManager {
   /**
    * Get composed video stream for output
    */
-  getComposedStream(): MediaStream | null {
+  getComposedStream(framerate: number = 30): MediaStream | null {
     if (!this.canvas) return null;
-    return this.canvas.captureStream(30);
+    return this.canvas.captureStream(framerate);
   }
 
   // ==========================================

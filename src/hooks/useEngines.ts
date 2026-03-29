@@ -9,6 +9,8 @@ import { AnalyticsEngine, StreamMetrics } from "@/engines/analytics";
 import { AudioMixingEngine, AudioSourceConfig } from "@/engines/audio";
 import { Product, ChatMsg, LiveViewer, SaleEvent, AiHint, QaItem, FlashDealState as StudioFlashDealState, ViewerLang, ListenMode } from "@/app/studio/components/types";
 import { uid, nowTimeLabel } from "@/app/studio/components/utils";
+import { getRecommendedQuality, detectDeviceCapabilities, getOptimalCameraConstraints } from "@/lib/capabilityDetector";
+import { DEFAULT_STREAM_CONFIGS } from "@/engines/streaming/types";
 
 export interface EngineState {
   streaming: {
@@ -195,7 +197,7 @@ export function useEngines(options: UseEnginesOptions = {}) {
     if (initialized.current) return;
     initialized.current = true;
 
-    // Create engines
+    // Create engines (start with medium, will auto-upgrade after detection)
     const streaming = new StreamingEngine("medium");
     const commerce = new CommerceEngine();
     const interactive = new InteractiveEngine();
@@ -209,6 +211,26 @@ export function useEngines(options: UseEnginesOptions = {}) {
     moderationEngine.current = moderation;
     analyticsEngine.current = analytics;
     audioEngine.current = audio;
+
+    // Auto-detect optimal quality and reconfigure streaming engine
+    detectDeviceCapabilities().then((caps) => {
+      const qualityPreset = caps.recommendedQuality;
+      const qualityConfig = DEFAULT_STREAM_CONFIGS[qualityPreset];
+      streaming.setConfig({
+        resolution: qualityConfig.resolution,
+        framerate: qualityConfig.framerate,
+        bitrate: qualityConfig.bitrate,
+        codec: qualityConfig.codec,
+        hardwareAccel: caps.encoderSupports1080p60 ? 'nvenc' : 'software',
+        audioCodec: qualityConfig.audioCodec,
+        audioBitrate: qualityConfig.audioBitrate,
+        keyframeInterval: qualityConfig.keyframeInterval,
+        profile: qualityConfig.profile,
+      });
+      console.log(`[useEngines] Auto-detected quality: ${qualityPreset}`, caps.cameraMaxResolution);
+    }).catch((err) => {
+      console.warn('[useEngines] Capability detection failed, using medium quality:', err);
+    });
 
     // ===== SET UP ENGINE CALLBACKS =====
 
@@ -757,6 +779,15 @@ export function useEngines(options: UseEnginesOptions = {}) {
     }));
   }, []);
 
+  // Stream config methods
+  const getStreamConfig = useCallback(() => {
+    return streamingEngine.current?.getConfig() ?? null;
+  }, []);
+
+  const setStreamConfig = useCallback((config: Partial<import("@/engines/streaming/types").StreamConfig>) => {
+    streamingEngine.current?.setConfig(config);
+  }, []);
+
   // Get raw engine instances (for advanced usage)
   const getEngines = useCallback(() => ({
     streaming: streamingEngine.current,
@@ -840,5 +871,9 @@ export function useEngines(options: UseEnginesOptions = {}) {
     enableNoiseReduction,
     getAudioSources,
     removeAudioSource,
+
+    // Stream config
+    getStreamConfig,
+    setStreamConfig,
   };
 }

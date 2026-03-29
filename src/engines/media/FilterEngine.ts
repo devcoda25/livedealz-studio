@@ -1,5 +1,5 @@
 // Enhanced Filter Engine - TikTok-style filter system
-// FaceMesh will be loaded dynamically to avoid SSR issues
+// FaceMesh loaded dynamically to avoid SSR issues
 let mpFaceMesh: typeof import("@mediapipe/face_mesh") | null = null;
 type FaceMeshType = import("@mediapipe/face_mesh").FaceMesh;
 
@@ -75,24 +75,24 @@ export class FilterEngine {
     }
 
     public async initialize(): Promise<void> {
-        console.log("Initializing FilterEngine...");
+        console.log("[FilterEngine] Initializing...");
         
         // Initialize FaceMesh for AR overlays
         await this.initializeFaceMesh();
         
-        // Initialize background processor
+        // Initialize background processor (tasks-vision segmentation)
         await this.backgroundProcessor.initialize();
         
         // Initialize gesture processor
         await this.gestureProcessor.initialize();
         
-        console.log("FilterEngine fully initialized.");
+        console.log("[FilterEngine] Fully initialized.");
     }
 
     private async initializeFaceMesh(): Promise<void> {
         if (this.faceMesh) return;
         
-        console.log("Initializing FilterEngine FaceMesh...");
+        console.log("[FilterEngine] Initializing FaceMesh...");
         
         try {
             // Dynamic import to handle ESM/CJS properly
@@ -100,10 +100,11 @@ export class FilterEngine {
                 mpFaceMesh = await import("@mediapipe/face_mesh");
             }
             
-            const FaceMeshConstructor = mpFaceMesh?.FaceMesh || mpFaceMesh?.default?.FaceMesh;
+            // @ts-ignore - handle different export styles between ESM/CJS
+            const FaceMeshConstructor = mpFaceMesh?.FaceMesh || (mpFaceMesh as any)?.default?.FaceMesh || (mpFaceMesh as any)?.default;
 
             if (!FaceMeshConstructor) {
-                console.warn("FaceMesh constructor not available, skipping AR filters");
+                console.warn("[FilterEngine] FaceMesh constructor not available, skipping AR filters");
                 return;
             }
 
@@ -113,7 +114,7 @@ export class FilterEngine {
                 },
             });
         } catch (e) {
-            console.warn("Failed to initialize FaceMesh, AR filters unavailable:", e);
+            console.warn("[FilterEngine] Failed to initialize FaceMesh, AR filters unavailable:", e);
             return;
         }
 
@@ -143,13 +144,13 @@ export class FilterEngine {
             this.timeEffectProcessor.attach(this.canvasCtx, this.videoElement);
         }
         
-        console.log("FilterEngine attached to video/canvas.");
+        console.log("[FilterEngine] Attached to video/canvas.");
     }
 
     // ===== Filter Setters =====
 
     public setColorFilter(filterId: string | null): void {
-        if (!filterId) {
+        if (!filterId || filterId === 'none') {
             this.activeColorFilter = null;
             this.colorProcessor.setFilter(null);
             return;
@@ -162,11 +163,11 @@ export class FilterEngine {
             this.activeColorFilter = filter;
             this.colorProcessor.setFilter(filter);
             this.colorProcessor.setIntensity(this.colorIntensity);
-            console.log("Color filter set to:", filter.name);
+            console.log("[FilterEngine] Color filter set to:", filter.name);
         }
     }
 
-    public setBackgroundFilter(filterId: string | null): void {
+    public async setBackgroundFilter(filterId: string | null): Promise<void> {
         if (!filterId || filterId === 'bg_none') {
             this.activeBackgroundFilter = null;
             return;
@@ -176,8 +177,8 @@ export class FilterEngine {
         
         if (filter) {
             this.activeBackgroundFilter = filter;
-            this.backgroundProcessor.setBackground(filter);
-            console.log("Background filter set to:", filter.name);
+            await this.backgroundProcessor.setBackground(filter);
+            console.log("[FilterEngine] Background filter set to:", filter.name);
         }
     }
 
@@ -193,7 +194,7 @@ export class FilterEngine {
         if (filter) {
             this.activeChromaKeyFilter = filter;
             this.chromaKeyProcessor.setFilter(filter);
-            console.log("Chroma key filter set to:", filter.name);
+            console.log("[FilterEngine] Chroma key filter set to:", filter.name);
         }
     }
 
@@ -209,7 +210,7 @@ export class FilterEngine {
         if (filter) {
             this.activeGestureFilter = filter;
             this.gestureProcessor.setFilter(filter);
-            console.log("Gesture filter set to:", filter.name);
+            console.log("[FilterEngine] Gesture filter set to:", filter.name);
         }
     }
 
@@ -225,7 +226,7 @@ export class FilterEngine {
         if (filter) {
             this.activeTimeEffect = filter;
             this.timeEffectProcessor.setEffect(filter);
-            console.log("Time effect set to:", filter.name);
+            console.log("[FilterEngine] Time effect set to:", filter.name);
         }
     }
 
@@ -252,10 +253,20 @@ export class FilterEngine {
     public setColorIntensity(intensity: number): void {
         this.colorIntensity = Math.max(0, Math.min(100, intensity));
         this.colorProcessor.setIntensity(this.colorIntensity);
+        console.log("[FilterEngine] Color intensity set to:", this.colorIntensity);
     }
 
     public getColorIntensity(): number {
         return this.colorIntensity;
+    }
+
+    // Set AR filter by ID (new API)
+    public setARFilter(filterId: string | null): void {
+        if (!filterId || filterId === 'none') {
+            this.activeARFilter = 'none';
+            return;
+        }
+        this.activeARFilter = filterId;
     }
 
     // ===== Processing =====
@@ -282,7 +293,7 @@ export class FilterEngine {
     }
 
     private async loop(): Promise<void> {
-        if (!this.isRunning || !this.videoElement || !this.faceMesh) return;
+        if (!this.isRunning || !this.videoElement || !this.canvasElement) return;
 
         // Wait for video to be ready
         if (this.videoElement.readyState < 2) {
@@ -290,20 +301,54 @@ export class FilterEngine {
             return;
         }
 
-        try {
-            await this.faceMesh.send({ image: this.videoElement });
-        } catch (e) {
-            console.warn("FaceMesh send error:", e);
+        const video = this.videoElement;
+        const canvas = this.canvasElement;
+        const ctx = this.canvasCtx;
+
+        if (!ctx) {
+            this.animationFrameId = requestAnimationFrame(this.loop.bind(this));
+            return;
         }
 
-        // Process gesture detection
-        if (this.videoElement) {
-            await this.gestureProcessor.process(this.videoElement);
+        // Resize canvas to match video if needed
+        if (video.videoWidth && video.videoHeight) {
+            if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+            }
         }
 
-        // Process time effect
-        if (this.canvasElement && this.timeEffectProcessor.getEffectType() !== 'normal') {
-            this.timeEffectProcessor.process(this.canvasElement);
+        // Step 1: Draw base frame (background/chroma or raw video)
+        if (this.activeBackgroundFilter) {
+            this.backgroundProcessor.process(video, canvas);
+        } else if (this.activeChromaKeyFilter) {
+            this.chromaKeyProcessor.process(video, canvas);
+        } else {
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        }
+
+        // Step 2: Apply color grading via WebGL shaders (reads from canvas)
+        if (this.activeColorFilter && this.activeColorFilter.id !== 'none') {
+            this.colorProcessor.applyToVideoFrame(canvas);
+        }
+
+        // Step 3: Run FaceMesh for AR overlays (uses video for detection, draws to canvas)
+        if (this.faceMesh) {
+            try {
+                await this.faceMesh.send({ image: video });
+            } catch (e) {
+                // FaceMesh error is non-fatal
+            }
+        }
+
+        // Step 4: Process gesture detection
+        if (this.activeGestureFilter) {
+            await this.gestureProcessor.process(video);
+        }
+
+        // Step 5: Process time effect
+        if (this.timeEffectProcessor.getEffectType() !== 'normal') {
+            this.timeEffectProcessor.process(canvas);
         }
 
         this.animationFrameId = requestAnimationFrame(this.loop.bind(this));
@@ -316,37 +361,12 @@ export class FilterEngine {
         const width = this.canvasElement.width;
         const height = this.canvasElement.height;
 
-        ctx.save();
-        ctx.clearRect(0, 0, width, height);
-
-        // Draw video frame with all active filters applied
-        if (this.videoElement) {
-            // Apply background/chroma key first (behind person)
-            if (this.activeBackgroundFilter) {
-                this.backgroundProcessor.process(this.videoElement, this.canvasElement);
-            } else if (this.activeChromaKeyFilter) {
-                this.chromaKeyProcessor.process(this.videoElement, this.canvasElement);
-            } else {
-                // Draw raw video
-                ctx.drawImage(this.videoElement, 0, 0, width, height);
-            }
-            
-            // Apply color filter
-            if (this.activeColorFilter && this.activeColorFilter.cssFilter !== 'none') {
-                ctx.filter = this.colorProcessor.getCSSFilter();
-                ctx.drawImage(this.videoElement, 0, 0, width, height);
-                ctx.filter = 'none';
-            }
-        }
-
-        // Draw AR overlays (face filters)
+        // Draw AR overlays on top of the existing frame
         if (results.multiFaceLandmarks && this.activeARFilter !== "none") {
             for (const landmarks of results.multiFaceLandmarks) {
-                this.renderAREffect(ctx, landmarks, width, height);
+                this.renderAREffect(ctx, landmarks as any[], width, height);
             }
         }
-        
-        ctx.restore();
     }
 
     private renderAREffect(ctx: CanvasRenderingContext2D, landmarks: any[], width: number, height: number): void {
@@ -784,11 +804,6 @@ export class FilterEngine {
         }
     }
 
-    private drawGlasses(ctx: CanvasRenderingContext2D, landmarks: any[], w: number, h: number): void {
-        // Legacy - redirect to aviators
-        this.drawAviators(ctx, landmarks, w, h);
-    }
-
     private drawBunnyMask(ctx: CanvasRenderingContext2D, landmarks: any[], w: number, h: number): void {
         const topHead = landmarks[10];
         const nose = landmarks[1];
@@ -920,6 +935,7 @@ export class FilterEngine {
 
     dispose(): void {
         this.stop();
+        this.colorProcessor.dispose();
         this.backgroundProcessor.dispose();
         this.chromaKeyProcessor.dispose();
         this.gestureProcessor.dispose();

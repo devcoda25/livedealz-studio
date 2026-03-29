@@ -2,6 +2,7 @@ import React from "react";
 import { Mode, SceneId, PreviewMode, ProductionMode, ExternalTool, SourceId, FlashDealState, CurrentSpeaker, SCENES } from "./types";
 import { StagePreview } from "./StagePreview";
 import { PreviewModeToggle } from "./PreviewModeToggle";
+import { FilterCategory } from "../../../engines/media/types";
 
 // Helper for source label
 function sourceLabel(id: SourceId, pm: ProductionMode, et: ExternalTool) {
@@ -45,6 +46,8 @@ export function StagePanel(props: {
     transcriptionOn: boolean;
     transcript: string;
     activeFilter: string;
+    activeFilterCategory?: FilterCategory | null;
+    filterIntensity?: number;
     retryCameraAccess?: () => void;
     canvasSources?: any[];
     selectedSourceId?: string | null;
@@ -86,6 +89,8 @@ export function StagePanel(props: {
         transcriptionOn,
         transcript,
         activeFilter,
+        activeFilterCategory,
+        filterIntensity,
         retryCameraAccess,
         canvasSources,
         selectedSourceId,
@@ -141,6 +146,8 @@ export function StagePanel(props: {
                     transcriptionOn={transcriptionOn}
                     transcript={transcript}
                     activeFilter={activeFilter}
+                    activeFilterCategory={activeFilterCategory}
+                    filterIntensity={filterIntensity}
                     retryCameraAccess={retryCameraAccess}
                     isDemoMode={props.isDemoMode}
                     cameraError={props.cameraError}

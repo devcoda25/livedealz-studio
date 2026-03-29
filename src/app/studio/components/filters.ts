@@ -7,7 +7,7 @@ export const FILTER_CATEGORIES: { id: FilterCategory; label: string; icon: strin
         label: "Beauty",
         icon: "face_retouching_natural",
         filters: [
-            { id: "none", name: "None", category: FilterCategory.BEAUTY, icon: "block" },
+            { id: "beauty_none", name: "None", category: FilterCategory.BEAUTY, icon: "block" },
             { id: "soft_glam", name: "Soft Glam", category: FilterCategory.BEAUTY, icon: "face_retouching_natural" },
             { id: "radiance", name: "Radiance", category: FilterCategory.BEAUTY, icon: "flare" },
             { id: "porcelain", name: "Porcelain", category: FilterCategory.BEAUTY, icon: "face" },
@@ -37,7 +37,7 @@ export const FILTER_CATEGORIES: { id: FilterCategory; label: string; icon: strin
         label: "AR",
         icon: "face",
         filters: [
-            { id: "none", name: "None", category: FilterCategory.AR_FACE, icon: "block" },
+            { id: "ar_none", name: "None", category: FilterCategory.AR_FACE, icon: "block" },
             { id: "cat_ears", name: "Cat Ears", category: FilterCategory.AR_FACE, icon: "pets" },
             { id: "dog_ears", name: "Dog Ears", category: FilterCategory.AR_FACE, icon: "pets" },
             { id: "crown", name: "Crown", category: FilterCategory.AR_FACE, icon: "star" },
@@ -83,7 +83,7 @@ export const FILTER_CATEGORIES: { id: FilterCategory; label: string; icon: strin
         label: "Gesture",
         icon: "pan_tool",
         filters: [
-            { id: "none", name: "Off", category: FilterCategory.GESTURE, icon: "pan_tool" },
+            { id: "gesture_none", name: "Off", category: FilterCategory.GESTURE, icon: "pan_tool" },
             { id: "gesture_wave", name: "Wave Magic", category: FilterCategory.GESTURE, icon: "pan_tool" },
             { id: "gesture_thumbsup", name: "Hearts", category: FilterCategory.GESTURE, icon: "thumb_up" },
             { id: "gesture_peace", name: "Peace Split", category: FilterCategory.GESTURE, icon: "vpn_key" },
@@ -107,9 +107,9 @@ export const FILTER_CATEGORIES: { id: FilterCategory; label: string; icon: strin
     },
 ];
 
-export const getFilterStyle = (name: string) => {
+export const getFilterStyle = (id: string) => {
     for (const cat of FILTER_CATEGORIES) {
-        const found = cat.filters.find(f => f.name === name);
+        const found = cat.filters.find(f => f.id === id);
         if (found) return found;
     }
     return null;

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { Mode, PreviewMode, Campaign, CampaignSession } from "./types";
 
 export function ControlBar(props: {
@@ -35,7 +35,6 @@ export function ControlBar(props: {
     onToggleBuyers: () => void;
     showSources: boolean;
     onToggleSources: () => void;
-    // Campaign/Teleprompter
     campaigns: Campaign[];
     currentCampaign: Campaign | null;
     currentSession: CampaignSession | null;
@@ -74,11 +73,8 @@ export function ControlBar(props: {
         onToggleBuyers,
         showSources,
         onToggleSources,
-        campaigns,
         currentCampaign,
         currentSession,
-        onSelectCampaign,
-        onSelectSession,
         campaignModalOpen,
         onToggleCampaignModal,
         hostPresenting,
@@ -88,11 +84,14 @@ export function ControlBar(props: {
     const isLive = mode === "live";
     const isRehearsal = mode === "rehearsal";
 
-    // Button base styles for consistent sizing
-    const btnBase = "h-9 px-2.5 sm:px-3 rounded-full border text-[10px] sm:text-[11px] font-medium flex items-center justify-center gap-1.5 transition-all shrink-0";
+    // Icon-only button that reveals label on hover
+    const btnBase = "group h-9 px-2.5 rounded-full border text-[10px] font-medium flex items-center justify-center gap-0 hover:gap-1.5 transition-all shrink-0";
+
+    // Label that expands on hover
+    const labelClass = "max-w-0 overflow-hidden whitespace-nowrap group-hover:max-w-[100px] group-hover:ml-1 transition-all duration-200";
 
     return (
-        <div className="flex items-center justify-between px-2 sm:px-4 md:px-6 py-2 sm:py-3 border-t border-border bg-background/95 overflow-x-auto">
+        <div className="flex items-center justify-between w-full px-2 sm:px-4 md:px-6 py-2 sm:py-3 border-t border-border bg-background/95 overflow-x-auto">
             {/* Left Group - Audio/Video Controls */}
             <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
                 {/* Mic Button */}
@@ -105,7 +104,7 @@ export function ControlBar(props: {
                     title={micOn ? "Mute Microphone" : "Unmute Microphone"}
                 >
                     <span className="material-icons text-[16px] sm:text-[18px]">{micOn ? "mic" : "mic_off"}</span>
-                    <span className="hidden lg:inline">{micOn ? "Mic" : "Muted"}</span>
+                    <span className={labelClass}>{micOn ? "Mic" : "Muted"}</span>
                 </button>
 
                 {/* Camera Button */}
@@ -118,7 +117,7 @@ export function ControlBar(props: {
                     title={camOn ? "Turn Off Camera" : "Turn On Camera"}
                 >
                     <span className="material-icons text-[16px] sm:text-[18px]">{camOn ? "videocam" : "videocam_off"}</span>
-                    <span className="hidden lg:inline">{camOn ? "Camera" : "No Cam"}</span>
+                    <span className={labelClass}>{camOn ? "Camera" : "No Cam"}</span>
                 </button>
 
                 {/* Present Toggle Button */}
@@ -132,7 +131,7 @@ export function ControlBar(props: {
                         title={hostPresenting ? "Stop Presenting" : "Start Presenting"}
                     >
                         <span className="material-icons text-[16px] sm:text-[18px]">{hostPresenting ? "stop_circle" : "play_circle"}</span>
-                        <span className="hidden lg:inline">{hostPresenting ? "Stop" : "Present"}</span>
+                        <span className={labelClass}>{hostPresenting ? "Stop" : "Present"}</span>
                     </button>
                 )}
 
@@ -146,7 +145,7 @@ export function ControlBar(props: {
                     title="Sources"
                 >
                     <span className="material-icons text-[16px] sm:text-[18px]">add_circle</span>
-                    <span className="hidden lg:inline">Sources</span>
+                    <span className={labelClass}>Sources</span>
                 </button>
 
                 {/* Divider */}
@@ -162,20 +161,20 @@ export function ControlBar(props: {
                     title="Buyers"
                 >
                     <span className="material-icons text-[16px] sm:text-[18px]">groups</span>
-                    <span className="hidden lg:inline">Buyers</span>
+                    <span className={labelClass}>Buyers</span>
                 </button>
 
-                {/* Audio Mixer */}
+                {/* Audio & Video */}
                 <button
                     className={`${btnBase} ${audioMixerOpen
                         ? darkMode ? "bg-cyan-600 border-cyan-500 text-white" : "bg-cyan-500 border-cyan-400 text-white"
                         : "bg-muted border-border text-muted-foreground hover:text-foreground hover:bg-muted/80"
                         }`}
                     onClick={onToggleAudioMixer}
-                    title="Audio Mixer"
+                    title="Audio & Video"
                 >
-                    <span className="material-icons text-[16px] sm:text-[18px]">graphic_eq</span>
-                    <span className="hidden lg:inline">Mixer</span>
+                    <span className="material-icons text-[16px] sm:text-[18px]">tune</span>
+                    <span className={labelClass}>A/V</span>
                 </button>
 
                 {/* Multi-Cam */}
@@ -188,7 +187,7 @@ export function ControlBar(props: {
                     title="Multi-Camera"
                 >
                     <span className="material-icons text-[16px] sm:text-[18px]">cameraswitch</span>
-                    <span className="hidden lg:inline">Multi-Cam</span>
+                    <span className={labelClass}>Multi-Cam</span>
                 </button>
             </div>
 
@@ -199,7 +198,7 @@ export function ControlBar(props: {
             <div className="flex items-center justify-center gap-1.5 sm:gap-2 shrink-0">
                 {/* Rehearsal Button */}
                 <button
-                    className={`h-9 sm:h-10 px-3 sm:px-4 rounded-full text-[10px] sm:text-[11px] font-bold tracking-wide shadow-lg transition-all flex items-center gap-1.5 ${isRehearsal
+                    className={`group h-9 sm:h-10 px-3 sm:px-4 rounded-full text-[10px] sm:text-[11px] font-bold tracking-wide shadow-lg transition-all flex items-center gap-0 hover:gap-1.5 ${isRehearsal
                         ? darkMode ? "bg-amber-600 hover:bg-amber-700 text-white shadow-amber-900/30" : "bg-amber-500 hover:bg-amber-600 text-white shadow-amber-900/20"
                         : darkMode ? "bg-slate-700 hover:bg-slate-600 text-slate-200 shadow-slate-900/30" : "bg-slate-200 hover:bg-slate-300 text-slate-700 shadow-slate-900/20"
                         }`}
@@ -207,7 +206,7 @@ export function ControlBar(props: {
                     title={isRehearsal ? "End Rehearsal" : "Start Rehearsal"}
                 >
                     <span className="material-icons text-[14px] sm:text-[16px]">{isRehearsal ? "stop" : "play_arrow"}</span>
-                    <span className="hidden sm:inline">{isRehearsal ? "End" : "Rehearsal"}</span>
+                    <span className={labelClass}>{isRehearsal ? "End" : "Rehearsal"}</span>
                 </button>
 
                 {/* Go Live Button */}
@@ -235,7 +234,7 @@ export function ControlBar(props: {
                     title="Scene Manager"
                 >
                     <span className="material-icons text-[16px] sm:text-[18px]">theaters</span>
-                    <span className="hidden lg:inline">Scenes</span>
+                    <span className={labelClass}>Scenes</span>
                 </button>
 
                 {/* Filters */}
@@ -245,7 +244,7 @@ export function ControlBar(props: {
                     title="Filters"
                 >
                     <span className="material-icons text-[16px] sm:text-[18px]">auto_awesome</span>
-                    <span className="hidden lg:inline">Filters</span>
+                    <span className={labelClass}>Filters</span>
                 </button>
 
                 {/* My Campaigns */}
@@ -256,8 +255,8 @@ export function ControlBar(props: {
                         title={currentCampaign ? `Campaign: ${currentCampaign.name}` : "My Campaigns"}
                     >
                         <span className="material-icons text-[16px] sm:text-[18px]">campaign</span>
-                        <span className="hidden lg:inline">Campaigns</span>
-                        {currentSession && <span className="ml-1 px-1.5 py-0.5 rounded bg-white/20 text-[10px]">{currentSession.name.substring(0, 6)}..</span>}
+                        <span className={labelClass}>Campaigns</span>
+                        {currentSession && <span className="ml-1 px-1.5 py-0.5 rounded bg-white/20 text-[10px] group-hover:hidden">{currentSession.name.substring(0, 6)}..</span>}
                     </button>
                 </div>
 
@@ -274,7 +273,7 @@ export function ControlBar(props: {
                     title="Product Feeds"
                 >
                     <span className="material-icons text-[16px] sm:text-[18px]">shopping_bag</span>
-                    <span className="hidden lg:inline">Feeds</span>
+                    <span className={labelClass}>Feeds</span>
                 </button>
 
                 {/* Co-hosts */}
@@ -287,7 +286,7 @@ export function ControlBar(props: {
                     title="Co-hosts"
                 >
                     <span className="material-icons text-[16px] sm:text-[18px]">group</span>
-                    <span className="hidden lg:inline">Co-hosts</span>
+                    <span className={labelClass}>Co-hosts</span>
                 </button>
 
                 {/* Flash Deal */}
@@ -298,7 +297,7 @@ export function ControlBar(props: {
                         title="Stop Flash Deal"
                     >
                         <span className="material-icons text-[16px] sm:text-[18px]">bolt</span>
-                        <span className="hidden lg:inline">Stop Deal</span>
+                        <span className={labelClass}>Stop Deal</span>
                     </button>
                 ) : (
                     <button
@@ -307,7 +306,7 @@ export function ControlBar(props: {
                         title="Start Flash Deal"
                     >
                         <span className="material-icons text-[16px] sm:text-[18px]">bolt</span>
-                        <span className="hidden lg:inline">Start Deal</span>
+                        <span className={labelClass}>Start Deal</span>
                     </button>
                 )}
             </div>

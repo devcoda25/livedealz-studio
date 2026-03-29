@@ -1,7 +1,7 @@
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { FlashDealState, CurrentSpeaker, Mode } from "./types";
-import { getFilterStyle } from "./filters";
-import { FilterEngine, FilterType } from "@/engines/media/FilterEngine";
+import { FilterEngine } from "@/engines/media/FilterEngine";
+import { FilterCategory } from "@/engines/media/types";
 import { useRef, useEffect } from "react";
 
 const EV_ORANGE = "#f77f00";
@@ -22,7 +22,7 @@ function pad2(n: number) {
 export function StagePreview(props: {
     darkMode?: boolean;
     resolvedPreviewMode: "mobile" | "desktop";
-    forceMobileMode?: boolean; // Force mobile view on all screen sizes
+    forceMobileMode?: boolean;
     activeSceneLabel: string;
     liveTimerLabel: string;
     viewerCount: number;
@@ -41,6 +41,8 @@ export function StagePreview(props: {
     transcriptionOn: boolean;
     transcript: string;
     activeFilter: string;
+    activeFilterCategory?: FilterCategory | null;
+    filterIntensity?: number;
     retryCameraAccess?: () => void;
     isDemoMode?: boolean;
     cameraError?: string | null;
@@ -72,6 +74,8 @@ export function StagePreview(props: {
         transcriptionOn,
         transcript,
         activeFilter,
+        activeFilterCategory,
+        filterIntensity = 100,
         retryCameraAccess,
         isDemoMode,
         cameraError,
@@ -91,9 +95,7 @@ export function StagePreview(props: {
     const onlyCoHostPresenting = !hostPresenting && presentingCoHosts.length === 1;
     const multiplePresenters = hostPresenting && presentingCoHosts.length >= 1;
     const hasMultipleCoHostsPresenting = presentingCoHosts.length > 1;
-    // Single presenter (anyone) gets larger area in top-left
     const singlePresenter = (onlyHostPresenting || onlyCoHostPresenting) && !multiplePresenters;
-    // When main presenter is presenting, give them larger screen
     const mainPresenter = mainPresenterId ? presentingCoHosts.find(c => c.id === mainPresenterId) : null;
     const showMainPresenterLarger = mainPresenter && onlyCoHostPresenting;
 
@@ -114,8 +116,8 @@ export function StagePreview(props: {
         }
     }, [videoRef]);
 
+    // Initialize FilterEngine
     useEffect(() => {
-        // Initialize engine
         if (!filterEngineRef.current) {
             filterEngineRef.current = new FilterEngine();
         }
@@ -123,19 +125,12 @@ export function StagePreview(props: {
 
         const initEngine = async () => {
             if (videoRef.current && canvasRef.current) {
-                // Ensure canvas dimensions match video or container
-                // For now, allow CSS to handle display size, but we might need to set internal width/height?
-                // FilterEngine/FaceMesh usually requires correct internal resolution.
-                // We'll set it to videoWidth/videoHeight in the engine or here once loaded.
-                // Actually FilterEngine attaches and usually handles resize?
-                // Let's attach.
                 engine.attach(videoRef.current, canvasRef.current);
                 await engine.initialize();
                 engine.start();
             }
         };
 
-        // We need to wait for video to be ready? Engine loop checks readyState.
         initEngine();
 
         return () => {
@@ -144,11 +139,57 @@ export function StagePreview(props: {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    // Apply filter when activeFilter or category changes
     useEffect(() => {
-        if (filterEngineRef.current) {
-            filterEngineRef.current.setFilter(activeFilter as FilterType);
+        const engine = filterEngineRef.current;
+        if (!engine || !activeFilter) return;
+
+        const category = activeFilterCategory;
+        const id = activeFilter;
+
+        // Reset all filter types first
+        engine.setColorFilter(null);
+        engine.setARFilter(null);
+
+        if (!category || id === 'none' || id === 'beauty_none' || id === 'ar_none' || id === 'gesture_none') {
+            return;
         }
-    }, [activeFilter]);
+
+        switch (category) {
+            case FilterCategory.COLOR:
+            case FilterCategory.BEAUTY:
+                engine.setColorFilter(id);
+                engine.setColorIntensity(filterIntensity);
+                break;
+            case FilterCategory.AR_FACE:
+                engine.setARFilter(id);
+                break;
+            case FilterCategory.BACKGROUND:
+                engine.setBackgroundFilter(id);
+                break;
+            case FilterCategory.GREEN_SCREEN:
+                engine.setChromaKeyFilter(id);
+                break;
+            case FilterCategory.GESTURE:
+                engine.setGestureFilter(id);
+                break;
+            case FilterCategory.TIME:
+                engine.setTimeEffect(id);
+                break;
+        }
+    }, [activeFilter, activeFilterCategory]);
+
+    // Update intensity when it changes
+    useEffect(() => {
+        filterEngineRef.current?.setColorIntensity(filterIntensity);
+    }, [filterIntensity]);
+
+    // Shared canvas/video classes for positioning
+    const mediaClasses = multiplePresenters
+        ? 'w-1/2 h-full top-0 left-0'
+        : singlePresenter
+            ? 'w-2/3 h-full top-0 left-0'
+            : '';
 
     return (
         <div
@@ -164,25 +205,25 @@ export function StagePreview(props: {
                 style={{ aspectRatio: aspect, maxHeight: isMobile ? 'calc(100vh - 220px)' : undefined }}
             >
                 {isMobile && (multiplePresenters || onlyCoHostPresenting) ? (
-                    /* Mobile split-screen: flex-col layout, top-to-bottom */
+                    /* Mobile split-screen */
                     <>
                         <div className="w-full h-1/2 flex-shrink-0 relative">
+                            {/* Hidden video - used as input source for FilterEngine */}
                             <video
                                 ref={videoRef}
-                                className="w-full h-full object-cover transition-all duration-300"
+                                className="w-full h-full object-cover opacity-0 absolute inset-0"
                                 autoPlay muted playsInline
-                                style={{ filter: getFilterStyle(activeFilter) ? (getFilterStyle(activeFilter) as any).cssFilter || '' : '' }}
                             />
+                            {/* Canvas - FilterEngine output, what the user sees */}
                             <canvas
                                 ref={canvasRef}
-                                className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+                                className="w-full h-full object-cover"
                                 width={1280}
                                 height={720}
                             />
                         </div>
                         {presentingCoHosts.length > 0 && (
                             <div className="w-full h-1/2 flex-1 relative">
-                                {/* If multiple presenters, show vertical stack; otherwise show single */}
                                 {multiplePresenters || hasMultipleCoHostsPresenting ? (
                                     <div className="w-full h-full flex flex-col gap-1 p-1">
                                         {presentingCoHosts.slice(0, 4).map((coHost) => (
@@ -208,7 +249,6 @@ export function StagePreview(props: {
                                         </div>
                                     </div>
                                 )}
-                                {/* Green live indicator */}
                                 <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/20 border border-green-400 text-green-300 text-[10px]">
                                     <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
                                     LIVE
@@ -218,27 +258,18 @@ export function StagePreview(props: {
                         )}
                     </>
                 ) : (
-                    /* Desktop split-screen / single presenter: absolute positioning */
+                    /* Desktop / single presenter */
                     <>
+                        {/* Hidden video - used as input source for FilterEngine */}
                         <video
                             ref={videoRef}
-                            className={`absolute inset-0 w-full h-full object-cover transition-all duration-300 ${multiplePresenters
-                                ? 'w-1/2 h-full top-0 left-0'
-                                : singlePresenter
-                                    ? 'w-2/3 h-full top-0 left-0'
-                                    : ''
-                                }`}
+                            className={`absolute inset-0 w-full h-full object-cover opacity-0 ${mediaClasses}`}
                             autoPlay muted playsInline
-                            style={{ filter: getFilterStyle(activeFilter) ? (getFilterStyle(activeFilter) as any).cssFilter || '' : '' }}
                         />
+                        {/* Canvas - FilterEngine output, what the user sees */}
                         <canvas
                             ref={canvasRef}
-                            className={`absolute inset-0 w-full h-full object-cover pointer-events-none transition-all duration-300 ${multiplePresenters
-                                ? 'w-1/2 h-full top-0 left-0'
-                                : singlePresenter
-                                    ? 'w-2/3 h-full top-0 left-0'
-                                    : ''
-                                }`}
+                            className={`absolute inset-0 w-full h-full object-cover transition-all duration-300 ${mediaClasses}`}
                             width={1280}
                             height={720}
                         />
@@ -251,7 +282,6 @@ export function StagePreview(props: {
                                         : 'w-1/3 h-1/3 top-2 left-2 right-auto bottom-auto'
                                     }`}
                             >
-                                {/* If multiple presenters, show grid; otherwise show single */}
                                 {multiplePresenters || hasMultipleCoHostsPresenting ? (
                                     <div className="w-full h-full grid grid-cols-2 gap-1 p-1">
                                         {presentingCoHosts.slice(0, 4).map((coHost) => (
@@ -278,7 +308,6 @@ export function StagePreview(props: {
                                         </div>
                                     </div>
                                 )}
-                                {/* Green live indicator */}
                                 <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/20 border border-green-400 text-green-300 text-[10px]">
                                     <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
                                     LIVE
@@ -313,38 +342,6 @@ export function StagePreview(props: {
                     </div>
                 )}
 
-                {/* Live pill - moved to header */}
-                {/*
-                <div className="absolute top-2 left-2 flex flex-col gap-1 text-[10px]">
-                    <div className="inline-flex items-center gap-2 px-2 py-1 rounded-full bg-black/60 border border-white/10 text-slate-100">
-                        <span className="inline-flex items-center gap-1">
-                            <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
-                            <span className="w-2 h-2 rounded-full bg-red-500" />
-                            LIVE
-                        </span>
-                        <span className="opacity-80">{liveTimerLabel}</span>
-                    </div>
-                    <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/50 border border-white/10 text-slate-100">
-                        <span className="material-icons text-[14px]">visibility</span>
-                        <span>{viewerCount.toLocaleString()} viewers</span>
-                    </div>
-                </div>
-                */}
-
-                {/* AI chips - moved to header */}
-                {/*
-                <div className="absolute top-2 right-2 flex flex-col gap-1 text-[10px] items-end">
-                    <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/60 text-emerald-200 border border-emerald-400/60">
-                        <span className="material-icons text-[14px]">graphic_eq</span>
-                        <span>AI Audio: ON (Multi)</span>
-                    </div>
-                    <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/60 text-sky-100 border border-sky-400/60">
-                        <span className="material-icons text-[14px]">subtitles</span>
-                        <span>Captions: ON</span>
-                    </div>
-                </div>
-                */}
-
                 {/* Speaker */}
                 {currentSpeaker && (
                     <div className="absolute top-12 right-2">
@@ -378,60 +375,7 @@ export function StagePreview(props: {
                     </div>
                 )}
 
-                {/* Scene label - moved to header */}
-                {/*
-                <div className="absolute top-12 left-2 text-[10px] px-2 py-0.5 rounded-full bg-black/55 border border-white/10 text-slate-100">
-                    Scene: <span className="font-semibold">{activeSceneLabel}</span>
-                </div>
-                */}
-
-                {/* Language mix bar - moved to header */}
-                {/*
-                <div className="absolute left-2 right-2 bottom-2">
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                        <span className="text-[10px] text-slate-200">Viewer languages (sample)</span>
-                        <span className="text-[10px] text-slate-300">Source: {source}</span>
-                    </div>
-                    <div className="h-2 w-full rounded-full bg-slate-900/70 border border-white/10 overflow-hidden flex">
-                        {liveLangMix.map((seg, idx) => (
-                            <div
-                                key={seg.label}
-                                className="h-full"
-                                style={{ width: `${seg.pct}%`, backgroundColor: idx % 2 === 0 ? EV_ORANGE : EV_GREEN, opacity: 0.8 }}
-                                title={`${seg.label} · ${seg.pct}%`}
-                            />
-                        ))}
-                    </div>
-                </div>
-                */}
-
-                {/* Status */}
-                {screenShareOn && (
-                    <div className="absolute bottom-24 right-2 text-[10px] px-2 py-0.5 rounded-full bg-slate-900/70 border border-slate-700 text-slate-100">
-                        Screen sharing
-                    </div>
-                )}
-                {!camOn && (
-                    <div className="absolute bottom-24 left-2 text-[10px] px-2 py-0.5 rounded-full bg-red-500 text-white">
-                        Camera off
-                    </div>
-                )}
-
-                {/* Status - mic and camera - moved to header */}
-                {/*
-                <div className="absolute bottom-24 right-2 flex flex-col items-end gap-1 text-[10px]">
-                    <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/60 text-slate-100 border border-white/10">
-                        <span className="material-icons text-[14px]">{micOn ? "mic" : "mic_off"}</span>
-                        <span>{micOn ? "Mic live" : "Mic muted"}</span>
-                    </div>
-                    <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/60 text-slate-100 border border-white/10">
-                        <span className="material-icons text-[14px]">{camOn ? "videocam" : "videocam_off"}</span>
-                        <span>{camOn ? "Camera on" : "Camera off"}</span>
-                    </div>
-                </div>
-                */}
-
-                {/* Live Captions (YouTube Style Overlay) */}
+                {/* Live Captions */}
                 {transcriptionOn && (
                     <div className="absolute bottom-12 left-1/2 -translate-x-1/2 w-full max-w-[90%] flex flex-col items-center pointer-events-none transition-all duration-300">
                         <div className={`px-4 py-2 bg-gradient-to-r from-slate-950/80 to-slate-900/80 text-white text-[14px] md:text-[16px] font-medium leading-relaxed rounded-xl backdrop-blur-md shadow-lg border border-white/10 ${transcript ? 'opacity-100 scale-100' : 'opacity-75 scale-95'} transition-all duration-200`}>
@@ -450,13 +394,11 @@ export function StagePreview(props: {
                     </div>
                 )}
 
-                {/* Co-hosts Grid (side by side) - show all non-presenting co-hosts AND main host when not presenting */}
+                {/* Co-hosts Grid */}
                 {coHosts && coHosts.length > 0 && (
                     <div className="absolute right-2 top-20 flex flex-col gap-2 max-h-[200px] overflow-y-auto">
                         {coHosts.filter(c => {
-                            // Always show co-hosts who are not presenting
                             if (!c.isPresenting) return true;
-                            // Show main host in grid when not presenting
                             if (c.id === mainPresenterId && !hostPresenting) return true;
                             return false;
                         }).map((coHost) => (
@@ -476,6 +418,18 @@ export function StagePreview(props: {
                                 </div>
                             </div>
                         ))}
+                    </div>
+                )}
+
+                {/* Status indicators */}
+                {screenShareOn && (
+                    <div className="absolute bottom-24 right-2 text-[10px] px-2 py-0.5 rounded-full bg-slate-900/70 border border-slate-700 text-slate-100">
+                        Screen sharing
+                    </div>
+                )}
+                {!camOn && (
+                    <div className="absolute bottom-24 left-2 text-[10px] px-2 py-0.5 rounded-full bg-red-500 text-white">
+                        Camera off
                     </div>
                 )}
 

@@ -3,6 +3,7 @@ import { PreviewMode, ProductionMode, ExternalTool, SourceId, FlashDealState, Cu
 import { StagePreview } from "./StagePreview";
 import { PreviewModeToggle } from "./PreviewModeToggle";
 import { sourceLabel, getFullscreenElement, exitFullscreen, requestFullscreen } from "./utils";
+import { FilterCategory } from "../../../engines/media/types";
 
 export function ExpandedStageModal(props: {
     darkMode?: boolean;
@@ -26,6 +27,8 @@ export function ExpandedStageModal(props: {
     transcriptionOn: boolean;
     transcript: string;
     activeFilter: string;
+    activeFilterCategory?: FilterCategory | null;
+    filterIntensity?: number;
     coHosts?: { id: number; name: string; status: string; isMainPresenter?: boolean; isPresenting?: boolean }[];
     mainPresenterId?: number | null;
     hostPresenting?: boolean;
@@ -52,6 +55,8 @@ export function ExpandedStageModal(props: {
         transcriptionOn,
         transcript,
         activeFilter,
+        activeFilterCategory,
+        filterIntensity,
         coHosts,
         mainPresenterId,
         hostPresenting,
@@ -158,11 +163,8 @@ export function ExpandedStageModal(props: {
                         transcriptionOn={transcriptionOn}
                         transcript={transcript}
                         activeFilter={activeFilter}
-                        canvasSources={[]}
-                        selectedSourceId={null}
-                        onSelectSource={() => { }}
-                        onUpdateSourcePosition={() => { }}
-                        onUpdateSourceSize={() => { }}
+                        activeFilterCategory={activeFilterCategory}
+                        filterIntensity={filterIntensity}
                         hostPresenting={hostPresenting}
                         coHosts={coHosts}
                         mainPresenterId={mainPresenterId}
