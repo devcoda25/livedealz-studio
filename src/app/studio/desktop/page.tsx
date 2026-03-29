@@ -52,7 +52,7 @@ import { DEFAULT_STREAM_CONFIGS, StreamQuality, StreamConfig } from "@/engines/s
 
 export default function MyLiveDealzLiveStudioFullPage() {
   // Socket & Real State
-  const { state: socketState, sendChat, startFlash, stopFlash } = useStudioSocket();
+  const { state: socketState, sendChat, startFlash, stopFlash, getSocket } = useStudioSocket();
 
   // Engine Integration - All 5 engines unified
   const {
@@ -110,7 +110,24 @@ export default function MyLiveDealzLiveStudioFullPage() {
     removeAudioSource,
     getStreamConfig,
     setStreamConfig,
+    setSocket: engineSetSocket,
   } = useEngines();
+
+  // Wire socket into streaming engine for real-time signaling
+  useEffect(() => {
+    const socket = getSocket();
+    if (socket) {
+      engineSetSocket(socket);
+    }
+    // Re-wire on reconnect
+    const interval = setInterval(() => {
+      const s = getSocket();
+      if (s && s.connected) {
+        engineSetSocket(s);
+      }
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [getSocket, engineSetSocket]);
 
   // Detect system color scheme preference on mount
   const [darkMode, setDarkMode] = useState(false); // Default to avoid SSR mismatch, useEffect will update

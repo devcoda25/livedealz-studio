@@ -21,6 +21,8 @@ import { StreamOutput, WebRTCViewer } from './StreamOutput';
 import { StreamHealthMonitor } from './StreamHealth';
 import { StreamRecorder, RecordingOptions } from './StreamRecorder';
 
+import type { Socket } from 'socket.io-client';
+
 type EngineEventCallback = (event: StreamingEvent) => void;
 
 export class StreamingEngine {
@@ -39,6 +41,9 @@ export class StreamingEngine {
   // Output elements
   private canvas: HTMLCanvasElement | null = null;
   private videoElement: HTMLVideoElement | null = null;
+  
+  // Socket.IO for signaling
+  private socket: Socket | null = null;
   
   // Event handling
   private eventListeners: Map<StreamingEventType, Set<EngineEventCallback>> = new Map();
@@ -131,6 +136,20 @@ export class StreamingEngine {
    */
   getConfig(): StreamConfig {
     return { ...this.config };
+  }
+
+  /**
+   * Set the Socket.IO instance for signaling (WebRTC, RTMP, HLS)
+   */
+  setSocket(socket: Socket): void {
+    this.socket = socket;
+  }
+
+  /**
+   * Get the current socket
+   */
+  getSocket(): Socket | null {
+    return this.socket;
   }
 
   // ==========================================
@@ -314,15 +333,23 @@ export class StreamingEngine {
       // Create and start output
       this.streamOutput = new StreamOutput(this.config);
       
+      // Generate a unique stream ID
+      const streamId = (outputConfig?.streamId as string) || `stream-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
       switch (protocol) {
         case 'webrtc':
           await this.streamOutput.startWebRTC({
-            urls: outputConfig?.urls as string[] || ['wss://your-sfu-server.com'],
+            streamId,
             iceServers: outputConfig?.iceServers as RTCIceServer[] || undefined,
+            socket: this.socket || undefined,
           });
           break;
           
         case 'rtmp':
+          // Set socket and streamId before starting RTMP
+          if (this.socket) {
+            this.streamOutput.setSocket(this.socket);
+          }
           await this.streamOutput.startRTMP({
             url: outputConfig?.url as string || 'rtmp://your-server.com/live',
             streamKey: outputConfig?.streamKey as string || 'stream-key',
@@ -331,9 +358,9 @@ export class StreamingEngine {
           
         case 'hls':
           await this.streamOutput.startHLS({
-            manifestUrl: outputConfig?.manifestUrl as string || 'https://your-cdn.com/live/playlist.m3u8',
+            streamId,
             segmentDuration: outputConfig?.segmentDuration as number || 6,
-            maxSegments: outputConfig?.maxSegments as number || 10,
+            socket: this.socket || undefined,
           });
           break;
       }
@@ -343,11 +370,20 @@ export class StreamingEngine {
         this.streamOutput.setLocalStream(stream);
       }
       
+      // Route encoded frames to output
+      this.videoEncoder.onFrame((frame) => {
+        this.streamOutput?.sendVideoFrame(frame.data, frame.timestamp, frame.type === 'keyframe');
+      });
+
+      this.audioEncoder.onFrame((data, timestamp) => {
+        this.streamOutput?.sendAudioFrame(data, timestamp);
+      });
+      
       // Start health monitoring
       this.healthMonitor.startMonitoring();
       
       this.setState('live');
-      this.emit('stream:started', { protocol });
+      this.emit('stream:started', { protocol, streamId });
       
       return true;
     } catch (error) {

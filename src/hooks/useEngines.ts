@@ -788,6 +788,13 @@ export function useEngines(options: UseEnginesOptions = {}) {
     streamingEngine.current?.setConfig(config);
   }, []);
 
+  /**
+   * Set the Socket.IO instance on the streaming engine for real signaling
+   */
+  const setSocket = useCallback((socket: import("socket.io-client").Socket) => {
+    streamingEngine.current?.setSocket(socket);
+  }, []);
+
   // Get raw engine instances (for advanced usage)
   const getEngines = useCallback(() => ({
     streaming: streamingEngine.current,
@@ -875,5 +882,8 @@ export function useEngines(options: UseEnginesOptions = {}) {
     // Stream config
     getStreamConfig,
     setStreamConfig,
+
+    // Socket (for streaming signaling)
+    setSocket,
   };
 }

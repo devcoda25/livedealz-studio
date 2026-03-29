@@ -594,7 +594,10 @@ export class VideoEncoder {
 }
 
 /**
- * Audio Encoder - Handles AAC/Opus audio encoding
+ * Audio Encoder - Handles AAC/Opus audio encoding using WebCodecs + AudioContext
+ * 
+ * Captures PCM audio from a MediaStream via AudioContext, converts to
+ * the target sample rate/format, and encodes using WebCodecs AudioEncoder.
  */
 export class AudioEncoder {
   private config: {
@@ -603,12 +606,28 @@ export class AudioEncoder {
     sampleRate: number;
     channels: 1 | 2;
   };
-  private encoder: AudioWorkletNode | null = null;
   private isEncoding = false;
 
   // WebCodecs
   private audioEncoder: globalThis.AudioEncoder | null = null;
   private onEncodedFrame: ((data: ArrayBuffer, timestamp: number) => void) | null = null;
+
+  // Audio capture
+  private audioContext: AudioContext | null = null;
+  private sourceNode: MediaStreamAudioSourceNode | null = null;
+  private scriptNode: ScriptProcessorNode | null = null;
+  private analyserNode: AnalyserNode | null = null;
+
+  // Stats
+  private stats = {
+    framesEncoded: 0,
+    bytesEncoded: 0,
+    encodeErrors: 0,
+  };
+
+  // Microseconds timestamp for AudioData
+  private frameTimestamp = 0;
+  private frameCount = 0;
 
   constructor(config?: Partial<typeof AudioEncoder.prototype.config>) {
     this.config = {
@@ -632,7 +651,7 @@ export class AudioEncoder {
    */
   async initialize(): Promise<boolean> {
     if (!AudioEncoder.isSupported()) {
-      console.warn('WebCodecs AudioEncoder not supported');
+      console.warn('[AudioEncoder] WebCodecs AudioEncoder not supported');
       return false;
     }
 
@@ -647,32 +666,92 @@ export class AudioEncoder {
       });
 
       if (!support.supported) {
-        console.warn('Audio encoder config not supported');
-        return false;
+        console.warn('[AudioEncoder] Config not supported, trying fallback...');
+        return this.initializeFallback();
       }
 
       this.audioEncoder = new globalThis.AudioEncoder({
         output: (chunk) => {
-          // Use copyTo to get the encoded data
           const buffer = new ArrayBuffer(chunk.byteLength);
           chunk.copyTo(buffer);
+          this.stats.bytesEncoded += chunk.byteLength;
           this.onEncodedFrame?.(buffer, chunk.timestamp);
         },
         error: (error) => {
-          console.error('AudioEncoder error:', error);
+          console.error('[AudioEncoder] Error:', error);
+          this.stats.encodeErrors++;
         },
       });
 
       this.audioEncoder.configure(support.config!);
+      console.log('[AudioEncoder] Initialized with codec:', codecString);
       return true;
     } catch (error) {
-      console.error('Failed to initialize AudioEncoder:', error);
+      console.error('[AudioEncoder] Failed to initialize:', error);
+      return this.initializeFallback();
+    }
+  }
+
+  /**
+   * Fallback initialization with lower settings
+   */
+  private async initializeFallback(): Promise<boolean> {
+    try {
+      // Try with Opus at lower sample rate
+      const fallbackConfigs = [
+        { codec: 'opus' as const, sampleRate: 48000, channels: 2 as const },
+        { codec: 'opus' as const, sampleRate: 48000, channels: 1 as const },
+        { codec: 'aac' as const, sampleRate: 44100, channels: 2 as const },
+        { codec: 'aac' as const, sampleRate: 44100, channels: 1 as const },
+      ];
+
+      for (const cfg of fallbackConfigs) {
+        try {
+          const codecString = cfg.codec === 'aac' ? 'mp4a.40.2' : 'opus';
+          const support = await globalThis.AudioEncoder.isConfigSupported({
+            codec: codecString,
+            sampleRate: cfg.sampleRate,
+            numberOfChannels: cfg.channels,
+            bitrate: this.config.bitrate,
+          });
+
+          if (support.supported) {
+            this.config.codec = cfg.codec;
+            this.config.sampleRate = cfg.sampleRate;
+            this.config.channels = cfg.channels;
+
+            this.audioEncoder = new globalThis.AudioEncoder({
+              output: (chunk) => {
+                const buffer = new ArrayBuffer(chunk.byteLength);
+                chunk.copyTo(buffer);
+                this.stats.bytesEncoded += chunk.byteLength;
+                this.onEncodedFrame?.(buffer, chunk.timestamp);
+              },
+              error: (error) => {
+                console.error('[AudioEncoder] Error:', error);
+                this.stats.encodeErrors++;
+              },
+            });
+
+            this.audioEncoder.configure(support.config!);
+            console.log('[AudioEncoder] Fallback initialized:', cfg);
+            return true;
+          }
+        } catch {
+          continue;
+        }
+      }
+
+      console.warn('[AudioEncoder] No supported configuration found');
+      return false;
+    } catch (error) {
+      console.error('[AudioEncoder] Fallback initialization failed:', error);
       return false;
     }
   }
 
   /**
-   * Get codec string
+   * Get codec string for WebCodecs
    */
   private getCodecString(): string {
     switch (this.config.codec) {
@@ -696,48 +775,196 @@ export class AudioEncoder {
 
   /**
    * Start encoding from a MediaStream
+   * Sets up AudioContext to capture PCM data and feed to WebCodecs encoder
    */
   startEncoding(stream: MediaStream): void {
     if (this.isEncoding) return;
 
     const audioTrack = stream.getAudioTracks()[0];
     if (!audioTrack) {
-      console.warn('No audio track in stream');
+      console.warn('[AudioEncoder] No audio track in stream');
       return;
     }
 
     this.isEncoding = true;
+    this.frameTimestamp = 0;
+    this.frameCount = 0;
 
-    // For now, pass through the track
-    // Real implementation would use AudioWorklet for encoding
+    try {
+      // Create AudioContext at the target sample rate
+      this.audioContext = new AudioContext({
+        sampleRate: this.config.sampleRate,
+      });
+
+      // Create source from the MediaStream
+      this.sourceNode = this.audioContext.createMediaStreamSource(stream);
+
+      // Create analyser for level monitoring (optional, non-blocking)
+      this.analyserNode = this.audioContext.createAnalyser();
+      this.analyserNode.fftSize = 2048;
+      this.sourceNode.connect(this.analyserNode);
+
+      // Create ScriptProcessorNode for PCM capture
+      // Buffer size: 4096 gives ~85ms at 48kHz - good for encoding batches
+      const bufferSize = 4096;
+      this.scriptNode = this.audioContext.createScriptProcessor(
+        bufferSize,
+        this.config.channels,   // input channels
+        this.config.channels     // output channels
+      );
+
+      this.scriptNode.onaudioprocess = (event) => {
+        if (!this.isEncoding || !this.audioEncoder) return;
+
+        const inputBuffer = event.inputBuffer;
+        const numChannels = inputBuffer.numberOfChannels;
+        const numFrames = inputBuffer.length;
+
+        // Get PCM data from each channel
+        const channelData: Float32Array[] = [];
+        for (let ch = 0; ch < numChannels; ch++) {
+          channelData.push(inputBuffer.getChannelData(ch));
+        }
+
+        // Interleave channels into a single Float32Array for WebCodecs
+        const interleaved = new Float32Array(numFrames * numChannels);
+        for (let frame = 0; frame < numFrames; frame++) {
+          for (let ch = 0; ch < numChannels; ch++) {
+            interleaved[frame * numChannels + ch] = channelData[ch][frame];
+          }
+        }
+
+        // Calculate timestamp in microseconds
+        this.frameCount++;
+        const frameDurationUs = (numFrames / this.config.sampleRate) * 1_000_000;
+        this.frameTimestamp += frameDurationUs;
+
+        // Create AudioData and encode
+        try {
+          const audioData = new AudioData({
+            format: 'f32',
+            sampleRate: this.config.sampleRate,
+            numberOfFrames: numFrames,
+            numberOfChannels: numChannels,
+            timestamp: this.frameTimestamp,
+            data: interleaved,
+          });
+
+          if (this.audioEncoder.state === 'configured') {
+            this.audioEncoder.encode(audioData);
+            this.stats.framesEncoded++;
+          }
+          audioData.close();
+        } catch (error) {
+          console.error('[AudioEncoder] Encode error:', error);
+          this.stats.encodeErrors++;
+        }
+      };
+
+      // Connect: source -> analyser -> scriptNode -> destination (silent)
+      this.sourceNode.connect(this.scriptNode);
+      // Don't connect to destination to avoid feedback - just process internally
+
+      console.log('[AudioEncoder] Started encoding from stream');
+    } catch (error) {
+      console.error('[AudioEncoder] Failed to start encoding:', error);
+      this.isEncoding = false;
+    }
   }
 
   /**
-   * Encode audio data
+   * Encode audio data directly (for pre-processed AudioData)
    */
   encodeAudio(audioData: AudioData): void {
     if (!this.audioEncoder || !this.isEncoding) return;
-    this.audioEncoder.encode(audioData);
+    if (this.audioEncoder.state !== 'configured') return;
+
+    try {
+      this.audioEncoder.encode(audioData);
+      this.stats.framesEncoded++;
+    } catch (error) {
+      console.error('[AudioEncoder] Direct encode error:', error);
+      this.stats.encodeErrors++;
+    }
   }
 
   /**
-   * Stop encoding
+   * Get current audio level (0-1) from the analyser
+   */
+  getAudioLevel(): number {
+    if (!this.analyserNode) return 0;
+
+    const data = new Uint8Array(this.analyserNode.frequencyBinCount);
+    this.analyserNode.getByteTimeDomainData(data);
+
+    let max = 0;
+    for (let i = 0; i < data.length; i++) {
+      const normalized = Math.abs((data[i] - 128) / 128);
+      if (normalized > max) max = normalized;
+    }
+    return max;
+  }
+
+  /**
+   * Get encoder statistics
+   */
+  getStats() {
+    return { ...this.stats };
+  }
+
+  /**
+   * Stop encoding and clean up AudioContext
    */
   stop(): void {
     this.isEncoding = false;
 
+    // Disconnect audio nodes
+    if (this.scriptNode) {
+      this.scriptNode.disconnect();
+      this.scriptNode.onaudioprocess = null;
+      this.scriptNode = null;
+    }
+
+    if (this.analyserNode) {
+      this.analyserNode.disconnect();
+      this.analyserNode = null;
+    }
+
+    if (this.sourceNode) {
+      this.sourceNode.disconnect();
+      this.sourceNode = null;
+    }
+
+    // Close AudioContext
+    if (this.audioContext && this.audioContext.state !== 'closed') {
+      this.audioContext.close().catch(() => {});
+      this.audioContext = null;
+    }
+
+    // Close WebCodecs encoder
     if (this.audioEncoder) {
-      this.audioEncoder.close();
+      if (this.audioEncoder.state !== 'closed') {
+        this.audioEncoder.close();
+      }
       this.audioEncoder = null;
     }
+
+    console.log('[AudioEncoder] Stopped. Stats:', this.stats);
   }
 
   /**
    * Flush remaining frames
    */
   async flush(): Promise<void> {
-    if (this.audioEncoder) {
+    if (this.audioEncoder && this.audioEncoder.state === 'configured') {
       await this.audioEncoder.flush();
     }
+  }
+
+  /**
+   * Check if encoder is active
+   */
+  isActive(): boolean {
+    return this.isEncoding && this.audioEncoder !== null;
   }
 }

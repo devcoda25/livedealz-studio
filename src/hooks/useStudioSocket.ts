@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useReducer, useRef } from "react";
+import { useEffect, useReducer, useRef, useCallback } from "react";
 import io, { Socket } from "socket.io-client";
 import { StudioState, ChatMessage, FlashDeal } from "../engines/studio/types";
 
@@ -38,7 +38,7 @@ const initialState: StudioState = {
 
 export function useStudioSocket() {
     const [state, dispatch] = useReducer(reducer, initialState);
-    const socketRef = useRef<any>(null);
+    const socketRef = useRef<Socket | null>(null);
 
     useEffect(() => {
         // Initialize Socket
@@ -77,8 +77,6 @@ export function useStudioSocket() {
             time: new Date().toLocaleTimeString(),
             system: false,
         };
-        // Optimistic update (optional, usually better to wait for echo)
-        // dispatch({ type: 'ADD_CHAT', payload: msg });
         socketRef.current.emit("chat:message", msg);
     };
 
@@ -90,10 +88,32 @@ export function useStudioSocket() {
         socketRef.current?.emit("flash:stop");
     };
 
+    /**
+     * Get the raw socket instance for streaming signaling
+     */
+    const getSocket = useCallback((): Socket | null => {
+        return socketRef.current;
+    }, []);
+
+    /**
+     * Listen for WebRTC signaling events
+     */
+    const onWebRTCEvent = useCallback((event: string, handler: (...args: any[]) => void) => {
+        const socket = socketRef.current;
+        if (!socket) return () => {};
+
+        socket.on(event, handler);
+        return () => {
+            socket.off(event, handler);
+        };
+    }, []);
+
     return {
         state,
         sendChat,
         startFlash,
         stopFlash,
+        getSocket,
+        onWebRTCEvent,
     };
 }

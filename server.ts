@@ -4,7 +4,8 @@ import { parse } from 'url';
 import next from 'next';
 import { config } from 'dotenv';
 import { Server } from 'socket.io';
-// import { studioState } from './src/socket/state'; // Replaced by StudioEngine
+import fs from 'fs';
+import path from 'path';
 
 // Load environment variables from .env file
 config();
@@ -17,9 +18,46 @@ const port = parseInt(process.env.PORT || '9002', 10);
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
 
+const HLS_OUTPUT_DIR = path.join(process.cwd(), '.hls-output');
+
 app.prepare().then(() => {
   const httpServer = createServer(async (req, res) => {
     try {
+      // Serve HLS files
+      if (req.url?.startsWith('/hls/')) {
+        const filePath = path.join(HLS_OUTPUT_DIR, req.url.replace('/hls/', ''));
+        const resolved = path.resolve(filePath);
+
+        // Security: ensure the path is within HLS_OUTPUT_DIR
+        if (!resolved.startsWith(HLS_OUTPUT_DIR)) {
+          res.statusCode = 403;
+          res.end('Forbidden');
+          return;
+        }
+
+        if (!fs.existsSync(resolved)) {
+          res.statusCode = 404;
+          res.end('Not Found');
+          return;
+        }
+
+        const ext = path.extname(resolved).toLowerCase();
+        const contentType = ext === '.m3u8'
+          ? 'application/vnd.apple.mpegurl'
+          : ext === '.ts'
+            ? 'video/mp2t'
+            : 'application/octet-stream';
+
+        res.writeHead(200, {
+          'Content-Type': contentType,
+          'Cache-Control': 'no-cache',
+          'Access-Control-Allow-Origin': '*',
+        });
+
+        fs.createReadStream(resolved).pipe(res);
+        return;
+      }
+
       const parsedUrl = parse(req.url!, true);
       await handle(req, res, parsedUrl);
     } catch (err) {
@@ -30,14 +68,13 @@ app.prepare().then(() => {
   });
 
   // Initialize Socket.IO
-  const io = new Server(httpServer);
+  const io = new Server(httpServer, {
+    maxHttpBufferSize: 10 * 1024 * 1024, // 10MB for binary frame data
+  });
 
   // Initialize the Studio Engine
   const { StudioServer } = require('./src/engines/studio/StudioServer');
   new StudioServer(io);
-
-  // Replaced manual logic with StudioServer
-  // io.on('connection', ...) is now handled inside StudioServer
 
   httpServer
     .once('error', (err) => {
