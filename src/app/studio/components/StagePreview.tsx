@@ -147,11 +147,20 @@ export function StagePreview(props: {
         const category = activeFilterCategory;
         const id = activeFilter;
 
-        // Reset all filter types first
+        // Reset ALL filter types first to prevent cross-category conflicts
         engine.setColorFilter(null);
         engine.setARFilter(null);
+        engine.setBackgroundFilter(null);
+        engine.setChromaKeyFilter(null);
+        engine.setGestureFilter(null);
+        engine.setTimeEffect(null);
 
-        if (!category || id === 'none' || id === 'beauty_none' || id === 'ar_none' || id === 'gesture_none') {
+        const isResetId = !category
+            || id === 'none' || id === 'beauty_none' || id === 'ar_none'
+            || id === 'gesture_none' || id === 'bg_none'
+            || id === 'chroma_off' || id === 'time_normal';
+
+        if (isResetId) {
             return;
         }
 

@@ -1,7 +1,15 @@
 // Enhanced Filter Engine - TikTok-style filter system
-// FaceMesh loaded dynamically to avoid SSR issues
-let mpFaceMesh: typeof import("@mediapipe/face_mesh") | null = null;
-type FaceMeshType = import("@mediapipe/face_mesh").FaceMesh;
+// FaceMesh loaded via CDN script tag to avoid webpack CJS/ESM interop issues
+type FaceMeshType = {
+    setOptions(options: Record<string, unknown>): void;
+    onResults(callback: (results: { multiFaceLandmarks?: unknown[] }) => void): void;
+    send(input: { image: HTMLVideoElement | HTMLCanvasElement }): Promise<void>;
+    close(): void;
+};
+
+// Track if CDN script is already loaded
+let faceMeshScriptLoaded = false;
+let faceMeshScriptLoading: Promise<void> | null = null;
 
 // Import processors
 import {
@@ -89,25 +97,50 @@ export class FilterEngine {
         console.log("[FilterEngine] Fully initialized.");
     }
 
+    private loadFaceMeshScript(): Promise<void> {
+        if (faceMeshScriptLoaded) return Promise.resolve();
+        if (faceMeshScriptLoading) return faceMeshScriptLoading;
+
+        faceMeshScriptLoading = new Promise<void>((resolve, reject) => {
+            if (typeof window === 'undefined') {
+                reject(new Error('Cannot load FaceMesh in SSR context'));
+                return;
+            }
+
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js';
+            script.crossOrigin = 'anonymous';
+            script.onload = () => {
+                faceMeshScriptLoaded = true;
+                console.log("[FilterEngine] FaceMesh CDN script loaded");
+                resolve();
+            };
+            script.onerror = () => {
+                reject(new Error('Failed to load FaceMesh from CDN'));
+            };
+            document.head.appendChild(script);
+        });
+
+        return faceMeshScriptLoading;
+    }
+
     private async initializeFaceMesh(): Promise<void> {
         if (this.faceMesh) return;
         
         console.log("[FilterEngine] Initializing FaceMesh...");
         
         try {
-            // Dynamic import to handle ESM/CJS properly
-            if (!mpFaceMesh) {
-                mpFaceMesh = await import("@mediapipe/face_mesh");
-            }
-            
-            // @ts-ignore - handle different export styles between ESM/CJS
-            const FaceMeshConstructor = mpFaceMesh?.FaceMesh || (mpFaceMesh as any)?.default?.FaceMesh || (mpFaceMesh as any)?.default;
+            // Load FaceMesh via CDN script tag - avoids webpack CJS/ESM interop issues
+            await this.loadFaceMeshScript();
 
+            // Access the global FaceMesh constructor set by the CDN script
+            const FaceMeshConstructor = (window as any).FaceMesh;
             if (!FaceMeshConstructor) {
-                console.warn("[FilterEngine] FaceMesh constructor not available, skipping AR filters");
+                console.warn("[FilterEngine] FaceMesh not available on window after script load");
                 return;
             }
 
+            console.log("[FilterEngine] FaceMesh constructor resolved via CDN, creating instance...");
             this.faceMesh = new FaceMeshConstructor({
                 locateFile: (file: string) => {
                     return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`;
@@ -117,6 +150,8 @@ export class FilterEngine {
             console.warn("[FilterEngine] Failed to initialize FaceMesh, AR filters unavailable:", e);
             return;
         }
+
+        if (!this.faceMesh) return;
 
         this.faceMesh.setOptions({
             maxNumFaces: 1,
@@ -262,11 +297,13 @@ export class FilterEngine {
 
     // Set AR filter by ID (new API)
     public setARFilter(filterId: string | null): void {
-        if (!filterId || filterId === 'none') {
+        if (!filterId || filterId === 'none' || filterId === 'ar_none') {
             this.activeARFilter = 'none';
+            console.log("[FilterEngine] AR filter cleared");
             return;
         }
         this.activeARFilter = filterId;
+        console.log("[FilterEngine] AR filter set to:", filterId);
     }
 
     // ===== Processing =====
@@ -333,7 +370,7 @@ export class FilterEngine {
         }
 
         // Step 3: Run FaceMesh for AR overlays (uses video for detection, draws to canvas)
-        if (this.faceMesh) {
+        if (this.faceMesh && this.activeARFilter !== 'none') {
             try {
                 await this.faceMesh.send({ image: video });
             } catch (e) {
@@ -342,7 +379,7 @@ export class FilterEngine {
         }
 
         // Step 4: Process gesture detection
-        if (this.activeGestureFilter) {
+        if (this.activeGestureFilter && this.activeGestureFilter.id !== 'gesture_none') {
             await this.gestureProcessor.process(video);
         }
 
