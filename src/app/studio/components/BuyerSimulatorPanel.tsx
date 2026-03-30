@@ -180,7 +180,7 @@ export function BuyerSimulatorPanel(props: {
                 {selected && (
                     <div className={`border-t ${darkMode ? "border-slate-800" : "border-slate-200"} pt-2 mb-2`}>
                         <div className="flex items-center justify-between mb-1">
-                            <span className="text-[9px] text-muted-foreground">Preview: <span className="text-sky-400">{selected.name}</span>{isSpeaking && <span className="ml-1 animate-pulse text-green-400">🔊</span>}</span>
+                            <span className="text-[9px] text-muted-foreground">Preview: <span className="text-sky-400">{selected.name}</span>{isSpeaking && <span className="ml-1 animate-pulse text-green-700 dark:text-green-400">🔊</span>}</span>
                             <span className="text-[8px] px-1.5 py-0.5 rounded bg-black/60 border border-white/10 text-muted-foreground">
                                 {selected.lang.toUpperCase()} · {modeLabel}
                             </span>
@@ -215,7 +215,7 @@ export function BuyerSimulatorPanel(props: {
                                             <span className="text-slate-300">🛒 {selectedBuyerCartQty}</span>
                                         )}
                                     </div>
-                                    <div className="text-emerald-300 font-semibold text-[10px] mt-0.5">
+                                    <div className="text-emerald-700 dark:text-emerald-300 font-semibold text-[10px] mt-0.5">
                                         {flashOnFeatured && featuredPrice.applies ? (
                                             <>
                                                 <span className="line-through text-muted text-[8px] mr-1">{fmtMoneyUSD(featuredProduct?.basePrice || 0)}</span>
@@ -258,7 +258,7 @@ export function BuyerSimulatorPanel(props: {
 
                 {/* Simulation Controls */}
                 <div className="grid grid-cols-3 gap-1 mt-2">
-                    <button className="flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-lg border border-border bg-muted/50 hover:bg-emerald-500/10 hover:border-emerald-500/50 hover:text-emerald-300 text-[8px] text-muted-foreground transition-colors" onClick={onBuyNow}>
+                    <button className="flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-lg border border-border bg-muted/50 hover:bg-emerald-500/10 hover:border-emerald-500/50 hover:text-emerald-700 dark:text-emerald-300 text-[8px] text-muted-foreground transition-colors" onClick={onBuyNow}>
                         <span className="material-icons text-[12px]">shopping_bag</span>
                         Buy
                     </button>

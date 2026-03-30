@@ -1807,34 +1807,34 @@ export default function MyLiveDealzLiveStudioFullPage() {
           {/* Live status - Mic, Camera, Scene info */}
           <div className="hidden md:flex items-center gap-2 text-[10px]">
             {/* Mic status */}
-            <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border ${micOn ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-200' : 'bg-red-500/10 border-red-500/40 text-red-300'}`}>
+            <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border ${micOn ? 'bg-emerald-500/10 border-emerald-600/40 dark:border-emerald-500/40 text-emerald-700 dark:text-emerald-200' : 'bg-red-500/10 border-red-500/40 text-red-300'}`}>
               <span className="material-icons text-[12px]">{micOn ? 'mic' : 'mic_off'}</span>
               <span>{micOn ? 'Mic' : 'Muted'}</span>
             </div>
             {/* Camera status */}
-            <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border ${camOn ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-200' : 'bg-red-500/10 border-red-500/40 text-red-300'}`}>
+            <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border ${camOn ? 'bg-emerald-500/10 border-emerald-600/40 dark:border-emerald-500/40 text-emerald-700 dark:text-emerald-200' : 'bg-red-500/10 border-red-500/40 text-red-300'}`}>
               <span className="material-icons text-[12px]">{camOn ? 'videocam' : 'videocam_off'}</span>
               <span>{camOn ? 'Cam' : 'Off'}</span>
             </div>
             {/* Scene label */}
-            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-900 border border-slate-700 text-slate-300">
+            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300">
               <span className="material-icons text-[12px]">movie</span>
               <span>Scene: {activeSceneLabel}</span>
             </div>
             {/* AI Audio */}
-            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/40 text-emerald-200">
+            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-600/40 dark:border-emerald-500/40 text-emerald-700 dark:text-emerald-200">
               <span className="material-icons text-[12px]">graphic_eq</span>
               <span>AI</span>
             </div>
             {/* Captions */}
-            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-sky-500/10 border border-sky-500/40 text-sky-200">
+            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-sky-500/10 border border-sky-600/40 dark:border-sky-500/40 text-sky-700 dark:text-sky-200">
               <span className="material-icons text-[12px]">subtitles</span>
               <span>CC</span>
             </div>
           </div>
 
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-900 text-slate-50 border border-slate-700">
-            <span className={`h-1.5 w-1.5 rounded-full ${mode === 'live' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-500'}`} />
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-50 border border-slate-300 dark:border-slate-700">
+            <span className={`h-1.5 w-1.5 rounded-full ${mode === 'live' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400 dark:bg-slate-500'}`} />
             <span>
               {typeLabel} · {liveTimerLabel}
             </span>
@@ -1849,7 +1849,7 @@ export default function MyLiveDealzLiveStudioFullPage() {
           onClick={() => setSimulate((v) => !v)}
           className={
             "hidden md:inline-flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-full border " +
-            (simulate ? "border-emerald-500/60 bg-emerald-500/10 text-emerald-200" : "border-slate-700 bg-slate-900 text-slate-200")
+            (simulate ? "border-emerald-600/60 dark:border-emerald-500/60 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200" : "border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-200")
           }
           title="Toggle simulation"
         >
@@ -1859,7 +1859,7 @@ export default function MyLiveDealzLiveStudioFullPage() {
 
         <button
           onClick={() => setLanguagePanelOpen(true)}
-          className="hidden md:inline-flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-full border border-slate-700 bg-slate-900 text-slate-100"
+          className="hidden md:inline-flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-full border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-100"
         >
           <span className="material-icons text-sm">translate</span>
           Language

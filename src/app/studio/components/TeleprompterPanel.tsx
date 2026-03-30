@@ -159,7 +159,7 @@ export function TeleprompterPanel(props: {
           {!isLive ? (
             <button
               onClick={() => setIsLive(true)}
-              className="px-2 py-1 rounded-md bg-emerald-500/20 text-emerald-400 text-[10px] font-medium hover:bg-emerald-500/30"
+              className="px-2 py-1 rounded-md bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-[10px] font-medium hover:bg-emerald-500/30"
             >
               Go Live
             </button>

@@ -554,7 +554,7 @@ function AudioRequestItem({ request, onAccept, onDecline }: {
                     : "bg-slate-800"
             }`}>
                 <div className="flex items-center gap-2">
-                    <span className="material-icons text-emerald-400">
+                    <span className="material-icons text-emerald-700 dark:text-emerald-400">
                         {request.status === "accepted" ? "check_circle" : "cancel"}
                     </span>
                     <div>

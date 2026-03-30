@@ -318,7 +318,7 @@ export function ProductionPanel(props: {
                                 onClick={() => handleCameraSelect(0)}
                                 className={`rounded-xl border px-2 py-2 text-left transition-all ${
                                     activeSourceId === "cam1"
-                                        ? "border-emerald-400 bg-emerald-500/10 text-emerald-200"
+                                        ? "border-emerald-600 dark:border-emerald-400 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200"
                                         : "border-border bg-muted text-foreground hover:border-muted-foreground"
                                 }`}
                             >
@@ -340,7 +340,7 @@ export function ProductionPanel(props: {
                                 disabled={cameras.length < 2}
                                 className={`rounded-xl border px-2 py-2 text-left transition-all ${
                                     activeSourceId === "cam2"
-                                        ? "border-emerald-400 bg-emerald-500/10 text-emerald-200"
+                                        ? "border-emerald-600 dark:border-emerald-400 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200"
                                         : cameras.length < 2
                                         ? "border-border bg-muted/50 text-muted-foreground cursor-not-allowed"
                                         : "border-border bg-muted text-foreground hover:border-muted-foreground"
@@ -369,7 +369,7 @@ export function ProductionPanel(props: {
                         onClick={() => onChangeSource("screen")}
                         className={`rounded-xl border px-2 py-2 text-left transition-all ${
                             activeSourceId === "screen"
-                                ? "border-emerald-400 bg-emerald-500/10 text-emerald-200"
+                                ? "border-emerald-600 dark:border-emerald-400 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200"
                                 : "border-border bg-muted text-foreground hover:border-muted-foreground"
                         }`}
                     >
@@ -390,7 +390,7 @@ export function ProductionPanel(props: {
                                 onClick={() => onChangeExternalTool(s.id === "obs" ? "OBS" : "vMix")}
                                 className={`rounded-xl border px-2 py-2 text-left ${
                                     isActive
-                                        ? "border-emerald-400 bg-emerald-500/10 text-emerald-200"
+                                        ? "border-emerald-600 dark:border-emerald-400 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200"
                                         : "border-border bg-muted text-foreground hover:border-muted-foreground"
                                 }`}
                             >
@@ -442,7 +442,7 @@ export function ProductionPanel(props: {
 
             {/* Active Source Indicator */}
             <div className="text-[9px] text-center text-muted-foreground pt-1 border-t border-border">
-                Active: <span className="text-emerald-400 font-medium">
+                Active: <span className="text-emerald-700 dark:text-emerald-400 font-medium">
                     {productionMode === "external" 
                         ? `${externalTool} Output` 
                         : activeSourceId === "screen" 

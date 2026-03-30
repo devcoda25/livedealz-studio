@@ -258,7 +258,7 @@ export function StagePreview(props: {
                                         </div>
                                     </div>
                                 )}
-                                <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/20 border border-green-400 text-green-300 text-[10px]">
+                                <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/20 border border-green-600 dark:border-green-400 text-green-700 dark:text-green-300 text-[10px]">
                                     <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
                                     LIVE
                                     {presentingCoHosts.length > 1 && <span className="ml-1">+{presentingCoHosts.length - 1}</span>}
@@ -317,7 +317,7 @@ export function StagePreview(props: {
                                         </div>
                                     </div>
                                 )}
-                                <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/20 border border-green-400 text-green-300 text-[10px]">
+                                <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/20 border border-green-600 dark:border-green-400 text-green-700 dark:text-green-300 text-[10px]">
                                     <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
                                     LIVE
                                     {presentingCoHosts.length > 1 && <span className="ml-1">+{presentingCoHosts.length - 1}</span>}
@@ -354,11 +354,11 @@ export function StagePreview(props: {
                 {/* Speaker */}
                 {currentSpeaker && (
                     <div className="absolute top-12 right-2">
-                        <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-400/60 text-emerald-200 text-[10px]">
+                        <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-600/60 dark:border-emerald-400/60 text-emerald-700 dark:text-emerald-200 text-[10px]">
                             <span className="material-icons text-[14px]">mic</span>
                             <span className="font-semibold">Live audio</span>
-                            <span className="text-emerald-100">{currentSpeaker.viewerName}</span>
-                            <span className="text-emerald-200/80">({currentSpeaker.langTag})</span>
+                            <span className="text-emerald-800 dark:text-emerald-100">{currentSpeaker.viewerName}</span>
+                            <span className="text-emerald-600/80 dark:text-emerald-200/80">({currentSpeaker.langTag})</span>
                             <span className="px-2 py-0.5 rounded-full bg-black/40 border border-white/10">
                                 {formatHMS(speakerSecondsLeft)}
                             </span>

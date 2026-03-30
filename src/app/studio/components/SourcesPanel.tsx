@@ -132,7 +132,7 @@ export function SourcesPanel({
     const getSourceColor = (type: CanvasSource["type"]) => {
         switch (type) {
             case "camera": return "text-blue-400 bg-blue-500/10 border-blue-500/30";
-            case "screen": return "text-green-400 bg-green-500/10 border-green-500/30";
+            case "screen": return "text-green-700 dark:text-green-400 bg-green-500/10 dark:bg-green-500/10 border-green-600/30 dark:border-green-500/30";
             case "image": return "text-purple-400 bg-purple-500/10 border-purple-500/30";
             case "text": return "text-yellow-400 bg-yellow-500/10 border-yellow-500/30";
             case "browser": return "text-cyan-400 bg-cyan-500/10 border-cyan-500/30";

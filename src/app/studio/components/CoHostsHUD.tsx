@@ -174,7 +174,7 @@ export function CoHostsHUD({
                                         <div className={`text-[13px] font-semibold ${darkMode ? "text-slate-100" : "text-slate-700"} truncate`}>
                                             {c.name}
                                             {c.id === mainPresenterId && <span className="ml-1 text-purple-400">★ Main</span>}
-                                            {c.isPresenting && <span className="ml-1 text-emerald-400">● Live</span>}
+                                            {c.isPresenting && <span className="ml-1 text-emerald-600 dark:text-emerald-400">● Live</span>}
                                         </div>
                                         <div className={`text-[10px] ${darkMode ? "text-slate-500" : "text-slate-400"}`}>{c.status}</div>
                                     </div>
@@ -182,7 +182,7 @@ export function CoHostsHUD({
                                 <div className="flex items-center gap-3">
                                     <button
                                         className={`px-3 py-1.5 rounded-full border text-[9px] ${c.isPresenting
-                                            ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20'
+                                            ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20'
                                             : 'border-slate-600 bg-slate-700 text-slate-300 hover:bg-slate-600'
                                             }`}
                                         onClick={() => onTogglePresenting(c.id)}

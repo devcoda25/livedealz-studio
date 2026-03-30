@@ -147,7 +147,7 @@ export function AttachmentsHUD({ darkMode = true, attachments, onApprove, onReje
                                         <div className={`text-[10px] ${darkMode ? "text-slate-300" : "text-slate-600"} truncate`}>{a.label}</div>
                                         <div className={`text-[8px] ${darkMode ? "text-slate-600" : "text-slate-400"}`}>{a.type.toUpperCase()}</div>
                                     </div>
-                                    <span className="material-icons text-[14px] text-emerald-400">check_circle</span>
+                                    <span className="material-icons text-[14px] text-emerald-700 dark:text-emerald-400">check_circle</span>
                                 </div>
                             ))}
                         </div>

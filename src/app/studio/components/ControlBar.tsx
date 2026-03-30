@@ -84,11 +84,9 @@ export function ControlBar(props: {
     const isLive = mode === "live";
     const isRehearsal = mode === "rehearsal";
 
-    // Icon-only button that reveals label on hover
-    const btnBase = "group h-9 px-2.5 rounded-full border text-[10px] font-medium flex items-center justify-center gap-0 hover:gap-1.5 transition-all shrink-0";
+    const btnBase = "group h-9 px-2.5 rounded-full border text-[10px] font-medium flex items-center justify-center gap-1.5 transition-all shrink-0";
 
-    // Label that expands on hover
-    const labelClass = "max-w-0 overflow-hidden whitespace-nowrap group-hover:max-w-[100px] group-hover:ml-1 transition-all duration-200";
+    const labelClass = "whitespace-nowrap ml-1";
 
     return (
         <div className="flex items-center justify-between w-full px-2 sm:px-4 md:px-6 py-2 sm:py-3 border-t border-border bg-background/95 overflow-x-auto">
@@ -124,7 +122,7 @@ export function ControlBar(props: {
                 {onToggleHostPresenting && (
                     <button
                         className={`${btnBase} ${hostPresenting
-                            ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-300 hover:bg-emerald-500/30"
+                            ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/30"
                             : "bg-muted border-border text-muted-foreground hover:text-foreground hover:bg-muted/80"
                             }`}
                         onClick={onToggleHostPresenting}
@@ -198,7 +196,7 @@ export function ControlBar(props: {
             <div className="flex items-center justify-center gap-1.5 sm:gap-2 shrink-0">
                 {/* Rehearsal Button */}
                 <button
-                    className={`group h-9 sm:h-10 px-3 sm:px-4 rounded-full text-[10px] sm:text-[11px] font-bold tracking-wide shadow-lg transition-all flex items-center gap-0 hover:gap-1.5 ${isRehearsal
+                    className={`h-9 sm:h-10 px-3 sm:px-4 rounded-full text-[10px] sm:text-[11px] font-bold tracking-wide shadow-lg transition-all flex items-center gap-1.5 ${isRehearsal
                         ? darkMode ? "bg-amber-600 hover:bg-amber-700 text-white shadow-amber-900/30" : "bg-amber-500 hover:bg-amber-600 text-white shadow-amber-900/20"
                         : darkMode ? "bg-slate-700 hover:bg-slate-600 text-slate-200 shadow-slate-900/30" : "bg-slate-200 hover:bg-slate-300 text-slate-700 shadow-slate-900/20"
                         }`}
@@ -256,7 +254,7 @@ export function ControlBar(props: {
                     >
                         <span className="material-icons text-[16px] sm:text-[18px]">campaign</span>
                         <span className={labelClass}>Campaigns</span>
-                        {currentSession && <span className="ml-1 px-1.5 py-0.5 rounded bg-white/20 text-[10px] group-hover:hidden">{currentSession.name.substring(0, 6)}..</span>}
+                        {currentSession && <span className="ml-1 px-1.5 py-0.5 rounded bg-white/20 text-[10px]">{currentSession.name.substring(0, 6)}..</span>}
                     </button>
                 </div>
 

@@ -66,7 +66,7 @@ export function CommercePanel(props: {
                         <li key={e.id} className="flex items-center justify-between gap-2">
                             <div className="min-w-0">
                                 <span className="truncate">{e.label}</span>
-                                {e.amount && <span className="ml-2 text-[9px] text-emerald-300">{e.amount}</span>}
+                                {e.amount && <span className="ml-2 text-[9px] text-emerald-700 dark:text-emerald-300">{e.amount}</span>}
                                 {e.langTag && <span className="ml-2 text-[9px] text-muted-foreground">({e.langTag})</span>}
                             </div>
                             <span className="text-muted-foreground text-[9px]">{e.time}</span>

@@ -197,7 +197,7 @@ function LevelMeter({ level, peakLevel, orientation = 'vertical' }: LevelMeterPr
           if (isActive || isPeak) {
             if (i >= segments - 2) bgColor = "bg-red-500 shadow-red-500/50";
             else if (i >= segments - 5) bgColor = "bg-yellow-500 shadow-yellow-500/50";
-            else bgColor = "bg-green-500 shadow-green-500/50";
+            else bgColor = "bg-green-600 dark:bg-green-500 shadow-green-500/50";
           }
 
           return (
@@ -221,7 +221,7 @@ function LevelMeter({ level, peakLevel, orientation = 'vertical' }: LevelMeterPr
         if (isActive || isPeak) {
           if (i >= segments - 3) bgColor = "bg-red-500 shadow-red-500/50";
           else if (i >= segments - 7) bgColor = "bg-yellow-500 shadow-yellow-500/50";
-          else bgColor = "bg-green-500 shadow-green-500/50";
+          else bgColor = "bg-green-600 dark:bg-green-500 shadow-green-500/50";
         }
 
         return (
@@ -343,7 +343,7 @@ function ChannelStrip({
       case "screenShare":
         return "text-blue-400";
       case "backgroundMusic":
-        return "text-emerald-400";
+        return "text-emerald-700 dark:text-emerald-400";
       default:
         return "text-cyan-400";
     }
@@ -356,7 +356,7 @@ function ChannelStrip({
       case "screenShare":
         return "bg-blue-500";
       case "backgroundMusic":
-        return "bg-emerald-500";
+        return "bg-emerald-600 dark:bg-emerald-500";
       default:
         return "bg-cyan-500";
     }

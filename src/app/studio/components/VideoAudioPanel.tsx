@@ -92,8 +92,8 @@ function volumeToDb(vol: number): string {
 function dbToColor(db: number): string {
   if (db >= 0) return "text-red-400";
   if (db >= -6) return "text-yellow-400";
-  if (db >= -12) return "text-green-400";
-  return "text-green-500";
+  if (db >= -12) return "text-green-700 dark:text-green-400";
+  return "text-green-700 dark:text-green-500";
 }
 
 // ============================================
@@ -178,8 +178,8 @@ function LevelMeter({ level, peakLevel, showScale = true, colorMode = 'standard'
             if (dbValue >= -3) bgColor = "bg-red-500 shadow-[0_0_4px_rgba(239,68,68,0.5)]";
             else if (dbValue >= -6) bgColor = "bg-red-400 shadow-[0_0_3px_rgba(248,113,113,0.3)]";
             else if (dbValue >= -12) bgColor = "bg-yellow-400 shadow-[0_0_2px_rgba(250,204,21,0.3)]";
-            else if (dbValue >= -24) bgColor = "bg-green-400";
-            else bgColor = "bg-green-500/80";
+            else if (dbValue >= -24) bgColor = "bg-green-600 dark:bg-green-400";
+            else bgColor = "bg-green-600/80 dark:bg-green-500/80";
           }
 
           return (
@@ -1029,7 +1029,7 @@ function AudioTab({
 
 const QUALITY_LABELS: Record<StreamQuality, { label: string; desc: string; color: string }> = {
   low:    { label: "480p",  desc: "24fps  ~800kbps",  color: "text-slate-400" },
-  medium: { label: "720p",  desc: "30fps  ~2Mbps",   color: "text-green-400" },
+  medium: { label: "720p",  desc: "30fps  ~2Mbps",   color: "text-green-700 dark:text-green-400" },
   high:   { label: "1080p", desc: "30fps  ~4.5Mbps",  color: "text-blue-400" },
   ultra:  { label: "1080p", desc: "60fps  ~8Mbps",    color: "text-purple-400" },
 };

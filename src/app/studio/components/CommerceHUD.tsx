@@ -108,7 +108,7 @@ export function CommerceHUD({
                 {/* Header */}
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
-                        <span className="material-icons text-[18px] text-emerald-400">shopping_cart</span>
+                        <span className="material-icons text-[18px] text-emerald-700 dark:text-emerald-400">shopping_cart</span>
                         <span className={`text-[13px] font-semibold ${darkMode ? "text-white" : "text-slate-700"}`}>Commerce HUD</span>
                     </div>
                     <button onClick={onClose} className={`p-1.5 hover:bg-muted rounded-full transition-colors ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
@@ -132,7 +132,7 @@ export function CommerceHUD({
                     </div>
                     <div className="flex items-center justify-between mt-1">
                         <span className={`text-[9px] ${darkMode ? "text-slate-500" : "text-slate-400"}`}>{remainingUnits} units to go</span>
-                        <span className="text-[9px] text-emerald-400">{progress.toFixed(0)}% complete</span>
+                        <span className="text-[9px] text-emerald-700 dark:text-emerald-400">{progress.toFixed(0)}% complete</span>
                     </div>
                 </div>
 
@@ -162,10 +162,10 @@ export function CommerceHUD({
                         {salesEvents.slice(0, 5).map((ev) => (
                             <div key={ev.id} className="flex items-center justify-between text-[10px]">
                                 <div className="flex items-center gap-2">
-                                    <span className="material-icons text-[12px] text-emerald-400">shopping_bag</span>
+                                    <span className="material-icons text-[12px] text-emerald-700 dark:text-emerald-400">shopping_bag</span>
                                     <span className={darkMode ? "text-slate-300" : "text-slate-600"}>{ev.label}</span>
                                 </div>
-                                {ev.amount && <span className="text-emerald-400 font-medium">+{ev.amount}</span>}
+                                {ev.amount && <span className="text-emerald-700 dark:text-emerald-400 font-medium">+{ev.amount}</span>}
                             </div>
                         ))}
                         {salesEvents.length === 0 && (

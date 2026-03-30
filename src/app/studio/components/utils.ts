@@ -102,7 +102,7 @@ export function langTag(lang: ViewerLang, mode: ListenMode) {
 
 export function severityPillClass(sev: AiHint["severity"]) {
     if (sev === "warning") return "border-orange-500/60 text-orange-200 bg-orange-500/10";
-    if (sev === "opportunity") return "border-emerald-500/60 text-emerald-200 bg-emerald-500/10";
+    if (sev === "opportunity") return "border-emerald-500/60 text-emerald-700 dark:text-emerald-200 bg-emerald-500/10";
     return "border-slate-700 text-slate-300 bg-slate-900";
 }
 

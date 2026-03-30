@@ -195,7 +195,7 @@ export function SourceEditorModal({
                 return (
                     <div className="text-center py-8">
                         <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-emerald-500/20 flex items-center justify-center">
-                            <span className="material-icons text-3xl text-emerald-400">shopping_bag</span>
+                            <span className="material-icons text-3xl text-emerald-700 dark:text-emerald-400">shopping_bag</span>
                         </div>
                         <h3 className="text-white font-semibold mb-2">Product Source</h3>
                         <p className="text-slate-400 text-sm mb-4">Product display is managed through the Commerce panel.</p>
@@ -270,7 +270,7 @@ export function SourceEditorModal({
                         }`}>
                             <span className={`material-icons ${
                                 source.type === "text" ? "text-blue-400" :
-                                source.type === "product" ? "text-emerald-400" :
+                                source.type === "product" ? "text-emerald-700 dark:text-emerald-400" :
                                 source.type === "price" ? "text-orange-400" :
                                 source.type === "cta" ? "text-pink-400" :
                                 source.type === "widget" ? "text-cyan-400" :

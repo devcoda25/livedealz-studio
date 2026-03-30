@@ -94,11 +94,11 @@ export function InventoryPanel(props: {
                         >
                             <div className="flex items-center justify-between gap-2">
                                 <span className="text-[11px] font-semibold truncate">{p.name}</span>
-                                <span className="text-[10px] text-emerald-300">
+                                <span className="text-[10px] text-emerald-700 dark:text-emerald-300">
                                     {applies ? (
                                         <span className="inline-flex items-center gap-1">
                                             <span className="line-through text-muted-foreground">{fmtMoneyUSD(p.basePrice)}</span>
-                                            <span className="text-emerald-300">{fmtMoneyUSD(price)}</span>
+                                            <span className="text-emerald-700 dark:text-emerald-300">{fmtMoneyUSD(price)}</span>
                                         </span>
                                     ) : (
                                         fmtMoneyUSD(p.basePrice)

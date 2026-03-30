@@ -116,10 +116,10 @@ export function SceneManagerHUD({
     const getSourceColor = (type: SceneSource["type"]) => {
         switch (type) {
             case "camera": return "text-blue-400";
-            case "screen": return "text-green-400";
+            case "screen": return "text-green-700 dark:text-green-400";
             case "image": return "text-purple-400";
             case "text": return "text-yellow-400";
-            case "product": return "text-emerald-400";
+            case "product": return "text-emerald-700 dark:text-emerald-400";
             case "price": return "text-orange-400";
             case "cta": return "text-pink-400";
             case "widget": return "text-cyan-400";
@@ -235,7 +235,7 @@ export function SceneManagerHUD({
                                     <button
                                         className={`flex-1 py-1.5 rounded-lg text-[10px] font-medium transition-colors ${
                                             source.visible
-                                                ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                                                ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30"
                                                 : (darkMode ? "bg-slate-800 text-slate-400 border-slate-700" : "bg-slate-100 text-slate-600 border-slate-200")
                                         }`}
                                         onClick={() => onSourceVisibility(selectedScene, source.id)}
