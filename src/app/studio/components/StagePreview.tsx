@@ -2,7 +2,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { FlashDealState, CurrentSpeaker, Mode } from "./types";
 import { FilterEngine } from "@/engines/media/FilterEngine";
 import { FilterCategory } from "@/engines/media/types";
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 
 const EV_ORANGE = "#f77f00";
 const EV_GREEN = "#03cd8c";
@@ -51,6 +51,9 @@ export function StagePreview(props: {
     hostPresenting?: boolean;
     mode?: Mode;
     onVideoElementReady?: () => void;
+    isRecording?: boolean;
+    recordingSeconds?: number;
+    onFilterEngineReady?: (engine: FilterEngine) => void;
 }) {
     const {
         darkMode = true,
@@ -84,6 +87,9 @@ export function StagePreview(props: {
         hostPresenting,
         mode,
         onVideoElementReady,
+        isRecording = false,
+        recordingSeconds = 0,
+        onFilterEngineReady,
     } = props;
 
     const isMobile = resolvedPreviewMode === "mobile" || forceMobileMode;
@@ -106,7 +112,7 @@ export function StagePreview(props: {
                 ? "bg-orange-600 border-orange-400/60"
                 : "bg-[#f77f00] border-[#f77f00]/70";
 
-    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const banubaContainerRef = useRef<HTMLDivElement>(null);
     const filterEngineRef = useRef<FilterEngine | null>(null);
 
     // Notify parent when video element is ready
@@ -124,10 +130,22 @@ export function StagePreview(props: {
         const engine = filterEngineRef.current;
 
         const initEngine = async () => {
-            if (videoRef.current && canvasRef.current) {
-                engine.attach(videoRef.current, canvasRef.current);
+            if (videoRef.current) {
+                // We pass a dummy canvas because FilterEngine API still expects it functionally, 
+                // but Banuba uses banubaContainerRef for actual DOM rendering
+                engine.attach(videoRef.current, document.createElement('canvas'));
                 await engine.initialize();
                 engine.start();
+
+                // Set up Banuba rendering to container
+                const banuba = engine.getBanubaEngine();
+                if (banuba?.isReady() && banubaContainerRef.current) {
+                    banuba.renderTo(banubaContainerRef.current);
+                }
+
+                if (onFilterEngineReady) {
+                    onFilterEngineReady(engine);
+                }
             }
         };
 
@@ -147,45 +165,47 @@ export function StagePreview(props: {
         const category = activeFilterCategory;
         const id = activeFilter;
 
-        // Reset ALL filter types first to prevent cross-category conflicts
-        engine.setColorFilter(null);
-        engine.setARFilter(null);
-        engine.setBackgroundFilter(null);
-        engine.setChromaKeyFilter(null);
-        engine.setGestureFilter(null);
-        engine.setTimeEffect(null);
+        (async () => {
+            // Reset ALL filter types first to prevent cross-category conflicts
+            engine.setColorFilter(null);
+            await engine.setARFilter(null);
+            engine.setBackgroundFilter(null);
+            engine.setChromaKeyFilter(null);
+            engine.setGestureFilter(null);
+            engine.setTimeEffect(null);
 
-        const isResetId = !category
-            || id === 'none' || id === 'beauty_none' || id === 'ar_none'
-            || id === 'gesture_none' || id === 'bg_none'
-            || id === 'chroma_off' || id === 'time_normal';
+            const isResetId = !category
+                || id === 'none' || id === 'beauty_none' || id === 'ar_none'
+                || id === 'gesture_none' || id === 'bg_none'
+                || id === 'chroma_off' || id === 'time_normal';
 
-        if (isResetId) {
-            return;
-        }
+            if (isResetId) {
+                return;
+            }
 
-        switch (category) {
-            case FilterCategory.COLOR:
-            case FilterCategory.BEAUTY:
-                engine.setColorFilter(id);
-                engine.setColorIntensity(filterIntensity);
-                break;
-            case FilterCategory.AR_FACE:
-                engine.setARFilter(id);
-                break;
-            case FilterCategory.BACKGROUND:
-                engine.setBackgroundFilter(id);
-                break;
-            case FilterCategory.GREEN_SCREEN:
-                engine.setChromaKeyFilter(id);
-                break;
-            case FilterCategory.GESTURE:
-                engine.setGestureFilter(id);
-                break;
-            case FilterCategory.TIME:
-                engine.setTimeEffect(id);
-                break;
-        }
+            switch (category) {
+                case FilterCategory.COLOR:
+                case FilterCategory.BEAUTY:
+                    engine.setColorFilter(id);
+                    engine.setColorIntensity(filterIntensity);
+                    break;
+                case FilterCategory.AR_FACE:
+                    await engine.setARFilter(id);
+                    break;
+                case FilterCategory.BACKGROUND:
+                    engine.setBackgroundFilter(id);
+                    break;
+                case FilterCategory.GREEN_SCREEN:
+                    engine.setChromaKeyFilter(id);
+                    break;
+                case FilterCategory.GESTURE:
+                    engine.setGestureFilter(id);
+                    break;
+                case FilterCategory.TIME:
+                    engine.setTimeEffect(id);
+                    break;
+            }
+        })();
     }, [activeFilter, activeFilterCategory]);
 
     // Update intensity when it changes
@@ -210,8 +230,8 @@ export function StagePreview(props: {
             title="Tap to expand preview"
         >
             <div
-                className={`relative rounded-2xl border overflow-hidden shadow-[0_24px_80px_rgba(15,23,42,0.7)] ${isMobile ? 'pb-8' : ''} ` + (isMobile ? "w-[360px] max-w-[95%] " : "w-full ") + (darkMode ? "bg-slate-950 border-slate-800" : "bg-black border-slate-300") + (isMobile && (multiplePresenters || onlyCoHostPresenting) ? ' flex flex-col' : '')}
-                style={{ aspectRatio: aspect, maxHeight: isMobile ? 'calc(100vh - 220px)' : undefined }}
+                className={`relative overflow-hidden transition-all duration-500 ${isMobile ? 'w-full h-full' : 'rounded-2xl border shadow-[0_24px_80px_rgba(15,23,42,0.7)]' + (!isMobile && " w-full ")} ${darkMode ? "bg-slate-950 border-slate-800" : "bg-black border-slate-300"} ${isMobile && (multiplePresenters || onlyCoHostPresenting) ? ' flex flex-col' : ''}`}
+                style={isMobile ? { height: '100dvh' } : { aspectRatio: aspect }}
             >
                 {isMobile && (multiplePresenters || onlyCoHostPresenting) ? (
                     /* Mobile split-screen */
@@ -223,12 +243,10 @@ export function StagePreview(props: {
                                 className="w-full h-full object-cover opacity-0 absolute inset-0"
                                 autoPlay muted playsInline
                             />
-                            {/* Canvas - FilterEngine output, what the user sees */}
-                            <canvas
-                                ref={canvasRef}
-                                className="w-full h-full object-cover"
-                                width={1280}
-                                height={720}
+                            {/* Banuba AR container - single source of truth for video feed */}
+                            <div
+                                ref={banubaContainerRef}
+                                className="absolute inset-0 w-full h-full object-cover"
                             />
                         </div>
                         {presentingCoHosts.length > 0 && (
@@ -275,12 +293,10 @@ export function StagePreview(props: {
                             className={`absolute inset-0 w-full h-full object-cover opacity-0 ${mediaClasses}`}
                             autoPlay muted playsInline
                         />
-                        {/* Canvas - FilterEngine output, what the user sees */}
-                        <canvas
-                            ref={canvasRef}
+                        {/* Banuba AR container - single source of truth for video feed */}
+                        <div
+                            ref={banubaContainerRef}
                             className={`absolute inset-0 w-full h-full object-cover transition-all duration-300 ${mediaClasses}`}
-                            width={1280}
-                            height={720}
                         />
                         {presentingCoHosts.length > 0 && (multiplePresenters || singlePresenter) && (
                             <div
@@ -353,7 +369,7 @@ export function StagePreview(props: {
 
                 {/* Speaker */}
                 {currentSpeaker && (
-                    <div className="absolute top-12 right-2">
+                    <div className="hidden md:block absolute top-12 right-2 z-40">
                         <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-600/60 dark:border-emerald-400/60 text-emerald-700 dark:text-emerald-200 text-[10px]">
                             <span className="material-icons text-[14px]">mic</span>
                             <span className="font-semibold">Live audio</span>
@@ -368,7 +384,7 @@ export function StagePreview(props: {
 
                 {/* Flash banner */}
                 {flash.active && (
-                    <div className="absolute left-1/2 -translate-x-1/2 top-12">
+                    <div className="absolute left-1/2 -translate-x-1/2 top-12 hidden md:block z-40">
                         <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-[10px] text-white shadow ${flashTone}`}>
                             <span className="material-icons text-[14px]">bolt</span>
                             <span className="font-semibold">FLASH</span>
@@ -386,7 +402,7 @@ export function StagePreview(props: {
 
                 {/* Live Captions */}
                 {transcriptionOn && (
-                    <div className="absolute bottom-12 left-1/2 -translate-x-1/2 w-full max-w-[90%] flex flex-col items-center pointer-events-none transition-all duration-300">
+                    <div className="absolute bottom-24 left-1/2 -translate-x-1/2 w-full max-w-[90%] flex flex-col items-center pointer-events-none transition-all duration-300 z-40">
                         <div className={`px-4 py-2 bg-gradient-to-r from-slate-950/80 to-slate-900/80 text-white text-[14px] md:text-[16px] font-medium leading-relaxed rounded-xl backdrop-blur-md shadow-lg border border-white/10 ${transcript ? 'opacity-100 scale-100' : 'opacity-75 scale-95'} transition-all duration-200`}>
                             {transcript ? (
                                 <span className="drop-shadow-md">{transcript}</span>
@@ -432,13 +448,30 @@ export function StagePreview(props: {
 
                 {/* Status indicators */}
                 {screenShareOn && (
-                    <div className="absolute bottom-24 right-2 text-[10px] px-2 py-0.5 rounded-full bg-slate-900/70 border border-slate-700 text-slate-100">
+                    <div className="absolute bottom-[280px] right-2 text-[10px] px-2 py-0.5 rounded-full bg-slate-900/70 border border-slate-700 text-slate-100 z-40">
                         Screen sharing
                     </div>
                 )}
                 {!camOn && (
-                    <div className="absolute bottom-24 left-2 text-[10px] px-2 py-0.5 rounded-full bg-red-500 text-white">
+                    <div className="absolute bottom-[280px] left-2 text-[10px] px-2 py-0.5 rounded-full bg-red-500 text-white z-40">
                         Camera off
+                    </div>
+                )}
+
+                {isRecording && (
+                    <div className="hidden md:flex absolute top-4 left-4 items-center gap-2 px-3 py-1.5 rounded-full bg-red-600/90 text-white text-[11px] font-bold shadow-lg animate-pulse z-50">
+                        <span className="w-2 h-2 rounded-full bg-white block" />
+                        REC {formatHMS(recordingSeconds)}
+                    </div>
+                )}
+
+                {/* Lobby Overlay - Desktop only */}
+                {mode === "lobby" && !isMobile && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-black/20 backdrop-blur-[2px] z-30 pointer-events-none">
+                        <div className={`p-8 rounded-2xl border shadow-2xl ${darkMode ? "bg-slate-950/80 border-slate-800" : "bg-white/80 border-slate-200"}`}>
+                            <div className={`text-[13px] md:text-[15px] ${darkMode ? "text-slate-100" : "text-slate-800"} font-bold tracking-widest uppercase mb-1`}>Pre-live lobby</div>
+                            <div className={`text-[10px] md:text-[12px] ${darkMode ? "text-slate-400" : "text-slate-500"}`}>Prepare your scene securely. You are not yet on air.</div>
+                        </div>
                     </div>
                 )}
 

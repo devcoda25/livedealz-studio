@@ -38,21 +38,30 @@ export const FILTER_CATEGORIES: { id: FilterCategory; label: string; icon: strin
         icon: "face",
         filters: [
             { id: "ar_none", name: "None", category: FilterCategory.AR_FACE, icon: "block" },
-            { id: "cat_ears", name: "Cat Ears", category: FilterCategory.AR_FACE, icon: "pets" },
-            { id: "dog_ears", name: "Dog Ears", category: FilterCategory.AR_FACE, icon: "pets" },
-            { id: "crown", name: "Crown", category: FilterCategory.AR_FACE, icon: "star" },
-            { id: "horns", name: "Devil Horns", category: FilterCategory.AR_FACE, icon: "whatshot" },
-            { id: "butterfly", name: "Butterfly", category: FilterCategory.AR_FACE, icon: "bug_report" },
-            { id: "heart_glasses", name: "Heart Glasses", category: FilterCategory.AR_FACE, icon: "favorite" },
-            { id: "aviators", name: "Aviators", category: FilterCategory.AR_FACE, icon: "visibility" },
-            { id: "pixel_glasses", name: "Pixel Glasses", category: FilterCategory.AR_FACE, icon: "grid_4x4" },
-            { id: "fire", name: "Fire", category: FilterCategory.AR_FACE, icon: "local_fire_department" },
-            { id: "rainbow", name: "Rainbow", category: FilterCategory.AR_FACE, icon: "palette" },
-            { id: "sparkles", name: "Sparkles", category: FilterCategory.AR_FACE, icon: "auto_awesome" },
-            { id: "hearts", name: "Hearts", category: FilterCategory.AR_FACE, icon: "favorite_border" },
-            { id: "snow", name: "Snow", category: FilterCategory.AR_FACE, icon: "ac_unit" },
-            { id: "bunnymask", name: "Bunny", category: FilterCategory.AR_FACE, icon: "cruelty_free" },
-            { id: "foxmask", name: "Fox", category: FilterCategory.AR_FACE, icon: "pets" },
+            // Face beautification
+            { id: "beauty_smooth", name: "Smooth Skin", category: FilterCategory.AR_FACE, icon: "spa" },
+            { id: "beauty_teeth", name: "Teeth Whitening", category: FilterCategory.AR_FACE, icon: "sentiment_satisfied" },
+            { id: "beauty_eyes", name: "Eye Enlarge", category: FilterCategory.AR_FACE, icon: "visibility" },
+            // Face shaping
+            { id: "face_slim", name: "Slim Face", category: FilterCategory.AR_FACE, icon: "face_retouching_natural" },
+            { id: "nose_thin", name: "Thin Nose", category: FilterCategory.AR_FACE, icon: "face" },
+            { id: "chin_length", name: "Long Chin", category: FilterCategory.AR_FACE, icon: "arrow_upward" },
+            { id: "forehead", name: "Forehead", category: FilterCategory.AR_FACE, icon: "face_5" },
+            // Eye colors
+            { id: "eye_color_blue", name: "Blue Eyes", category: FilterCategory.AR_FACE, icon: "visibility" },
+            { id: "eye_color_green", name: "Green Eyes", category: FilterCategory.AR_FACE, icon: "visibility" },
+            { id: "eye_color_amber", name: "Amber Eyes", category: FilterCategory.AR_FACE, icon: "visibility" },
+            // Lip colors
+            { id: "lip_red", name: "Red Lips", category: FilterCategory.AR_FACE, icon: "favorite" },
+            { id: "lip_pink", name: "Pink Lips", category: FilterCategory.AR_FACE, icon: "favorite" },
+            { id: "lip_nude", name: "Nude Lips", category: FilterCategory.AR_FACE, icon: "favorite" },
+            // Hair colors
+            { id: "hair_color_ruby", name: "Ruby Hair", category: FilterCategory.AR_FACE, icon: "palette" },
+            { id: "hair_color_platinum", name: "Platinum Hair", category: FilterCategory.AR_FACE, icon: "palette" },
+            { id: "hair_color_midnight", name: "Midnight Hair", category: FilterCategory.AR_FACE, icon: "palette" },
+            // Skin tone
+            { id: "skin_warm", name: "Warm Skin", category: FilterCategory.AR_FACE, icon: "wb_sunny" },
+            { id: "skin_cool", name: "Cool Skin", category: FilterCategory.AR_FACE, icon: "ac_unit" },
         ]
     },
     {

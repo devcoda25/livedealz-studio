@@ -1,4 +1,4 @@
-export type Mode = "lobby" | "rehearsal" | "live";
+export type Mode = "lobby" | "rehearsal" | "live" | "record";
 export type PreviewMode = "auto" | "desktop" | "mobile";
 export type AudienceTab = "chat" | "qa" | "viewers" | "polls" | "giveaways";
 export type ProductionMode = "inapp" | "external";

@@ -44,6 +44,8 @@ export function ControlBar(props: {
     onToggleCampaignModal?: () => void;
     hostPresenting?: boolean;
     onToggleHostPresenting?: () => void;
+    isRecording: boolean;
+    onToggleRecording: () => void;
 }) {
     const {
         darkMode,
@@ -79,6 +81,8 @@ export function ControlBar(props: {
         onToggleCampaignModal,
         hostPresenting,
         onToggleHostPresenting,
+        isRecording,
+        onToggleRecording,
     } = props;
 
     const isLive = mode === "live";
@@ -205,6 +209,19 @@ export function ControlBar(props: {
                 >
                     <span className="material-icons text-[14px] sm:text-[16px]">{isRehearsal ? "stop" : "play_arrow"}</span>
                     <span className={labelClass}>{isRehearsal ? "End" : "Rehearsal"}</span>
+                </button>
+
+                {/* Record Button */}
+                <button
+                    className={`h-9 sm:h-10 px-3 sm:px-4 rounded-full text-[10px] sm:text-[11px] font-bold tracking-wide shadow-lg transition-all flex items-center gap-1.5 ${isRecording
+                        ? "bg-red-600 hover:bg-red-700 text-white animate-pulse"
+                        : darkMode ? "bg-slate-700 hover:bg-slate-600 text-slate-200" : "bg-slate-200 hover:bg-slate-300 text-slate-700"
+                        }`}
+                    onClick={onToggleRecording}
+                    title={isRecording ? "Stop Recording" : "Start Recording"}
+                >
+                    <span className="material-icons text-[14px] sm:text-[16px]">{isRecording ? "stop" : "fiber_manual_record"}</span>
+                    <span className={labelClass}>{isRecording ? "Stop" : "Record"}</span>
                 </button>
 
                 {/* Go Live Button */}

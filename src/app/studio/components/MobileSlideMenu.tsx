@@ -64,14 +64,19 @@ export function MobileSlideMenu({
                 onClick={onClose}
             />
 
-            {/* Slide-in Menu */}
-            <div className="fixed top-0 right-0 bottom-0 w-80 max-w-[85vw] bg-slate-900 z-50 flex flex-col animate-in slide-in-from-right">
+            {/* Bottom Sheet Menu */}
+            <div className="fixed bottom-0 left-0 right-0 max-h-[85vh] bg-slate-900 rounded-t-3xl z-50 flex flex-col animate-in slide-in-from-bottom">
+                {/* Drag Handle */}
+                <div className="w-full flex justify-center pt-3 pb-1 cursor-pointer" onClick={onClose}>
+                    <div className="w-12 h-1.5 bg-slate-700 rounded-full" />
+                </div>
+
                 {/* Header */}
-                <div className="flex items-center justify-between px-4 py-4 border-b border-slate-800">
+                <div className="flex items-center justify-between px-6 py-2 border-b border-slate-800">
                     <h2 className="text-lg font-semibold text-white">Tools</h2>
                     <button
                         onClick={onClose}
-                        className="p-2 rounded-full hover:bg-slate-800 text-slate-400"
+                        className="p-1.5 rounded-full hover:bg-slate-800 text-slate-400"
                     >
                         <span className="material-icons">close</span>
                     </button>

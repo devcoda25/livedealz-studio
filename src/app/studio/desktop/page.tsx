@@ -36,6 +36,9 @@ import { AiPanel } from "../components/AiPanel";
 import { ControlBar } from "../components/ControlBar";
 import { MobileBottomNav } from "../components/MobileBottomNav";
 import { MobileSlideMenu } from "../components/MobileSlideMenu";
+import { MobileLiveChat } from "../components/MobileLiveChat";
+import { MobileTopNav } from "../components/MobileTopNav";
+import { FloatingReactions } from "../components/FloatingReactions";
 import { FiltersTray } from "../components/FiltersTray";
 import { FilterCategory } from "../../../engines/media/types";
 import { VideoAudioPanel } from "../components/VideoAudioPanel";
@@ -132,9 +135,19 @@ export default function MyLiveDealzLiveStudioFullPage() {
   // Detect system color scheme preference on mount
   const [darkMode, setDarkMode] = useState(false); // Default to avoid SSR mismatch, useEffect will update
   const [mode, setMode] = useState<Mode>("lobby");
+  const [isSessionActive, setIsSessionActive] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+
+  // Stats
+  const [viewers, setViewers] = useState<LiveViewer[]>([]);
+  const [viewerCount, setViewerCount] = useState(0);
+
+  // Social Engagement
+  const [heartCount, setHeartCount] = useState(0);
 
   // Initialize dark mode from system preference on mount (client only)
   useEffect(() => {
+    setIsMounted(true);
     setDarkMode(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
   }, []);
 
@@ -159,8 +172,19 @@ export default function MyLiveDealzLiveStudioFullPage() {
   }, [darkMode]);
   const [simulate, setSimulate] = useState(false);
 
+  // Simulate likes while live and simulate is true
+  useEffect(() => {
+    if (mode !== "live" || !simulate) return;
+    const interval = setInterval(() => {
+      if (Math.random() > 0.4) {
+        setHeartCount(prev => prev + Math.floor(Math.random() * 4) + 1);
+      }
+    }, 800);
+    return () => clearInterval(interval);
+  }, [mode, simulate]);
+
   // AI Prompts for live sessions
-  const isLive = mode === "live";
+  const isLive = mode === "live" && isSessionActive;
 
   // Stream Provisioning
   const [streamKey, setStreamKey] = useState<string | null>(null);
@@ -760,9 +784,6 @@ export default function MyLiveDealzLiveStudioFullPage() {
     }, 2000);
   };
 
-  const [viewers, setViewers] = useState<LiveViewer[]>([]);
-  const [viewerCount, setViewerCount] = useState(0);
-
   // Multi-buyer simulation (per-buyer carts + reminders)
   const [buyers, setBuyers] = useState<BuyerAgent[]>(INITIAL_BUYERS.map(b => ({ ...b, lastActionAt: Date.now() })));
   const [selectedBuyerId, setSelectedBuyerId] = useState<string | null>(INITIAL_BUYERS[0]?.id ?? null);
@@ -832,7 +853,7 @@ export default function MyLiveDealzLiveStudioFullPage() {
     if (mode === 'live') {
       // Stop streaming engine when going offline
       await engineStopStream();
-      setMode('lobby');
+      setMode(isMobile ? 'rehearsal' : 'lobby');
       setStreamKey(null);
       setStreamUrl(null);
       toast({ title: "Stream Ended", description: "You are now off-air." });
@@ -882,6 +903,14 @@ export default function MyLiveDealzLiveStudioFullPage() {
   };
 
   const onToggleLive = handleGoLive; // Replace the dummy toggle
+
+  // Auto-transition from Lobby to Rehearsal on mobile to skip "Pre-live loading" screen
+  useEffect(() => {
+    if (isMobile && mode === "lobby" && isMounted) {
+      console.log("Mobile detected: Auto-transitioning from Lobby to Rehearsal");
+      setMode("rehearsal");
+    }
+  }, [isMobile, mode, isMounted]);
 
   // Client-side only data initialization to prevent hydration errors
   useEffect(() => {
@@ -1493,7 +1522,7 @@ export default function MyLiveDealzLiveStudioFullPage() {
   // -------------------- timers --------------------
   // live clock
   useEffect(() => {
-    if (mode !== "live" || !simulate) return;
+    if (!isSessionActive || (mode !== "live" && mode !== "rehearsal" && mode !== "record") || !simulate) return;
     const t = setInterval(() => {
       setLiveSeconds((s) => s + 1);
       // Record analytics sample every 5 seconds
@@ -1540,7 +1569,7 @@ export default function MyLiveDealzLiveStudioFullPage() {
 
   // -------------------- simulation streams --------------------
   useEffect(() => {
-    if (mode !== "live" || !simulate) return;
+    if (!isSessionActive || (mode !== "live" && mode !== "rehearsal" && mode !== "record") || !simulate) return;
 
     // Chat from viewers
     const chatTimer = setInterval(() => {
@@ -1767,32 +1796,44 @@ export default function MyLiveDealzLiveStudioFullPage() {
   }, [featuredProduct, flash.active, flash.discountPct, flash.productId, flash.secondsLeft]);
 
   const rootClass = darkMode
-    ? "h-screen flex flex-col overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-50"
-    : "h-screen flex flex-col overflow-hidden bg-slate-50 text-slate-900";
-
-  if (products.length === 0) {
-    return (
-      <div className={rootClass}>
-        <div className="flex-1 flex items-center justify-center">
-          <div className="flex flex-col items-center gap-4">
-            <Spinner className="h-10 w-10 text-emerald-500" />
-            <p className="text-sm text-slate-400">Loading studio...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+    ? "h-[100dvh] flex flex-col overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-50 relative"
+    : "h-[100dvh] flex flex-col overflow-hidden bg-slate-50 text-slate-900 relative";
 
   // -------------------- render --------------------
   return (
-    <div className={rootClass}>
-      {/* Top bar */}
-      <header
-        className={
-          "h-14 flex items-center justify-between px-4 md:px-6 border-b backdrop-blur-sm z-50 flex-shrink-0 " +
-          (darkMode ? "border-slate-800/80 bg-slate-950/80 shadow-[0_8px_30px_rgba(15,23,42,0.7)]" : "border-slate-200 bg-white shadow-sm")
-        }
-      >
+    <div className="w-full h-[100dvh] min-h-[100dvh]" suppressHydrationWarning>
+      {!isMounted ? (
+        <div className="fixed inset-0 z-[9999] bg-slate-950 flex flex-col items-center justify-center gap-6 text-center animate-in fade-in duration-300">
+          <div className="w-20 h-20 rounded-2xl bg-[#FF5C00] flex items-center justify-center shadow-[0_0_40px_rgba(255,92,0,0.4)] animate-pulse">
+            <span className="text-white font-bold text-3xl">LD</span>
+          </div>
+          <div className="flex flex-col gap-2">
+            <h2 className="text-white text-xl font-bold tracking-tight">Live Dealz Studio</h2>
+            <div className="flex items-center justify-center gap-2">
+              <Spinner className="h-4 w-4 text-emerald-500" />
+              <p className="text-slate-400 text-sm font-medium tracking-wide">Initializing immersive engines...</p>
+            </div>
+          </div>
+        </div>
+      ) : products.length === 0 ? (
+        <div className="fixed inset-0 z-[9998] bg-slate-950 flex flex-col items-center justify-center gap-6 text-center animate-in fade-in duration-300">
+           <div className="w-16 h-16 rounded-xl bg-slate-900 border border-white/10 flex items-center justify-center shadow-2xl">
+            <Spinner className="h-8 w-8 text-[#FF5C00]" />
+          </div>
+          <div className="flex flex-col gap-1">
+            <p className="text-white font-semibold">Synchronizing Inventory</p>
+            <p className="text-slate-500 text-xs">Loading real-time product data...</p>
+          </div>
+        </div>
+      ) : (
+        <div className={rootClass} id="studio-root">
+          {/* Top bar */}
+          <header
+            className={
+              "h-14 flex items-center justify-between px-4 md:px-6 border-b backdrop-blur-sm z-50 flex-shrink-0 hidden md:flex " +
+              (darkMode ? "border-slate-800/80 bg-slate-950/80 shadow-[0_8px_30px_rgba(15,23,42,0.7)]" : "border-slate-200 bg-white shadow-sm")
+            }
+          >
         <div className="flex items-center gap-2 md:gap-3 min-w-0">
           <div className="h-8 w-8 rounded-xl flex items-center justify-center text-white font-bold text-sm" style={{ backgroundColor: EV_ORANGE }}>
             LD
@@ -1882,9 +1923,9 @@ export default function MyLiveDealzLiveStudioFullPage() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col md:flex-row overflow-hidden pb-16 md:pb-0">
+      <main className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
         {/* Responsive wrapper */}
-        <div className="flex-1 flex flex-col md:flex-row gap-3 p-3 min-w-0 overflow-hidden h-full">
+        <div className="flex-1 flex flex-col md:flex-row gap-0 md:gap-3 p-0 md:p-3 min-w-0 overflow-hidden h-full">
 
           {/* Left Column (hidden on mobile, visible on desktop) */}
           <section className="hidden md:flex flex-col gap-3 w-full md:w-72 lg:w-80 flex-shrink-0 overflow-y-auto">
@@ -1900,12 +1941,12 @@ export default function MyLiveDealzLiveStudioFullPage() {
               onRestock={restockProduct}
               getPriceForProduct={getPriceForProduct}
             />
-          </section >
+          </section>
 
           {/* Center and Right columns wrapper */}
-          <div className="flex-1 flex flex-col md:flex-row gap-3 min-w-0 min-h-0 h-full">
+          <div className="flex-1 flex flex-col md:flex-row gap-0 md:gap-3 min-w-0 min-h-0 h-full">
             {/* Center column - Camera/Stage */}
-            <section className="flex-1 flex flex-col gap-3 min-w-0 min-h-0 h-full">
+            <section className="flex-1 flex flex-col gap-0 md:gap-3 min-w-0 min-h-0 h-full relative">
               <StagePanel
                 darkMode={darkMode}
                 mode={mode}
@@ -1958,10 +1999,10 @@ export default function MyLiveDealzLiveStudioFullPage() {
                   ));
                 }}
               />
-            </section >
+            </section>
 
-            {/* Right Column - Chat/Audience */}
-            <section className="w-full md:w-80 lg:w-96 flex-shrink-0 flex flex-col gap-3 min-h-0 overflow-hidden">
+            {/* Right Column - Chat/Audience (Desktop Only) */}
+            <section className="hidden md:flex md:w-80 lg:w-96 flex-shrink-0 flex-col gap-3 min-h-0 overflow-hidden">
               <AudiencePanel
                 activeTab={audienceTab}
                 onTabChange={setAudienceTab}
@@ -2013,10 +2054,26 @@ export default function MyLiveDealzLiveStudioFullPage() {
                 prompts={aiHints}
                 onDismiss={(id) => setAiHints(prev => prev.filter(h => h.id !== id))}
               />
-            </section >
-          </div >
-        </div >
-      </main >
+            </section>
+          </div>
+        </div>
+
+        {/* Mobile Overlays layer - Top Nav and Chat */}
+        <div className="absolute inset-0 pointer-events-none z-10 flex flex-col justify-between md:hidden">
+          <MobileTopNav
+            hostName="Evzone Shop"
+            viewerCount={viewerCount}
+            mode={mode}
+            liveTimerLabel={liveTimerLabel}
+            onEndLive={handleGoLive}
+            onModeChange={(newMode) => setMode(newMode)}
+          />
+          <div className="flex-1 flex flex-col justify-end pointer-events-none relative z-20 pb-24">
+            <MobileLiveChat mode={mode} isEnabled={true} />
+          </div>
+          <FloatingReactions triggerHeartCount={heartCount} />
+        </div>
+      </main>
 
       {/* Bottom control bar - hidden on mobile */}
       <div className="sticky bottom-0 z-40 hidden md:flex w-full">
@@ -2088,6 +2145,9 @@ export default function MyLiveDealzLiveStudioFullPage() {
       <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden">
         <MobileBottomNav
           micOn={micOn}
+          camOn={camOn}
+          mode={mode}
+          flashActive={flash.active}
           onToggleMic={() => {
             if (streamRef.current) {
               streamRef.current.getAudioTracks().forEach(track => {
@@ -2096,7 +2156,6 @@ export default function MyLiveDealzLiveStudioFullPage() {
             }
             setMicOn((v) => !v);
           }}
-          camOn={camOn}
           onToggleCam={() => {
             if (streamRef.current) {
               streamRef.current.getVideoTracks().forEach(track => {
@@ -2105,14 +2164,13 @@ export default function MyLiveDealzLiveStudioFullPage() {
             }
             setCamOn((v) => !v);
           }}
-          isLive={mode === "live"}
-          onToggleLive={() => setMode((m) => (m === "live" ? "lobby" : "live"))}
-          flashActive={flash.active}
+          onToggleLive={() => setIsSessionActive((v) => !v)}
+          isSessionActive={isSessionActive}
           onOpenFlashConfig={() => setFlashConfigOpen(true)}
           onStopFlash={handleStopFlashDeal}
           onOpenSlideMenu={() => setMobileMenuOpen(true)}
         />
-      </div >
+      </div>
 
       {/* Mobile slide menu */}
       < MobileSlideMenu
@@ -2340,6 +2398,7 @@ export default function MyLiveDealzLiveStudioFullPage() {
         )
       }
 
+
       {/* Campaign Modal */}
       <CampaignModal
         isOpen={campaignModalOpen}
@@ -2366,6 +2425,8 @@ export default function MyLiveDealzLiveStudioFullPage() {
           </filter>
         </defs>
       </svg>
-    </div >
+        </div>
+      )}
+    </div>
   );
 }

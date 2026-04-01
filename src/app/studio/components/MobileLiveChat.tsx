@@ -9,6 +9,7 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { Mode } from "./types";
 
 // Types
 interface ChatMessage {
@@ -55,12 +56,7 @@ const CHAT_MESSAGES = [
     "Quality looks great!"
 ];
 
-interface MobileLiveChatProps {
-    mode: "lobby" | "live";
-    isEnabled?: boolean;
-}
-
-export function MobileLiveChat({ mode, isEnabled = true }: MobileLiveChatProps) {
+export function MobileLiveChat({ mode, isEnabled = true }: { mode: Mode, isEnabled?: boolean }) {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const containerRef = useRef<HTMLDivElement>(null);
     const messageIdCounter = useRef(0);
@@ -123,17 +119,18 @@ export function MobileLiveChat({ mode, isEnabled = true }: MobileLiveChatProps) 
     return (
         <div 
             ref={containerRef}
-            className="absolute bottom-20 left-2 right-16 h-[45%] max-h-[280px] overflow-hidden pointer-events-none z-10"
+            className="relative w-full max-w-[85%] h-full max-h-[350px] overflow-hidden pointer-events-none z-10"
+            style={{
+                maskImage: 'linear-gradient(to bottom, transparent 0%, black 15%, black 100%)',
+                WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 15%, black 100%)'
+            }}
         >
             {/* Chat messages floating up */}
-            <div className="flex flex-col justify-end h-full gap-1.5">
+            <div className="flex flex-col justify-end h-full gap-2 px-3">
                 {messages.map((msg, index) => (
                     <ChatBubble key={msg.id} message={msg} isNew={index >= messages.length - 3} />
                 ))}
             </div>
-            
-            {/* Gradient fade at top */}
-            <div className="absolute top-0 left-0 right-0 h-12 bg-gradient-to-b from-black/60 to-transparent pointer-events-none" />
         </div>
     );
 }

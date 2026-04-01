@@ -60,6 +60,9 @@ export function StagePanel(props: {
     mainPresenterId?: number | null;
     hostPresenting?: boolean;
     onVideoElementReady?: () => void;
+    isRecording?: boolean;
+    recordingSeconds?: number;
+    onFilterEngineReady?: (engine: any) => void;
 }) {
     const {
         darkMode = true,
@@ -103,61 +106,28 @@ export function StagePanel(props: {
         mainPresenterId,
         hostPresenting,
         onVideoElementReady,
+        isRecording,
+        recordingSeconds,
+        onFilterEngineReady,
     } = props;
 
     const activeScene = SCENES.find((s) => s.id === activeSceneId) ?? SCENES[0];
 
     return (
-        <div className={`flex-1 min-h-0 rounded-3xl p-3 md:p-4 flex flex-col gap-3 ${darkMode ? "bg-slate-950 border border-slate-800" : "bg-white border border-slate-200"}`}>
-            <div className="flex items-center justify-between gap-2 flex-shrink-0">
+        <div className={`flex-1 min-h-0 md:rounded-3xl p-0 md:p-4 flex flex-col md:gap-3 ${darkMode ? "bg-black md:bg-slate-950 md:border md:border-slate-800" : "bg-black md:bg-white md:border md:border-slate-200"}`}>
+            <div className="hidden md:flex items-center justify-between gap-2 flex-shrink-0 p-2 md:p-0">
                 <div className="flex items-center gap-2">
-                    <span className={`text-[11px] ${darkMode ? "text-slate-300" : "text-slate-600"}`}>Camera view</span>
-                    <span className={`text-[10px] ${darkMode ? "text-slate-500" : "text-slate-400"}`}>{cameraHint}</span>
+                    <span className={`text-[11px] ${darkMode ? "text-slate-300" : "text-slate-600"} drop-shadow-md`}>Camera view</span>
+                    <span className={`text-[10px] ${darkMode ? "text-slate-500" : "text-slate-400"} drop-shadow-md`}>{cameraHint}</span>
                 </div>
                 <PreviewModeToggle previewMode={previewMode} onChange={onChangePreviewMode} />
             </div>
 
-            {mode === "lobby" ? (
-                <div className={`flex-1 rounded-2xl p-4 md:p-6 text-center flex flex-col items-center justify-center min-h-[200px] md:min-h-[300px] ${resolvedPreviewMode === 'mobile' ? 'max-w-[280px] mx-auto' : 'w-full'} ${darkMode ? "bg-slate-950 border border-slate-800" : "bg-slate-50 border border-slate-200"}`}>
-                    <div className={`text-[11px] md:text-[13px] ${darkMode ? "text-slate-300" : "text-slate-700"} font-semibold`}>Pre-live lobby</div>
-                    <div className={`text-[10px] md:text-[11px] ${darkMode ? "text-slate-500" : "text-slate-400"} mt-1 md:mt-2`}>Device and scene check before going live</div>
-                </div>
-            ) : (
-                <StagePreview
-                    darkMode={darkMode}
-                    resolvedPreviewMode={resolvedPreviewMode}
-                    forceMobileMode={props.forceMobileMode}
-                    activeSceneLabel={activeScene.label}
-                    liveTimerLabel={liveTimerLabel}
-                    viewerCount={viewerCount}
-                    liveLangMix={liveLangMix}
-                    // @ts-ignore
-                    source={sourceLabel(activeSourceId, productionMode, externalTool)}
-                    flash={flash}
-                    flashUrgency={flashUrgency}
-                    micOn={micOn}
-                    camOn={camOn}
-                    screenShareOn={screenShareOn}
-                    currentSpeaker={currentSpeaker}
-                    speakerSecondsLeft={speakerSecondsLeft}
-                    onExpand={onExpand}
-                    videoRef={videoRef}
-                    hasCameraPermission={hasCameraPermission}
-                    transcriptionOn={transcriptionOn}
-                    transcript={transcript}
-                    activeFilter={activeFilter}
-                    activeFilterCategory={activeFilterCategory}
-                    filterIntensity={filterIntensity}
-                    retryCameraAccess={retryCameraAccess}
-                    isDemoMode={props.isDemoMode}
-                    cameraError={props.cameraError}
-                    coHosts={coHosts}
-                    mainPresenterId={mainPresenterId}
-                    hostPresenting={hostPresenting}
-                    mode={mode}
-                    onVideoElementReady={onVideoElementReady}
-                />
-            )}
+            <StagePreview
+                {...props}
+                activeSceneLabel={activeScene.label}
+                source={sourceLabel(activeSourceId, productionMode, externalTool)}
+            />
         </div>
     );
 }
