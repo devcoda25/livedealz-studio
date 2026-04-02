@@ -904,13 +904,7 @@ export default function MyLiveDealzLiveStudioFullPage() {
 
   const onToggleLive = handleGoLive; // Replace the dummy toggle
 
-  // Auto-transition from Lobby to Rehearsal on mobile to skip "Pre-live loading" screen
-  useEffect(() => {
-    if (isMobile && mode === "lobby" && isMounted) {
-      console.log("Mobile detected: Auto-transitioning from Lobby to Rehearsal");
-      setMode("rehearsal");
-    }
-  }, [isMobile, mode, isMounted]);
+  // No auto-transition - lobby is the default starting state
 
   // Client-side only data initialization to prevent hydration errors
   useEffect(() => {
@@ -921,22 +915,18 @@ export default function MyLiveDealzLiveStudioFullPage() {
     } else {
       setHighlightedProductId(engineProducts[0]?.id ?? null);
     }
-    setCoHosts([
-      { id: 1, name: "Sarah Chen", status: "Accepted", isPresenting: true },
-      { id: 2, name: "Mike Johnson", status: "Accepted", isPresenting: false },
-      { id: 3, name: "Emily Davis", status: "Accepted", isPresenting: false },
-      { id: 4, name: "Alex Kim", status: "Pending", isPresenting: false },
-    ]);
-    setMainPresenterId(1);
-    setHostPresenting(true);
+    // Co-hosts start empty - host must invite them
+    setCoHosts([]);
+    setMainPresenterId(null);
+    setHostPresenting(false);
 
     setSimulate(true);
-    // setMode("live"); // Don't force live, let logic decide
-    setLiveSeconds(18 * 60 + 24);
-    if (viewerCount === 0) setViewerCount(842);
-    setSalesCount(37);
-    setLast5MinSales(5);
-    setViewers(createInitialViewers());
+    setMode("lobby"); // Start in lobby mode
+    setLiveSeconds(0);
+    setViewerCount(0);
+    setSalesCount(0);
+    setLast5MinSales(0);
+    setViewers([]);
 
     const initialBuyers = INITIAL_BUYERS.map(b => ({ ...b, lastActionAt: Date.now() }));
     setBuyers(initialBuyers);

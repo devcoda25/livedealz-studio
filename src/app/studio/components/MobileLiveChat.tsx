@@ -1,223 +1,189 @@
 /**
- * Mobile Live Chat - Professional TikTok-style floating chat overlay
+ * Mobile Live Chat - TikTok-style floating chat bubbles
  * 
- * Features:
- * - Floating messages that animate from bottom to top over the video
- * - Professional, native app appearance
- * - Auto-fading older messages
- * - Demo simulation for live mode
+ * Chat bubbles animate upward from the bottom-right, stack naturally,
+ * and fade out after a few seconds - just like TikTok Live.
  */
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Mode } from "./types";
+import React, { useState, useEffect, useRef, memo } from "react";
+import { Mode, ChatMsg } from "./types";
 
-// Types
-interface ChatMessage {
-    id: string;
-    from: string;
-    body: string;
-    avatar?: string;
-    isHighlight?: boolean;
-    langTag?: string;
-    timestamp: number;
+interface MobileLiveChatProps {
+    messages: ChatMsg[];
+    mode: Mode;
+    isEnabled?: boolean;
+    maxVisible?: number;
 }
 
-// Helper to generate unique ID
-const uid = () => `msg_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+interface AnimatedMessage extends ChatMsg {
+    _animId: number;
+    _enteredAt: number;
+}
 
-// Sample data
-const VIEWER_NAMES = [
-    "ShopQueen", "DealHunter", "SavvyShopper", "LiveLover", "BargainBoss",
-    "TrendTracker", "SmartBuyer", "FlashFinder", "DealDiva", "Shopaholic99",
-    "PricePatrol", "BuyNow201", "SaleSeeker", "CartCrasher", "OfferHunter",
-    "TrendyTom", "FashionFan", "StyleSeeker", "ChicChoice", "GlamGirl"
-];
+export const MobileLiveChat = memo(function MobileLiveChat({
+    messages,
+    mode,
+    isEnabled = true,
+    maxVisible = 6,
+}: MobileLiveChatProps) {
+    const [visibleMessages, setVisibleMessages] = useState<AnimatedMessage[]>([]);
+    const lastProcessedIdx = useRef(-1);
+    const animCounter = useRef(0);
 
-const CHAT_MESSAGES = [
-    "Love this! 🔥",
-    "What's the price??",
-    "Can you show more colors?",
-    "Adding to cart now! 🛒",
-    "Best deal ever!",
-    "Take my money! 💰",
-    "Is shipping free?",
-    "This is amazing 😍",
-    "How long does it last?",
-    "Worth every penny!",
-    "Limited stock?",
-    "What's the return policy?",
-    "Do you have a discount code?",
-    "Is it true to size?",
-    "Ship to UK? 🇬🇧",
-    "Need this in my life!",
-    "Show the back please",
-    "Can you do a demo?",
-    "What's in the box?",
-    "Quality looks great!"
-];
-
-export function MobileLiveChat({ mode, isEnabled = true }: { mode: Mode, isEnabled?: boolean }) {
-    const [messages, setMessages] = useState<ChatMessage[]>([]);
-    const containerRef = useRef<HTMLDivElement>(null);
-    const messageIdCounter = useRef(0);
-
-    // Generate a unique message
-    const generateMessage = useCallback((): ChatMessage => {
-        const viewer = VIEWER_NAMES[Math.floor(Math.random() * VIEWER_NAMES.length)];
-        const body = CHAT_MESSAGES[Math.floor(Math.random() * CHAT_MESSAGES.length)];
-        const isHighlight = Math.random() > 0.85; // 15% chance of highlighted
-        const langs = ["en", "es", "fr", "de", "pt", "it"];
-        const lang = Math.random() > 0.7 ? langs[Math.floor(Math.random() * langs.length)] : null;
-        
-        return {
-            id: `msg_${messageIdCounter.current++}`,
-            from: viewer,
-            body,
-            isHighlight,
-            langTag: lang || undefined,
-            timestamp: Date.now(),
-        };
-    }, []);
-
-    // Initialize with some messages
+    // Process new messages
     useEffect(() => {
         if (mode !== "live" || !isEnabled) {
-            setMessages([]);
+            setVisibleMessages([]);
+            lastProcessedIdx.current = -1;
             return;
         }
 
-        // Initial messages
-        const initial: ChatMessage[] = [];
-        for (let i = 0; i < 8; i++) {
-            const msg = generateMessage();
-            msg.timestamp = Date.now() - (7 - i) * 2000;
-            initial.push(msg);
-        }
-        setMessages(initial);
+        // Only process new messages (ones we haven't seen)
+        if (messages.length === 0) return;
 
-        // Add new messages periodically
+        const newMessages = messages.slice(lastProcessedIdx.current + 1);
+        if (newMessages.length === 0) return;
+
+        lastProcessedIdx.current = messages.length - 1;
+
+        const animated: AnimatedMessage[] = newMessages.map(msg => ({
+            ...msg,
+            _animId: animCounter.current++,
+            _enteredAt: Date.now(),
+        }));
+
+        setVisibleMessages(prev => {
+            const combined = [...prev, ...animated];
+            return combined.slice(-maxVisible);
+        });
+    }, [messages, mode, isEnabled, maxVisible]);
+
+    // Auto-remove old messages after they've been visible for 5 seconds
+    useEffect(() => {
+        if (visibleMessages.length === 0) return;
+
         const interval = setInterval(() => {
-            const newMsg = generateMessage();
-            setMessages(prev => {
-                // Keep last 15 messages, add new one
-                const updated = [...prev, newMsg];
-                if (updated.length > 15) {
-                    return updated.slice(-15);
-                }
-                return updated;
-            });
-        }, 1200); // New message every 1.2 seconds
+            const now = Date.now();
+            setVisibleMessages(prev =>
+                prev.filter(msg => now - msg._enteredAt < 5000)
+            );
+        }, 500);
 
         return () => clearInterval(interval);
-    }, [mode, isEnabled, generateMessage]);
+    }, [visibleMessages.length]);
 
-    // Don't render in lobby or if disabled
-    if (mode !== "live" || !isEnabled) {
-        return null;
-    }
+    if (mode !== "live" || !isEnabled) return null;
 
     return (
-        <div 
-            ref={containerRef}
-            className="relative w-full max-w-[85%] h-full max-h-[350px] overflow-hidden pointer-events-none z-10"
+        <div
+            className="relative w-full max-w-[280px] pointer-events-none"
             style={{
-                maskImage: 'linear-gradient(to bottom, transparent 0%, black 15%, black 100%)',
-                WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 15%, black 100%)'
+                maskImage: 'linear-gradient(to bottom, transparent 0%, black 10%, black 90%, transparent 100%)',
+                WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 10%, black 90%, transparent 100%)',
             }}
         >
-            {/* Chat messages floating up */}
-            <div className="flex flex-col justify-end h-full gap-2 px-3">
-                {messages.map((msg, index) => (
-                    <ChatBubble key={msg.id} message={msg} isNew={index >= messages.length - 3} />
+            <div className="flex flex-col gap-1.5 px-3 py-4">
+                {visibleMessages.map((msg) => (
+                    <ChatBubble
+                        key={msg._animId}
+                        message={msg}
+                        isNew={Date.now() - msg._enteredAt < 500}
+                    />
                 ))}
             </div>
         </div>
     );
-}
+});
 
-// Individual chat bubble component
-function ChatBubble({ message, isNew }: { message: ChatMessage; isNew: boolean }) {
-    const [isVisible, setIsVisible] = useState(false);
-    const [isExiting, setIsExiting] = useState(false);
+// Individual chat bubble - TikTok style
+const ChatBubble = memo(function ChatBubble({
+    message,
+    isNew,
+}: {
+    message: AnimatedMessage;
+    isNew: boolean;
+}) {
+    const isSystem = message.system;
+    const hasLang = message.langTag && message.langTag !== "en" && message.langTag !== "System";
 
-    // Animate in
-    useEffect(() => {
-        if (isNew) {
-            // Staggered animation for new messages
-            const timer = setTimeout(() => setIsVisible(true), 50);
-            return () => clearTimeout(timer);
-        }
-        setIsVisible(true);
-    }, [isNew]);
+    // Color based on first character of name for variety
+    const nameHash = message.from.charCodeAt(0) % 6;
+    const avatarColors = [
+        "bg-pink-500", "bg-purple-500", "bg-blue-500",
+        "bg-emerald-500", "bg-amber-500", "bg-rose-500",
+    ];
 
-    const isHighlight = message.isHighlight;
-    
+    if (isSystem) {
+        return (
+            <div
+                className={`
+                    flex items-center gap-2 px-3 py-1.5 rounded-full max-w-fit
+                    bg-white/10 backdrop-blur-md
+                    transform transition-all duration-300 ease-out
+                    ${isNew ? "translate-y-4 opacity-0 animate-[bubbleIn_0.3s_ease-out_forwards]" : "opacity-100"}
+                `}
+            >
+                <span className="text-[10px] text-white/60">{message.body}</span>
+            </div>
+        );
+    }
+
     return (
-        <div 
+        <div
             className={`
-                flex items-center gap-2 px-3 py-1.5 rounded-2xl max-w-[85%] 
-                transform transition-all duration-500 ease-out
-                ${isNew && !isVisible 
-                    ? "translate-y-8 opacity-0" 
-                    : isExiting 
-                        ? "-translate-x-full opacity-0" 
-                        : "translate-y-0 opacity-100"
-                }
-                ${isHighlight 
-                    ? "bg-gradient-to-r from-orange-500/90 to-pink-500/90 backdrop-blur-md" 
-                    : "bg-black/50 backdrop-blur-md"
-                }
+                flex items-center gap-2 px-2.5 py-1.5 rounded-2xl max-w-fit
+                bg-black/40 backdrop-blur-md border border-white/5
+                transform transition-all duration-300 ease-out
+                ${isNew ? "translate-y-4 opacity-0 animate-[bubbleIn_0.3s_ease-out_forwards]" : "opacity-100"}
             `}
-            style={{
-                animation: isNew ? "floatUp 0.5s ease-out forwards" : "none",
-            }}
         >
             {/* Avatar */}
             <div className={`
-                w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0
-                text-xs font-bold
-                ${isHighlight 
-                    ? "bg-white/20 text-white" 
-                    : "bg-slate-600 text-slate-200"
-                }
+                w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0
+                text-[10px] font-bold text-white
+                ${avatarColors[nameHash]}
             `}>
                 {message.from.charAt(0).toUpperCase()}
             </div>
-            
+
             {/* Content */}
-            <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className={`
-                        text-[11px] font-semibold truncate
-                        ${isHighlight ? "text-white" : "text-white/90"}
-                    `}>
-                        {message.from}
+            <div className="flex items-center gap-1.5 min-w-0">
+                <span className="text-[11px] font-semibold text-white/90 truncate max-w-[80px]">
+                    {message.from}
+                </span>
+                {hasLang && (
+                    <span className="text-[8px] px-1 py-0.5 rounded bg-white/10 text-white/50 uppercase">
+                        {message.langTag}
                     </span>
-                    {message.langTag && message.langTag !== "en" && (
-                        <span className={`
-                            text-[9px] px-1 rounded
-                            ${isHighlight ? "bg-white/20 text-white" : "bg-slate-700 text-slate-300"}
-                        `}>
-                            {message.langTag.toUpperCase()}
-                        </span>
-                    )}
-                </div>
-                <p className={`
-                    text-xs leading-tight truncate
-                    ${isHighlight ? "text-white" : "text-white/80"}
-                `}>
+                )}
+                <span className="text-[11px] text-white/80 truncate max-w-[140px]">
                     {message.body}
-                </p>
+                </span>
             </div>
-            
-            {/* Highlight emoji */}
-            {isHighlight && (
-                <span className="text-sm animate-bounce">🔥</span>
-            )}
         </div>
     );
+});
+
+// Inline keyframe animation
+if (typeof document !== "undefined") {
+    const styleId = "mobile-live-chat-styles";
+    if (!document.getElementById(styleId)) {
+        const style = document.createElement("style");
+        style.id = styleId;
+        style.textContent = `
+            @keyframes bubbleIn {
+                0% {
+                    transform: translateY(16px) scale(0.95);
+                    opacity: 0;
+                }
+                100% {
+                    transform: translateY(0) scale(1);
+                    opacity: 1;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    }
 }
 
 export default MobileLiveChat;
-
-/* CSS animations are in the global styles */

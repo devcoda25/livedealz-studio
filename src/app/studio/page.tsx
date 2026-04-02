@@ -1,16 +1,26 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 export default function StudioPage() {
     const router = useRouter();
+    const [isMounted, setIsMounted] = useState(false);
 
     useEffect(() => {
-        // Redirect to desktop version for now
-        // Mobile version will be rebuilt after desktop features are complete
-        router.replace("/studio/desktop");
-    }, [router]);
+        setIsMounted(true);
+    }, []);
+
+    useEffect(() => {
+        if (!isMounted) return;
+
+        const isMobile = window.matchMedia("(max-width: 768px)").matches;
+        if (isMobile) {
+            router.replace("/studio/mobile");
+        } else {
+            router.replace("/studio/desktop");
+        }
+    }, [isMounted, router]);
 
     return null;
 }

@@ -1,96 +1,241 @@
+/**
+ * Mobile Bottom Nav - TikTok-style control bar
+ * 
+ * Layout: [Mic] [Cam] [GO LIVE] [Effects] [More]
+ * - GO LIVE is the large center button
+ * - All buttons have haptic-style visual feedback
+ */
+
+import React, { memo } from "react";
 import { Mode } from "./types";
 
 interface MobileBottomNavProps {
     micOn: boolean;
     camOn: boolean;
     mode: Mode;
+    isSessionActive: boolean;
     flashActive: boolean;
+    chatMessageCount?: number;
     onToggleMic: () => void;
     onToggleCam: () => void;
     onToggleLive: () => void;
-    isSessionActive: boolean;
+    onOpenFilters: () => void;
+    onOpenSlideMenu: () => void;
     onOpenFlashConfig: () => void;
     onStopFlash: () => void;
-    onOpenSlideMenu: () => void;
+    onOpenChat: () => void;
 }
 
-export function MobileBottomNav({
+export const MobileBottomNav = memo(function MobileBottomNav({
     micOn,
     camOn,
     mode,
+    isSessionActive,
     flashActive,
+    chatMessageCount = 0,
     onToggleMic,
     onToggleCam,
     onToggleLive,
-    isSessionActive,
+    onOpenFilters,
+    onOpenSlideMenu,
     onOpenFlashConfig,
     onStopFlash,
-    onOpenSlideMenu,
+    onOpenChat,
 }: MobileBottomNavProps) {
-    const isLive = mode === "live";
+    const isLive = mode === "live" && isSessionActive;
     const isRecording = mode === "record";
     const isRehearsing = mode === "rehearsal";
-    const isActive = isSessionActive;
 
     return (
-        <div className="fixed bottom-0 left-0 right-0 z-50 bg-gradient-to-t from-black/90 via-black/50 to-transparent pt-12 px-2 pb-safe">
-            <div className="flex items-center justify-between max-w-md mx-auto h-16 pb-2">
-                {/* Mic Button */}
-                <button
-                    onClick={onToggleMic}
-                    className={`flex flex-col items-center justify-center w-12 h-12 rounded-full transition-all backdrop-blur-md ${
-                        micOn
-                            ? "bg-white/20 text-white"
-                            : "bg-black/40 text-white/50"
-                    }`}
-                >
-                    <span className="material-icons text-[22px]">{micOn ? "mic" : "mic_off"}</span>
-                </button>
+        <div className="relative z-50 pointer-events-auto">
+            {/* Gradient background */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent h-32 -top-16" />
 
-                {/* Camera Button */}
-                <button
-                    onClick={onToggleCam}
-                    className={`flex flex-col items-center justify-center w-12 h-12 rounded-full transition-all backdrop-blur-md ${
-                        camOn
-                            ? "bg-white/20 text-white"
-                            : "bg-black/40 text-white/50"
-                    }`}
-                >
-                    <span className="material-icons text-[22px]">{camOn ? "videocam" : "videocam_off"}</span>
-                </button>
+            {/* Control bar */}
+            <div className="relative flex items-center justify-center px-4 pb-safe pt-2 pb-3">
+                <div className="flex items-center justify-between w-full max-w-[340px]">
+                    {/* Mic */}
+                    <ControlButton
+                        icon={micOn ? "mic" : "mic_off"}
+                        active={micOn}
+                        onClick={onToggleMic}
+                        size="small"
+                    />
 
-                {/* Action Button - Center, Larger */}
-                <button
-                    onClick={onToggleLive}
-                    className={`flex items-center justify-center w-16 h-16 rounded-full transition-all shadow-lg text-white ${
-                        isActive
-                            ? isRecording ? "bg-red-500 animate-pulse" : isRehearsing ? "bg-blue-500" : "bg-red-600"
-                            : "bg-[#FF5C00]"
-                    }`}
-                >
-                    <span className="material-icons text-3xl">{isSessionActive ? "stop" : "play_arrow"}</span>
-                </button>
+                    {/* Camera */}
+                    <ControlButton
+                        icon={camOn ? "videocam" : "videocam_off"}
+                        active={camOn}
+                        onClick={onToggleCam}
+                        size="small"
+                    />
 
-                {/* Commerce / Shopping Bag Button */}
-                <button
+                    {/* GO LIVE - Large center button */}
+                    <button
+                        onClick={onToggleLive}
+                        className={`
+                            relative flex items-center justify-center
+                            w-[72px] h-[72px] rounded-full
+                            transition-all duration-200 active:scale-95
+                            shadow-lg
+                            ${isLive
+                                ? "bg-white shadow-[0_0_20px_rgba(255,255,255,0.3)]"
+                                : isRecording
+                                    ? "bg-red-500 shadow-[0_0_20px_rgba(239,68,68,0.5)]"
+                                    : "bg-[#FF5C00] shadow-[0_0_20px_rgba(255,92,0,0.4)]"
+                            }
+                        `}
+                    >
+                        {/* Ring */}
+                        <div className={`
+                            absolute inset-[-3px] rounded-full border-[3px]
+                            ${isLive
+                                ? "border-white/60"
+                                : isRecording
+                                    ? "border-red-300/60"
+                                    : "border-[#FF5C00]/60"
+                            }
+                        `} />
+
+                        {/* Icon */}
+                        <span className={`
+                            material-icons text-[28px]
+                            ${isLive ? "text-red-500" : "text-white"}
+                        `}>
+                            {isLive ? "stop_circle" : isRecording ? "radio_button_checked" : "play_arrow"}
+                        </span>
+
+                        {/* Pulse animation when live */}
+                        {isLive && (
+                            <span className="absolute inset-0 rounded-full animate-ping bg-red-500/20" />
+                        )}
+                    </button>
+
+                    {/* Effects / Filters */}
+                    <ControlButton
+                        icon="auto_awesome"
+                        active={false}
+                        onClick={onOpenFilters}
+                        size="small"
+                        label="FX"
+                    />
+
+                    {/* More / Menu */}
+                    <ControlButton
+                        icon="more_horiz"
+                        active={false}
+                        onClick={onOpenSlideMenu}
+                        size="small"
+                    />
+                </div>
+            </div>
+
+            {/* Floating action buttons - right side */}
+            <div className="absolute right-3 bottom-20 flex flex-col gap-3 pointer-events-auto">
+                {/* Chat button */}
+                <FloatingButton
+                    icon="chat_bubble"
+                    badge={chatMessageCount > 0 ? chatMessageCount : undefined}
+                    onClick={onOpenChat}
+                />
+
+                {/* Commerce / Flash */}
+                <FloatingButton
+                    icon={flashActive ? "bolt" : "shopping_bag"}
+                    active={flashActive}
                     onClick={flashActive ? onStopFlash : onOpenFlashConfig}
-                    className={`flex flex-col items-center justify-center w-12 h-12 rounded-full transition-all shadow-lg backdrop-blur-md ${
-                        flashActive
-                            ? "bg-amber-500/90 text-white border-2 border-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.6)] animate-pulse"
-                            : "bg-black/40 text-amber-500"
-                    }`}
-                >
-                    <span className="material-icons text-[22px]">local_mall</span>
-                </button>
+                    pulse={flashActive}
+                />
 
-                {/* More Menu Button */}
-                <button
-                    onClick={onOpenSlideMenu}
-                    className="flex flex-col items-center justify-center w-12 h-12 rounded-full bg-black/40 text-white/80 backdrop-blur-md transition-all"
-                >
-                    <span className="material-icons text-[22px]">more_horiz</span>
-                </button>
+                {/* Reactions */}
+                <FloatingButton
+                    icon="favorite"
+                    onClick={() => {}}
+                />
             </div>
         </div>
     );
+});
+
+// Small control button
+function ControlButton({
+    icon,
+    active,
+    onClick,
+    size = "small",
+    label,
+}: {
+    icon: string;
+    active: boolean;
+    onClick: () => void;
+    size?: "small" | "large";
+    label?: string;
+}) {
+    const sizeClasses = size === "large"
+        ? "w-14 h-14"
+        : "w-12 h-12";
+
+    return (
+        <button
+            onClick={onClick}
+            className={`
+                flex flex-col items-center justify-center ${sizeClasses}
+                rounded-full transition-all duration-150 active:scale-90
+                backdrop-blur-md
+                ${active
+                    ? "bg-white/20 text-white"
+                    : "bg-black/30 text-white/60"
+                }
+            `}
+        >
+            <span className={`material-icons ${size === "large" ? "text-[26px]" : "text-[22px]"}`}>
+                {icon}
+            </span>
+            {label && (
+                <span className="text-[8px] mt-0.5 font-semibold opacity-80">{label}</span>
+            )}
+        </button>
+    );
 }
+
+// Floating action button (right side)
+function FloatingButton({
+    icon,
+    active = false,
+    onClick,
+    badge,
+    pulse = false,
+}: {
+    icon: string;
+    active?: boolean;
+    onClick: () => void;
+    badge?: number;
+    pulse?: boolean;
+}) {
+    return (
+        <button
+            onClick={onClick}
+            className={`
+                relative flex items-center justify-center
+                w-11 h-11 rounded-full
+                backdrop-blur-md transition-all duration-150 active:scale-90
+                ${active
+                    ? "bg-amber-500/80 text-white"
+                    : "bg-white/15 text-white"
+                }
+                ${pulse ? "animate-pulse" : ""}
+            `}
+        >
+            <span className="material-icons text-[20px]">{icon}</span>
+
+            {/* Badge */}
+            {badge !== undefined && badge > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                    {badge > 99 ? "99+" : badge}
+                </span>
+            )}
+        </button>
+    );
+}
+
+export default MobileBottomNav;
