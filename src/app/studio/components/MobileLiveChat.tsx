@@ -9,7 +9,7 @@ import React, { useState, useEffect, useRef, memo } from "react";
 import { Mode, ChatMsg } from "./types";
 
 interface MobileLiveChatProps {
-    messages: ChatMsg[];
+    messages?: ChatMsg[];
     mode: Mode;
     isEnabled?: boolean;
     maxVisible?: number;
@@ -21,7 +21,7 @@ interface AnimatedMessage extends ChatMsg {
 }
 
 export const MobileLiveChat = memo(function MobileLiveChat({
-    messages,
+    messages = [],
     mode,
     isEnabled = true,
     maxVisible = 6,
@@ -39,7 +39,7 @@ export const MobileLiveChat = memo(function MobileLiveChat({
         }
 
         // Only process new messages (ones we haven't seen)
-        if (messages.length === 0) return;
+        if (!messages || messages.length === 0) return;
 
         const newMessages = messages.slice(lastProcessedIdx.current + 1);
         if (newMessages.length === 0) return;

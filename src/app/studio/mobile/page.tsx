@@ -4,15 +4,26 @@ import React, { Component, ErrorInfo, useCallback, useEffect, useMemo, useRef, u
 import { useToast } from "@/hooks/use-toast";
 import { useStudioSocket } from "@/hooks/useStudioSocket";
 import { useEngines } from "@/hooks/useEngines";
-import { StagePreview } from "../components/StagePreview";
+// StagePreview removed - using direct video element for camera
 import { FloatingReactions } from "../components/FloatingReactions";
 import { MobileTopNav } from "../components/MobileTopNav";
 import { MobileBottomNav } from "../components/MobileBottomNav";
+import { MobileRightActions } from "../components/MobileRightActions";
+import { MobileFilterSheet } from "../components/MobileFilterSheet";
+import { MobileSourcesSheet } from "../components/MobileSourcesSheet";
+import { MobileScenesSheet } from "../components/MobileScenesSheet";
+import { MobileSettingsSheet } from "../components/MobileSettingsSheet";
+import { MobilePollsSheet } from "../components/MobilePollsSheet";
+import { MobileGiveawaysSheet } from "../components/MobileGiveawaysSheet";
+import { MobileMultiCamSheet } from "../components/MobileMultiCamSheet";
 import { MobileLiveChat } from "../components/MobileLiveChat";
 import { MobileSlideMenu } from "../components/MobileSlideMenu";
 import { FlashDealDialog } from "../components/FlashDealDialog";
-import { FiltersTray } from "../components/FiltersTray";
 import { MobileCommerceSheet } from "../components/MobileCommerceSheet";
+import { MobilePinnedProduct } from "../components/MobilePinnedProduct";
+import { CartNotification, createCartEvent } from "../components/CartNotification";
+import { SalesGoalBar } from "../components/SalesGoalBar";
+import { ProductCarousel } from "../components/ProductCarousel";
 import { uid, nowTimeLabel, formatHMS, createInitialViewers, computeUrgency } from "../components/utils";
 import { INITIAL_PRODUCTS, INITIAL_BUYERS, EV_ORANGE } from "../components/constants";
 import {
@@ -74,6 +85,7 @@ export default function MobileStudioPage() {
 
     const { toast } = useToast();
     const videoRef = useRef<HTMLVideoElement | null>(null);
+    const previewVideoRef = useRef<HTMLVideoElement | null>(null);
     const streamRef = useRef<MediaStream | null>(null);
 
     // Theme - detect system preference
@@ -90,10 +102,12 @@ export default function MobileStudioPage() {
     // Media state
     const [micOn, setMicOn] = useState(true);
     const [camOn, setCamOn] = useState(true);
+    const [cameraFacing, setCameraFacing] = useState<"user" | "environment">("user");
     const [screenShareOn, setScreenShareOn] = useState(false);
     const [activeFilter, setActiveFilter] = useState("none");
     const [activeFilterCategory, setActiveFilterCategory] = useState<FilterCategory | null>(null);
     const [filterIntensity, setFilterIntensity] = useState(100);
+    const [captionsOn, setCaptionsOn] = useState(false);
     const [transcriptionOn, setTranscriptionOn] = useState(false);
     const [transcript, setTranscript] = useState("");
 
@@ -118,6 +132,10 @@ export default function MobileStudioPage() {
     const [flash, setFlash] = useState<FlashDealState>({
         active: false, discountPct: 0, endsAt: null, totalSeconds: 0, secondsLeft: 0, productId: null,
     });
+    // Commerce power features
+    const [salesGoal, setSalesGoal] = useState(500);
+    const [cartEvents, setCartEvents] = useState<any[]>([]);
+    const [showPinnedProduct, setShowPinnedProduct] = useState(true);
 
     // Co-hosts - EMPTY by default, host must invite
     const [coHosts, setCoHosts] = useState<CoHost[]>([]);
@@ -130,6 +148,40 @@ export default function MobileStudioPage() {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [flashConfigOpen, setFlashConfigOpen] = useState(false);
     const [simulate, setSimulate] = useState(true);
+
+    // New sheet states
+    const [sourcesOpen, setSourcesOpen] = useState(false);
+    const [scenesOpen, setScenesOpen] = useState(false);
+    const [settingsOpen, setSettingsOpen] = useState(false);
+    const [pollsOpen, setPollsOpen] = useState(false);
+    const [giveawaysOpen, setGiveawaysOpen] = useState(false);
+    const [multiCamOpen, setMultiCamOpen] = useState(false);
+
+    // Sources state
+    const [sources, setSources] = useState([
+        { id: "cam1", name: "Main Camera", type: "camera", icon: "videocam", active: true, visible: true },
+    ]);
+
+    // Scenes state
+    const [activeSceneId, setActiveSceneId] = useState("main");
+
+    // Settings state
+    const [videoQuality, setVideoQuality] = useState("720p30");
+    const [audioBitrate, setAudioBitrate] = useState("128");
+    const [mirrorVideo, setMirrorVideo] = useState(true);
+
+    // Polls state
+    const [polls, setPolls] = useState<any[]>([]);
+
+    // Giveaways state
+    const [giveaways, setGiveaways] = useState<any[]>([]);
+
+    // Cameras state
+    const [cameras] = useState([
+        { id: "front", label: "Front Camera", facing: "user", active: true },
+        { id: "back", label: "Back Camera", facing: "environment", active: false },
+    ]);
+    const [activeCameraId, setActiveCameraId] = useState("front");
 
     // Swipe panel state
     const [activePanel, setActivePanel] = useState<"none" | "chat" | "filters" | "commerce" | "cohosts">("none");
@@ -177,7 +229,10 @@ export default function MobileStudioPage() {
         }
     }, [darkMode, isMounted]);
 
-    // Initialize camera
+    // Placeholder video URL (Pexels - Woman showing ingredients)
+    const PLACEHOLDER_VIDEO = "https://videos.pexels.com/video-files/6595455/6595455-uhd_1440_2560_30fps.mp4";
+
+    // Initialize camera - falls back to placeholder video if camera unavailable
     useEffect(() => {
         if (!isMounted) return;
         const initCamera = async () => {
@@ -187,18 +242,32 @@ export default function MobileStudioPage() {
                     audio: true,
                 });
                 streamRef.current = stream;
-                if (videoRef.current) {
-                    videoRef.current.srcObject = stream;
+                console.log("[MobileStudio] Camera stream obtained, setting on video element");
+                // Set stream on preview video element
+                if (previewVideoRef.current) {
+                    previewVideoRef.current.srcObject = stream;
+                    previewVideoRef.current.play().catch(e => console.log("[MobileStudio] Play error:", e));
                 }
                 setHasCameraPermission(true);
+                console.log("[MobileStudio] Camera initialized successfully");
             } catch (err: any) {
-                console.error("Camera error:", err);
-                setCameraError(err?.message || "Camera access denied");
+                console.log("[MobileStudio] Camera not available, using placeholder video");
+                // Use placeholder video instead of showing error
+                if (previewVideoRef.current) {
+                    previewVideoRef.current.srcObject = null;
+                    previewVideoRef.current.src = PLACEHOLDER_VIDEO;
+                    previewVideoRef.current.loop = true;
+                    previewVideoRef.current.muted = true;
+                    previewVideoRef.current.play().catch(e => console.log("[MobileStudio] Placeholder play error:", e));
+                }
+                setHasCameraPermission(true);
                 setIsDemoMode(true);
             }
         };
-        initCamera();
+        // Small delay to ensure video element is mounted
+        const timer = setTimeout(initCamera, 100);
         return () => {
+            clearTimeout(timer);
             streamRef.current?.getTracks().forEach(t => t.stop());
         };
     }, [isMounted]);
@@ -272,12 +341,25 @@ export default function MobileStudioPage() {
                 setLast5MinSales(v => v + 1);
                 const product = products[Math.floor(Math.random() * products.length)];
                 if (product) {
+                    const buyerName = ["ShopQueen", "DealHunter", "SavvyShopper"][Math.floor(Math.random() * 3)];
                     setSalesEvents(prev => [...prev, {
                         id: uid("s"),
-                        label: `Someone bought ${product.name}`,
+                        label: `${buyerName} bought ${product.name}`,
                         time: nowTimeLabel(),
                         amount: `$${product.basePrice.toFixed(2)}`,
                     }].slice(-20));
+                    // Add cart notification
+                    const isPurchase = Math.random() > 0.3;
+                    setCartEvents(prev => [...prev, createCartEvent(
+                        buyerName,
+                        product.name,
+                        isPurchase ? "purchase" : "cart",
+                        `$${product.basePrice.toFixed(2)}`
+                    )].slice(-5));
+                    // Clear old cart events
+                    setTimeout(() => {
+                        setCartEvents(prev => prev.slice(-3));
+                    }, 3500);
                 }
             }
         }, 5000);
@@ -322,19 +404,58 @@ export default function MobileStudioPage() {
         setCoHosts(prev => prev.map(c => ({ ...c, isPresenting: false })));
     }, []);
 
-    // Handlers
-    const handleToggleLive = useCallback(() => {
-        if (isLive) {
-            setIsSessionActive(false);
-            setMode("rehearsal");
-            toast({ title: "Stream Ended" });
-        } else {
-            setIsSessionActive(true);
-            setMode("live");
-            setLiveSeconds(0);
-            toast({ title: "You are Live!" });
+    // Camera flip handler
+    const handleFlipCamera = useCallback(async () => {
+        const newFacing = cameraFacing === "user" ? "environment" : "user";
+        setCameraFacing(newFacing);
+        try {
+            // Stop current stream
+            streamRef.current?.getTracks().forEach(t => t.stop());
+            // Get new stream with flipped camera
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: newFacing, width: { ideal: 720 }, height: { ideal: 1280 } },
+                audio: true,
+            });
+            streamRef.current = stream;
+            if (previewVideoRef.current) {
+                previewVideoRef.current.srcObject = stream;
+            }
+        } catch (err) {
+            console.error("[MobileStudio] Failed to flip camera:", err);
+            // Revert on failure
+            setCameraFacing(cameraFacing);
         }
-    }, [isLive, toast]);
+    }, [cameraFacing]);
+
+    // Mode change handler - ONLY changes mode, does NOT auto-start
+    const handleModeChange = useCallback((newMode: Mode) => {
+        setMode(newMode);
+        // If switching modes while active, stop current session
+        if (isSessionActive) {
+            setIsSessionActive(false);
+            toast({ title: "Session stopped", description: `Switched to ${newMode} mode` });
+        }
+    }, [isSessionActive, toast]);
+
+    // Play button handler - starts session based on current mode
+    const handlePlayButton = useCallback(() => {
+        if (isSessionActive) {
+            // Stop current session
+            setIsSessionActive(false);
+            toast({ title: "Session Ended" });
+        } else {
+            // Start session based on current mode
+            setIsSessionActive(true);
+            if (mode === "live") {
+                setLiveSeconds(0);
+                toast({ title: "You are Live!", description: "Broadcasting to viewers" });
+            } else if (mode === "record") {
+                toast({ title: "Recording Started", description: "Recording locally" });
+            } else {
+                toast({ title: "Rehearsal Started", description: "Practice mode active" });
+            }
+        }
+    }, [isSessionActive, mode, toast]);
 
     const handleToggleMic = useCallback(() => {
         if (streamRef.current) {
@@ -360,9 +481,11 @@ export default function MobileStudioPage() {
     if (!isMounted) {
         return (
             <div className="fixed inset-0 z-[9999] bg-black flex flex-col items-center justify-center gap-6" suppressHydrationWarning>
-                <div className="w-16 h-16 rounded-2xl bg-[#FF5C00] flex items-center justify-center shadow-lg animate-pulse">
-                    <span className="text-white font-bold text-2xl">LD</span>
-                </div>
+                <img
+                    src="/assets/logos/evlogovert.png"
+                    alt="LiveDealz"
+                    className="w-16 h-24 object-contain animate-pulse"
+                />
                 <div className="flex items-center gap-2">
                     <Spinner className="h-4 w-4 text-[#FF5C00]" />
                     <p className="text-slate-400 text-sm">Loading...</p>
@@ -373,43 +496,30 @@ export default function MobileStudioPage() {
 
     return (
         <MobileErrorBoundary>
-        <div className={`fixed inset-0 ${darkMode ? "bg-black" : "bg-slate-950"} overflow-hidden`} suppressHydrationWarning aria-label="mobile-studio">
-            {/* Full-screen camera preview */}
-            <div className="absolute inset-0">
-                <StagePreview
-                    darkMode={darkMode}
-                    resolvedPreviewMode="mobile"
-                    forceMobileMode={true}
-                    activeSceneLabel="Main"
-                    liveTimerLabel={liveTimerLabel}
-                    viewerCount={viewerCount}
-                    liveLangMix={[]}
-                    source="camera"
-                    flash={flash}
-                    flashUrgency={flashUrgency}
-                    micOn={micOn}
-                    camOn={camOn}
-                    screenShareOn={screenShareOn}
-                    currentSpeaker={null}
-                    speakerSecondsLeft={0}
-                    onExpand={() => {}}
-                    videoRef={videoRef}
-                    hasCameraPermission={hasCameraPermission}
-                    transcriptionOn={transcriptionOn}
-                    transcript={transcript}
-                    activeFilter={activeFilter}
-                    activeFilterCategory={activeFilterCategory}
-                    filterIntensity={filterIntensity}
-                    retryCameraAccess={() => {}}
-                    isDemoMode={isDemoMode}
-                    cameraError={cameraError}
-                    coHosts={acceptedCoHosts}
-                    mainPresenterId={mainPresenterId}
-                    hostPresenting={hostPresenting}
-                    mode={mode}
-                    isRecording={false}
-                    recordingSeconds={0}
+        <div className={`fixed inset-0 ${darkMode ? "bg-black" : "bg-white"} overflow-hidden`} suppressHydrationWarning aria-label="mobile-studio">
+            {/* Camera/Video preview - visible layer on top */}
+            <div className="absolute inset-0 z-[1] bg-gradient-to-br from-slate-900 to-slate-800">
+                <video
+                    ref={previewVideoRef}
+                    className="absolute inset-0 w-full h-full object-cover bg-black"
+                    autoPlay
+                    playsInline
+                    muted
+                    loop
+                    controls={false}
+                    preload="auto"
                 />
+                {/* Dark overlay for text readability */}
+                <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/40 pointer-events-none" />
+                {/* Camera indicator */}
+                {!camOn && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/80">
+                        <div className="text-center">
+                            <span className="material-icons text-white/40 text-5xl">videocam_off</span>
+                            <p className="text-white/60 text-sm mt-2">Camera Off</p>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Floating overlay layer */}
@@ -421,9 +531,30 @@ export default function MobileStudioPage() {
                     mode={mode}
                     liveTimerLabel={liveTimerLabel}
                     onEndLive={handleEndLive}
-                    onModeChange={setMode}
+                    onModeChange={handleModeChange}
                     darkMode={darkMode}
                     onToggleDarkMode={() => setDarkMode(v => !v)}
+                />
+
+                {/* Right side actions */}
+                <MobileRightActions
+                    cameraFacing={cameraFacing}
+                    onFlipCamera={handleFlipCamera}
+                    micOn={micOn}
+                    onToggleMic={handleToggleMic}
+                    activeFilter={activeFilter}
+                    onOpenFilters={() => setFiltersOpen(true)}
+                    hasActivePoll={polls.some(p => p.isActive)}
+                    onOpenPolls={() => setPollsOpen(true)}
+                    hasActiveGiveaway={giveaways.some(g => g.isActive)}
+                    onOpenGiveaways={() => setGiveawaysOpen(true)}
+                    coHostCount={acceptedCoHosts.length}
+                    onOpenCoHosts={() => setActivePanel("cohosts")}
+                    captionsOn={captionsOn}
+                    onToggleCaptions={() => setCaptionsOn(v => !v)}
+                    onOpenMultiCam={() => setMultiCamOpen(true)}
+                    productCount={products.length}
+                    onOpenProducts={() => setActivePanel("commerce")}
                 />
 
                 {/* Center area - chat bubbles */}
@@ -441,43 +572,199 @@ export default function MobileStudioPage() {
                     <div className="absolute bottom-[20%] right-2 pointer-events-none">
                         <FloatingReactions triggerHeartCount={heartCount} />
                     </div>
+
+                    {/* Sales goal bar - top right */}
+                    {isLive && (
+                        <div className="absolute top-2 right-14 pointer-events-auto">
+                            <SalesGoalBar
+                                currentSales={salesCount * 29.99}
+                                goalAmount={salesGoal}
+                                salesCount={salesCount}
+                                darkMode={darkMode}
+                                onSetGoal={() => setSalesGoal(500)}
+                            />
+                        </div>
+                    )}
                 </div>
+
+                {/* Pinned product overlay */}
+                {showPinnedProduct && isLive && (
+                    <MobilePinnedProduct
+                        product={products.find(p => p.id === highlightedProductId) ?? null}
+                        flash={flash}
+                        flashUrgency={flashUrgency}
+                        darkMode={darkMode}
+                        onBuy={(id) => {
+                            toast({ title: "Added to Cart!", description: "Product added to your cart" });
+                        }}
+                        onPin={(id) => {
+                            toast({ title: "Share Link Copied!", description: "Share this product with viewers" });
+                        }}
+                    />
+                )}
+
+                {/* Cart notifications */}
+                {isLive && (
+                    <CartNotification events={cartEvents} />
+                )}
+
+                {/* Product carousel */}
+                {isLive && products.length > 0 && (
+                    <ProductCarousel
+                        products={products}
+                        highlightedId={highlightedProductId}
+                        flash={flash}
+                        darkMode={darkMode}
+                        onSelectProduct={setHighlightedProductId}
+                        onQuickBuy={(id) => {
+                            toast({ title: "Quick Buy!", description: "Processing your order..." });
+                        }}
+                    />
+                )}
 
                 {/* Bottom nav */}
                 <MobileBottomNav
-                    micOn={micOn}
-                    camOn={camOn}
                     mode={mode}
                     isSessionActive={isSessionActive}
-                    flashActive={flash.active}
-                    onToggleMic={handleToggleMic}
-                    onToggleCam={handleToggleCam}
-                    onToggleLive={handleToggleLive}
-                    onOpenFilters={() => setFiltersOpen(true)}
-                    onOpenSlideMenu={() => setMobileMenuOpen(true)}
-                    onOpenFlashConfig={() => setActivePanel(activePanel === "commerce" ? "none" : "commerce")}
-                    onStopFlash={() => setFlash({ ...flash, active: false })}
-                    onOpenChat={() => setActivePanel(activePanel === "chat" ? "none" : "chat")}
-                    chatMessageCount={chatMessages.length}
+                    darkMode={darkMode}
+                    onToggleLive={handlePlayButton}
+                    onOpenSources={() => setSourcesOpen(true)}
+                    onOpenScenes={() => setScenesOpen(true)}
+                    onOpenSettings={() => setSettingsOpen(true)}
+                    onOpenCampaigns={() => setActivePanel("commerce")}
                 />
             </div>
 
-            {/* Filters tray overlay */}
-            {filtersOpen && (
-                <div className="fixed inset-0 z-50">
-                    <div className="absolute inset-0 bg-black/60" onClick={() => setFiltersOpen(false)} />
-                    <div className="absolute bottom-20 left-0 right-0">
-                        <FiltersTray
-                            darkMode={darkMode}
-                            onClose={() => setFiltersOpen(false)}
-                            activeFilter={activeFilter}
-                            onSelectFilter={(filterId) => setActiveFilter(filterId)}
-                            intensity={filterIntensity}
-                            onIntensityChange={setFilterIntensity}
-                        />
-                    </div>
-                </div>
-            )}
+            {/* Filter sheet */}
+            <MobileFilterSheet
+                isOpen={filtersOpen}
+                onClose={() => setFiltersOpen(false)}
+                activeFilter={activeFilter}
+                onSelectFilter={setActiveFilter}
+                intensity={filterIntensity}
+                onIntensityChange={setFilterIntensity}
+                darkMode={darkMode}
+            />
+
+            {/* Sources sheet */}
+            <MobileSourcesSheet
+                isOpen={sourcesOpen}
+                onClose={() => setSourcesOpen(false)}
+                sources={sources as any}
+                onToggleSource={(id) => setSources(prev => prev.map(s => s.id === id ? { ...s, visible: !s.visible } : s))}
+                onAddSource={(type) => {
+                    const newSource = {
+                        id: `src_${Date.now()}`,
+                        name: `${type.charAt(0).toUpperCase() + type.slice(1)} ${sources.length + 1}`,
+                        type,
+                        icon: type === "camera" ? "videocam" : type === "screen" ? "screen_share" : type === "image" ? "image" : type === "video" ? "movie" : "mic",
+                        active: false,
+                        visible: true,
+                    };
+                    setSources(prev => [...prev, newSource]);
+                    toast({ title: "Source Added", description: `${newSource.name} added` });
+                }}
+                onRemoveSource={(id) => setSources(prev => prev.filter(s => s.id !== id))}
+                darkMode={darkMode}
+            />
+
+            {/* Scenes sheet */}
+            <MobileScenesSheet
+                isOpen={scenesOpen}
+                onClose={() => setScenesOpen(false)}
+                scenes={[
+                    { id: "main", name: "Main Camera", icon: "videocam" },
+                    { id: "split", name: "Split Screen", icon: "splitscreen" },
+                    { id: "pip", name: "Picture in Picture", icon: "picture_in_picture" },
+                    { id: "guest", name: "Guest View", icon: "group" },
+                    { id: "product", name: "Product Focus", icon: "shopping_bag" },
+                    { id: "screen", name: "Screen Share", icon: "screen_share" },
+                ]}
+                activeSceneId={activeSceneId}
+                onSelectScene={(id) => {
+                    setActiveSceneId(id);
+                    toast({ title: "Scene Changed", description: `Switched to ${id}` });
+                }}
+                onAddScene={() => toast({ title: "Add Scene", description: "Coming soon!" })}
+                darkMode={darkMode}
+            />
+
+            {/* Settings sheet */}
+            <MobileSettingsSheet
+                isOpen={settingsOpen}
+                onClose={() => setSettingsOpen(false)}
+                videoQuality={videoQuality}
+                onVideoQualityChange={setVideoQuality}
+                audioBitrate={audioBitrate}
+                onAudioBitrateChange={setAudioBitrate}
+                mirrorVideo={mirrorVideo}
+                onMirrorVideoChange={setMirrorVideo}
+                darkMode={darkMode}
+            />
+
+            {/* Polls sheet */}
+            <MobilePollsSheet
+                isOpen={pollsOpen}
+                onClose={() => setPollsOpen(false)}
+                polls={polls}
+                onCreatePoll={(question, options) => {
+                    const newPoll = {
+                        id: `poll_${Date.now()}`,
+                        question,
+                        options: options.map((text, i) => ({ id: `opt_${i}`, text, votes: 0 })),
+                        isActive: true,
+                        totalVotes: 0,
+                    };
+                    setPolls(prev => [newPoll, ...prev]);
+                    toast({ title: "Poll Started", description: question });
+                }}
+                onEndPoll={(id) => {
+                    setPolls(prev => prev.map(p => p.id === id ? { ...p, isActive: false } : p));
+                    toast({ title: "Poll Ended" });
+                }}
+                darkMode={darkMode}
+            />
+
+            {/* Giveaways sheet */}
+            <MobileGiveawaysSheet
+                isOpen={giveawaysOpen}
+                onClose={() => setGiveawaysOpen(false)}
+                giveaways={giveaways}
+                onCreateGiveaway={(prize, winners, duration) => {
+                    const newGiveaway = {
+                        id: `give_${Date.now()}`,
+                        prize,
+                        winners,
+                        entries: 0,
+                        isActive: true,
+                        countdown: duration,
+                    };
+                    setGiveaways(prev => [newGiveaway, ...prev]);
+                    toast({ title: "Giveaway Started", description: prize });
+                }}
+                onEndGiveaway={(id) => {
+                    setGiveaways(prev => prev.map(g => g.id === id ? { ...g, isActive: false, winnerNames: ["Winner1"] } : g));
+                    toast({ title: "Giveaway Ended" });
+                }}
+                darkMode={darkMode}
+            />
+
+            {/* Multi-cam sheet */}
+            <MobileMultiCamSheet
+                isOpen={multiCamOpen}
+                onClose={() => setMultiCamOpen(false)}
+                cameras={cameras as any}
+                activeCameraId={activeCameraId}
+                onSelectCamera={(id) => {
+                    setActiveCameraId(id);
+                    const cam = cameras.find(c => c.id === id);
+                    if (cam) {
+                        setCameraFacing(cam.facing as "user" | "environment");
+                        handleFlipCamera();
+                    }
+                }}
+                darkMode={darkMode}
+            />
 
             {/* Slide menu */}
             <MobileSlideMenu
