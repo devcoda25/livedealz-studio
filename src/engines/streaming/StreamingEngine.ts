@@ -33,6 +33,7 @@ export class StreamingEngine {
   private streamOutput: StreamOutput | null = null;
   private viewer: WebRTCViewer | null = null;
   private healthMonitor: StreamHealthMonitor;
+  private recorder: StreamRecorder;
   
   // Configuration
   private config: StreamConfig;
@@ -57,6 +58,7 @@ export class StreamingEngine {
     this.videoEncoder = new VideoEncoder(this.config);
     this.audioEncoder = new AudioEncoder();
     this.healthMonitor = new StreamHealthMonitor();
+    this.recorder = new StreamRecorder();
     
     this.setupEventHandlers();
   }
@@ -463,6 +465,44 @@ export class StreamingEngine {
    */
   getViewerStream(): MediaStream | null {
     return this.viewer ? null : null; // Would need to expose from WebRTCViewer
+  }
+
+  // ==========================================
+  // Recording
+  // ==========================================
+  
+  /**
+   * Start recording the current composed stream
+   */
+  startRecording(options?: RecordingOptions): boolean {
+    const stream = this.sceneManager.getComposedStream(this.config.framerate);
+    if (!stream) {
+      console.error('No stream available for recording');
+      return false;
+    }
+    
+    return this.recorder.start(stream);
+  }
+  
+  /**
+   * Stop recording and get the blob
+   */
+  async stopRecording(): Promise<Blob | null> {
+    return await this.recorder.stop();
+  }
+  
+  /**
+   * Get recording state
+   */
+  getRecordingState() {
+    return this.recorder.getState();
+  }
+
+  /**
+   * Get recording stats
+   */
+  getRecordingStats() {
+    return this.recorder.getStats();
   }
 
   // ==========================================

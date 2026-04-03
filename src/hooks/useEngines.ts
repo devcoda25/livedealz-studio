@@ -7,8 +7,8 @@ import { InteractiveEngine, Viewer, ChatMessage, QAQuestion, AnyAlert } from "@/
 import { ModerationEngine } from "@/engines/moderation";
 import { AnalyticsEngine, StreamMetrics } from "@/engines/analytics";
 import { AudioMixingEngine, AudioSourceConfig } from "@/engines/audio";
-import { Product, ChatMsg, LiveViewer, SaleEvent, AiHint, QaItem, FlashDealState as StudioFlashDealState, ViewerLang, ListenMode } from "@/app/studio/components/types";
-import { uid, nowTimeLabel } from "@/app/studio/components/utils";
+import { Product, ChatMsg, LiveViewer, SaleEvent, AiHint, QaItem, FlashDealState as StudioFlashDealState, ViewerLang, ListenMode } from "@/app/studio/components/shared/types";
+import { uid, nowTimeLabel } from "@/app/studio/components/shared/utils";
 import { getRecommendedQuality, detectDeviceCapabilities, getOptimalCameraConstraints } from "@/lib/capabilityDetector";
 import { DEFAULT_STREAM_CONFIGS } from "@/engines/streaming/types";
 
@@ -180,6 +180,9 @@ export function useEngines(options: UseEnginesOptions = {}) {
     secondsLeft: 0,
     productId: null,
   });
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const recordingTimer = useRef<number | null>(null);
 
   // Engine refs
   const streamingEngine = useRef<StreamingEngine | null>(null);
@@ -441,6 +444,48 @@ export function useEngines(options: UseEnginesOptions = {}) {
   // Get stream stats
   const getStreamStats = useCallback(() => {
     return streamingEngine.current?.getStats() || null;
+  }, []);
+
+  // ===== RECORDING FUNCTIONS =====
+
+  // Start recording
+  const startRecording = useCallback(async (options?: any) => {
+    if (!streamingEngine.current) return false;
+    
+    const success = streamingEngine.current.startRecording(options);
+    if (success) {
+      setIsRecording(true);
+      setRecordingDuration(0);
+      
+      // Start timer
+      recordingTimer.current = window.setInterval(() => {
+        setRecordingDuration(prev => prev + 1);
+      }, 1000);
+    }
+    return success;
+  }, []);
+
+  // Stop recording
+  const stopRecording = useCallback(async () => {
+    if (!streamingEngine.current) return null;
+    
+    const blob = await streamingEngine.current.stopRecording();
+    setIsRecording(false);
+    
+    // Stop timer
+    if (recordingTimer.current) {
+      clearInterval(recordingTimer.current);
+      recordingTimer.current = null;
+    }
+    
+    return blob;
+  }, []);
+
+  // Clean up timer on unmount
+  useEffect(() => {
+    return () => {
+      if (recordingTimer.current) clearInterval(recordingTimer.current);
+    };
   }, []);
 
   // ===== COMMERCE ENGINE FUNCTIONS =====
@@ -779,6 +824,31 @@ export function useEngines(options: UseEnginesOptions = {}) {
     }));
   }, []);
 
+  // Upload audio file
+  const uploadAudio = useCallback(async (file: File) => {
+    if (!audioEngine.current) return null;
+    
+    const url = URL.createObjectURL(file);
+    const sourceId = await audioEngine.current.addAudioFile(url, file.name);
+    
+    if (sourceId) {
+      setState(prev => ({
+        ...prev,
+        audio: { ...prev.audio, sources: audioEngine.current?.getSources() || [] }
+      }));
+    }
+    return sourceId;
+  }, []);
+
+  // Audio playback
+  const playAudio = useCallback((sourceId: string, loop: boolean = true) => {
+    return audioEngine.current?.playAudio(sourceId, loop) ?? false;
+  }, []);
+
+  const stopAudio = useCallback((sourceId: string) => {
+    audioEngine.current?.stopAudio(sourceId);
+  }, []);
+
   // Stream config methods
   const getStreamConfig = useCallback(() => {
     return streamingEngine.current?.getConfig() ?? null;
@@ -878,6 +948,9 @@ export function useEngines(options: UseEnginesOptions = {}) {
     enableNoiseReduction,
     getAudioSources,
     removeAudioSource,
+    uploadAudio,
+    playAudio,
+    stopAudio,
 
     // Stream config
     getStreamConfig,
@@ -885,5 +958,11 @@ export function useEngines(options: UseEnginesOptions = {}) {
 
     // Socket (for streaming signaling)
     setSocket,
+
+    // Recording and Duration
+    isRecording,
+    recordingDuration,
+    startRecording,
+    stopRecording,
   };
 }

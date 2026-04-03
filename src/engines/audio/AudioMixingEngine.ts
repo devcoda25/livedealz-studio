@@ -6,7 +6,7 @@
  * audio mixing between multiple sources, and audio filters.
  */
 
-import { uid } from "@/app/studio/components/utils";
+import { uid } from "@/app/studio/components/shared/utils";
 
 // Audio source types
 export type AudioSourceType = "microphone" | "screenShare" | "backgroundMusic" | "audioFile";

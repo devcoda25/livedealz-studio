@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, ReactNode } from "react";
 import { useEngines, EngineState } from "@/hooks/useEngines";
-import { Product, ChatMsg, LiveViewer, SaleEvent, AiHint, QaItem, FlashDealState as StudioFlashDealState } from "@/app/studio/components/types";
+import { Product, ChatMsg, LiveViewer, SaleEvent, AiHint, QaItem, FlashDealState as StudioFlashDealState } from "@/app/studio/components/shared/types";
 
 interface EngineContextValue {
   // State
