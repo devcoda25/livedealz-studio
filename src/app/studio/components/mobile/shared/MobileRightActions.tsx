@@ -33,7 +33,8 @@ export const MobileRightActions = memo(function MobileRightActions({
     onSendReaction,
     productCount,
     onOpenProducts,
-}: MobileRightActionsProps) {
+    darkMode = true
+}: MobileRightActionsProps & { darkMode?: boolean }) {
     return (
         <div className="absolute right-3 top-1/2 -translate-y-1/2 z-30 flex flex-col items-center gap-4 pointer-events-auto">
             {/* --- Primary Capture Controls --- */}
@@ -42,6 +43,7 @@ export const MobileRightActions = memo(function MobileRightActions({
                     icon="cameraswitch"
                     label="Flip"
                     onClick={onFlipCamera}
+                    darkMode={darkMode}
                 />
 
                 <div className="relative group">
@@ -50,6 +52,8 @@ export const MobileRightActions = memo(function MobileRightActions({
                         label={micOn ? "Mute" : "Unmute"}
                         onClick={onToggleMic}
                         active={!micOn}
+                        darkMode={darkMode}
+                        activeColor={micOn ? "white" : "red"}
                     />
                     {micOn && (
                         <div className="absolute -left-3 top-1/2 -translate-y-1/2">
@@ -59,7 +63,7 @@ export const MobileRightActions = memo(function MobileRightActions({
                 </div>
             </div>
 
-            <div className="w-8 h-[1px] bg-white/10" />
+            <div className={`w-8 h-[1px] ${darkMode ? "bg-white/10" : "bg-slate-200"}`} />
 
             {/* --- Engagement & Management --- */}
             <div className="space-y-3">
@@ -68,18 +72,20 @@ export const MobileRightActions = memo(function MobileRightActions({
                     icon="favorite"
                     label="Hype"
                     onClick={onSendReaction}
-                    color="pink"
+                    activeColor="pink"
+                    darkMode={darkMode}
                 />
 
                 {/* The "Hub" - Settings & Tools */}
                 <ActionButton
-                    icon="settings"
+                    icon="grid_view"
                     label="Tools"
                     onClick={onOpenSettings}
+                    darkMode={darkMode}
                 />
             </div>
 
-            <div className="w-8 h-[1px] bg-white/10" />
+            <div className={`w-8 h-[1px] ${darkMode ? "bg-white/10" : "bg-slate-200"}`} />
 
             {/* --- Commerce --- */}
             <ActionButton
@@ -87,7 +93,9 @@ export const MobileRightActions = memo(function MobileRightActions({
                 label="Shop"
                 onClick={onOpenProducts}
                 badge={productCount > 0 ? productCount : undefined}
-                color="orange"
+                activeColor="orange"
+                darkMode={darkMode}
+                glow={productCount > 0}
             />
         </div>
     );
@@ -100,42 +108,51 @@ function ActionButton({
     onClick,
     active = false,
     badge,
-    color = "white",
+    activeColor = "white",
+    darkMode = true,
+    glow = false,
 }: {
     icon: string;
     label: string;
     onClick: () => void;
     active?: boolean;
     badge?: number;
-    color?: "white" | "orange" | "pink";
+    activeColor?: "white" | "orange" | "pink" | "red";
+    darkMode?: boolean;
+    glow?: boolean;
 }) {
     const getBgColor = () => {
-        if (active) {
-            if (color === "pink") return "bg-pink-500/90 shadow-pink-500/30";
-            if (color === "orange") return "bg-[#FF5C00]/90 shadow-[#FF5C00]/30";
-            return "bg-white/90 text-black";
+        if (active || activeColor === "orange" || activeColor === "pink" || activeColor === "red") {
+            if (activeColor === "pink") return "bg-pink-600 shadow-[0_5px_15px_rgba(219,39,119,0.4)] text-white border-pink-400/50";
+            if (activeColor === "orange") return "bg-[#f77f00] shadow-[0_5px_15px_rgba(247,127,0,0.4)] text-white border-[#f77f00]/50";
+            if (activeColor === "red") return "bg-rose-600 shadow-[0_5px_15px_rgba(225,29,72,0.4)] text-white border-rose-400/50";
+            return `${darkMode ? "bg-white text-black border-white" : "bg-slate-900 text-white border-slate-900"}`;
         }
-        return "bg-black/40 text-white border border-white/10";
+        return "bg-transparent border-transparent";
     };
 
     return (
         <button
             onClick={onClick}
-            className="flex flex-col items-center gap-0.5 active:scale-95 transition-all"
+            className="flex flex-col items-center gap-1.5 active:scale-95 transition-all group"
         >
             <div className={`
-                relative w-11 h-11 rounded-full flex items-center justify-center
-                backdrop-blur-md transition-all duration-150 shadow-sm
+                relative w-14 h-14 rounded-[20px] flex items-center justify-center
+                backdrop-blur-2xl transition-all duration-300 border
                 ${getBgColor()}
+                ${glow && activeColor === "orange" ? "animate-pulse" : ""}
             `}>
-                <span className="material-icons text-[20px]">{icon}</span>
+                <span className="material-icons text-[24px] drop-shadow-md">{icon}</span>
+                
                 {badge !== undefined && badge > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center border-2 border-black/20">
+                    <span className="absolute -top-1.5 -right-1.5 min-w-[22px] h-[22px] px-1.5 rounded-full bg-rose-600 text-white text-[10px] font-black flex items-center justify-center border-2 border-[#121212] shadow-xl animate-in zoom-in">
                         {badge > 9 ? "9+" : badge}
                     </span>
                 )}
             </div>
-            <span className="text-[10px] text-white font-medium drop-shadow-sm opacity-80">{label}</span>
+            <span className={`text-[10px] font-black ${darkMode ? "text-white/60 drop-shadow-sm uppercase tracking-tighter" : "text-slate-500 uppercase tracking-tighter"}`}>
+                {label}
+            </span>
         </button>
     );
 }

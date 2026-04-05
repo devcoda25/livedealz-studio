@@ -138,12 +138,14 @@ export const SCENES = SCENE_PRESETS;
 export type SceneId = (typeof SCENES)[number]["id"];
 
 // Campaign types for Teleprompter
+export type ScriptCue = { id: string; text: string; duration?: number };
+
 export type CampaignSession = {
     id: string;
     name: string;
     description: string;
     duration: number; // in seconds
-    scriptCues: { id: string; text: string; duration?: number }[];
+    scriptCues: ScriptCue[];
     runOfShow: { id: string; label: string; window: string; scene: string; duration?: number }[];
 };
 

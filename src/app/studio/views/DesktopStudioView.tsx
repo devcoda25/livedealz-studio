@@ -48,10 +48,10 @@ import { ExpandedStageModal } from "../components/desktop/ExpandedStageModal";
 import { SourcesPanel, CanvasSource } from "../components/desktop/SourcesPanel";
 
 // Mobile Components used in Desktop (e.g. for preview or shared logic)
-import { MobileBottomNav } from "../components/mobile/MobileBottomNav";
-import { MobileSlideMenu } from "../components/mobile/MobileSlideMenu";
-import { MobileLiveChat } from "../components/mobile/MobileLiveChat";
-import { MobileTopNav } from "../components/mobile/MobileTopNav";
+import { MobileBottomNav } from "../components/mobile/shared/MobileBottomNav";
+import { MobileSlideMenu } from "../components/mobile/shared/MobileSlideMenu";
+import { MobileLiveChat } from "../components/mobile/live/MobileLiveChat";
+import { MobileTopNav } from "../components/mobile/shared/MobileTopNav";
 import { FilterCategory } from "../../../engines/media/types";
 import { getOptimalCameraConstraints, detectDeviceCapabilities, clearCapabilitiesCache } from "@/lib/capabilityDetector";
 import { DEFAULT_STREAM_CONFIGS, StreamQuality, StreamConfig } from "@/engines/streaming/types";
@@ -2065,7 +2065,7 @@ export function DesktopStudioView() {
             onModeChange={(newMode) => setMode(newMode)}
           />
           <div className="flex-1 flex flex-col justify-end pointer-events-none relative z-20 pb-24">
-            <MobileLiveChat mode={mode} isEnabled={true} />
+            <MobileLiveChat messages={chatMessages} mode={mode} isEnabled={true} />
           </div>
           <FloatingReactions triggerHeartCount={heartCount} />
         </div>

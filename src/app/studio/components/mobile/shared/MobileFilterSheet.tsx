@@ -1,12 +1,3 @@
-/**
- * MobileFilterSheet - Native iOS/Android style filter picker
- * 
- * Bottom sheet with:
- * - Category tabs (Beauty, Color, Background, etc.)
- * - Filter grid with thumbnails
- * - Intensity slider
- */
-
 import React, { memo, useState } from "react";
 
 interface Filter {
@@ -81,70 +72,55 @@ export const MobileFilterSheet = memo(function MobileFilterSheet({
         activeCategory === "none" ? f.category === "none" : f.category === activeCategory
     );
 
-    const selectedFilter = FILTERS.find(f => f.id === activeFilter);
-
     return (
         <>
             {/* Backdrop */}
-            <div
-                className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-50"
-                onClick={onClose}
-            />
-
-            {/* Sheet */}
+            <div className={`fixed inset-0 z-50 transition-opacity duration-300 ${darkMode ? "bg-black/60" : "bg-slate-900/40"} backdrop-blur-sm animate-in fade-in`} onClick={onClose} />
+            
+            {/* Bottom Sheet */}
             <div className={`
-                fixed bottom-0 left-0 right-0 z-50
-                ${darkMode ? "bg-[#1C1C1E]" : "bg-white"}
-                rounded-t-[24px] overflow-hidden
-                animate-in slide-in-from-bottom duration-300
+                fixed bottom-0 left-0 right-0 z-50 rounded-t-[32px] animate-in slide-in-from-bottom duration-400 ease-out max-h-[85vh] flex flex-col
+                ${darkMode ? "bg-[#121212]/95 backdrop-blur-2xl border-t border-white/10 shadow-2xl" : "bg-white/95 backdrop-blur-2xl border-t border-slate-200 shadow-xl"}
             `}>
-                {/* Handle */}
-                <div className="flex justify-center pt-3 pb-1">
-                    <div className={`w-9 h-1 rounded-full ${darkMode ? "bg-white/20" : "bg-slate-300"}`} />
+                {/* Drag Handle */}
+                <div className="w-full flex justify-center pt-4 pb-1 cursor-pointer group" onClick={onClose}>
+                    <div className={`w-12 h-1.5 rounded-full transition-colors ${darkMode ? "bg-white/10 group-hover:bg-white/20" : "bg-slate-200 group-hover:bg-slate-300"}`} />
                 </div>
 
                 {/* Header */}
-                <div className="flex items-center justify-between px-5 py-2">
-                    <h2 className={`${darkMode ? "text-white" : "text-slate-900"} text-[17px] font-semibold`}>
-                        Filters
-                    </h2>
-                    <button
-                        onClick={onClose}
-                        className={`
-                            w-7 h-7 rounded-full flex items-center justify-center
-                            ${darkMode ? "bg-white/10 text-white/60" : "bg-slate-100 text-slate-500"}
-                        `}
+                <div className="flex items-center justify-between px-6 py-2">
+                    <h2 className={`${darkMode ? "text-white" : "text-slate-900"} text-[18px] font-black uppercase tracking-widest`}>Filters</h2>
+                    <button 
+                        onClick={onClose} 
+                        className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${darkMode ? "bg-white/5 hover:bg-white/10 text-white/40" : "bg-slate-100 hover:bg-slate-200 text-slate-400"}`}
                     >
-                        <span className="material-icons text-[16px]">close</span>
+                        <span className="material-icons text-[18px]">close</span>
                     </button>
                 </div>
 
-                {/* Category pills */}
-                <div className="flex gap-2 px-5 py-2 overflow-x-auto scrollbar-hide">
+                {/* Categories */}
+                <div className="flex gap-2 px-6 py-3 overflow-x-auto no-scrollbar">
                     {FILTER_CATEGORIES.map((cat) => (
                         <button
                             key={cat.id}
                             onClick={() => setActiveCategory(cat.id)}
                             className={`
-                                flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium
-                                whitespace-nowrap transition-all duration-150
+                                flex items-center gap-2 px-4 py-2 rounded-full text-[12px] font-black uppercase tracking-widest transition-all whitespace-nowrap
                                 ${activeCategory === cat.id
-                                    ? "bg-[#FF5C00] text-white"
-                                    : darkMode
-                                        ? "bg-white/10 text-white/60"
-                                        : "bg-slate-100 text-slate-500"
+                                    ? "bg-[#f77f00] text-white shadow-lg shadow-[#f77f00]/20"
+                                    : `${darkMode ? "bg-white/5 text-white/40 hover:bg-white/10" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`
                                 }
                             `}
                         >
-                            <span className="material-icons text-[14px]">{cat.icon}</span>
+                            <span className="material-icons text-[16px]">{cat.icon}</span>
                             {cat.name}
                         </button>
                     ))}
                 </div>
 
-                {/* Filter grid */}
-                <div className="px-4 py-3">
-                    <div className="grid grid-cols-4 gap-3">
+                {/* Filter Grid */}
+                <div className="flex-1 overflow-y-auto px-6 py-4">
+                    <div className="grid grid-cols-3 gap-3">
                         {filteredFilters.map((filter) => {
                             const isActive = filter.id === activeFilter;
                             return (
@@ -152,32 +128,27 @@ export const MobileFilterSheet = memo(function MobileFilterSheet({
                                     key={filter.id}
                                     onClick={() => onSelectFilter(filter.id)}
                                     className={`
-                                        flex flex-col items-center gap-1.5 p-2 rounded-xl
-                                        transition-all duration-150 active:scale-95
+                                        flex flex-col items-center gap-3 p-4 rounded-[28px] transition-all border group relative
                                         ${isActive
-                                            ? "bg-[#FF5C00]/20 border border-[#FF5C00]/50"
-                                            : darkMode
-                                                ? "bg-white/5 border border-transparent"
-                                                : "bg-slate-50 border border-transparent"
+                                            ? "bg-[#f77f00]/10 border-[#f77f00]/30 shadow-lg shadow-[#f77f00]/5"
+                                            : `${darkMode ? "bg-white/5 border-transparent active:scale-95" : "bg-slate-50 border-transparent active:scale-95"}`
                                         }
                                     `}
                                 >
                                     <div className={`
-                                        w-12 h-12 rounded-xl flex items-center justify-center
+                                        w-14 h-14 rounded-2xl flex items-center justify-center transition-all
                                         ${isActive
-                                            ? "bg-[#FF5C00] text-white"
-                                            : darkMode
-                                                ? "bg-white/10 text-white/70"
-                                                : "bg-slate-100 text-slate-600"
+                                            ? "bg-[#f77f00] text-white shadow-lg shadow-[#f77f00]/30"
+                                            : `${darkMode ? "bg-white/5 text-white/40 group-hover:bg-white/10" : "bg-white shadow-sm text-slate-400 group-hover:text-slate-600"}`
                                         }
                                     `}>
-                                        <span className="material-icons text-[22px]">{filter.icon}</span>
+                                        <span className="material-icons text-[28px]">{filter.icon}</span>
                                     </div>
                                     <span className={`
-                                        text-[10px] font-medium
+                                        text-[11px] font-black uppercase tracking-tight
                                         ${isActive
-                                            ? "text-[#FF5C00]"
-                                            : darkMode ? "text-white/60" : "text-slate-500"
+                                            ? "text-[#f77f00]"
+                                            : darkMode ? "text-white/40" : "text-slate-500"
                                         }
                                     `}>
                                         {filter.name}
@@ -188,32 +159,40 @@ export const MobileFilterSheet = memo(function MobileFilterSheet({
                     </div>
                 </div>
 
-                {/* Intensity slider */}
+                {/* Intensity Slider */}
                 {activeFilter !== "none" && (
-                    <div className={`px-5 py-3 border-t ${darkMode ? "border-white/10" : "border-slate-200"}`}>
-                        <div className="flex items-center justify-between mb-2">
-                            <span className={`${darkMode ? "text-white/60" : "text-slate-500"} text-[12px]`}>
-                                Intensity
+                    <div className={`px-8 py-6 border-t animate-in slide-in-from-bottom-2 ${darkMode ? "border-white/5" : "border-slate-100"}`}>
+                        <div className="flex items-center justify-between mb-4">
+                            <span className={`${darkMode ? "text-white/40" : "text-slate-400"} text-[10px] font-black uppercase tracking-[0.2em]`}>
+                                Filter Intensity
                             </span>
-                            <span className={`${darkMode ? "text-white" : "text-slate-900"} text-[12px] font-bold`}>
+                            <span className={`px-2 py-1 rounded bg-[#f77f00]/10 text-[#f77f00] text-[12px] font-black`}>
                                 {intensity}%
                             </span>
                         </div>
-                        <input
-                            type="range"
-                            min="0"
-                            max="100"
-                            value={intensity}
-                            onChange={(e) => onIntensityChange(parseInt(e.target.value))}
-                            className="w-full h-1 rounded-full appearance-none cursor-pointer"
-                            style={{
-                                background: `linear-gradient(to right, #FF5C00 0%, #FF5C00 ${intensity}%, ${darkMode ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"} ${intensity}%, ${darkMode ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"} 100%)`,
-                            }}
-                        />
+                        <div className="relative h-6 flex items-center">
+                            <input
+                                type="range"
+                                min="0"
+                                max="100"
+                                value={intensity}
+                                onChange={(e) => onIntensityChange(parseInt(e.target.value))}
+                                className="w-full h-1.5 rounded-full appearance-none cursor-pointer relative z-10 bg-transparent"
+                                style={{
+                                    WebkitAppearance: 'none',
+                                }}
+                            />
+                            {/* Custom Track */}
+                            <div className="absolute inset-x-0 h-1.5 rounded-full bg-black/10 overflow-hidden">
+                                <div 
+                                    className="h-full bg-[#f77f00] shadow-[0_0_10px_rgba(247,127,0,0.5)]" 
+                                    style={{ width: `${intensity}%` }}
+                                />
+                            </div>
+                        </div>
                     </div>
                 )}
 
-                {/* Safe area bottom */}
                 <div className="h-safe" />
             </div>
         </>

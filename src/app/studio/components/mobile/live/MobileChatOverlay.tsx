@@ -8,7 +8,7 @@
  * - Simulated viewer messages for demo
  */
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, memo } from "react";
 
 // Types
 interface ChatMessage {
@@ -96,10 +96,11 @@ interface MobileChatOverlayProps {
     mode: "lobby" | "live";
     isOpen: boolean;
     onClose: () => void;
+    darkMode?: boolean;
 }
 
 // Main component
-export function MobileChatOverlay({ mode, isOpen, onClose }: MobileChatOverlayProps) {
+export const MobileChatOverlay = memo(function MobileChatOverlay({ mode, isOpen, onClose, darkMode = true }: MobileChatOverlayProps) {
     const [activeTab, setActiveTab] = useState<"chat" | "qa" | "audio">("chat");
     
     // Chat state
@@ -312,76 +313,69 @@ export function MobileChatOverlay({ mode, isOpen, onClose }: MobileChatOverlayPr
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-40 bg-black/80" onClick={onClose}>
+        <div className={`fixed inset-0 z-50 transition-opacity duration-300 ${darkMode ? "bg-black/60" : "bg-slate-900/40"} backdrop-blur-sm animate-in fade-in`} onClick={onClose}>
             <div 
-                className="absolute bottom-20 left-0 right-0 top-0 flex flex-col"
+                className={`
+                    absolute bottom-0 left-0 right-0 top-16 flex flex-col rounded-t-[32px] overflow-hidden
+                    ${darkMode ? "bg-[#121212]/95 backdrop-blur-2xl border-t border-white/10" : "bg-white/95 backdrop-blur-2xl border-t border-slate-200"}
+                    animate-in slide-in-from-bottom duration-500 ease-out
+                `}
                 onClick={e => e.stopPropagation()}
             >
-                {/* Header */}
-                <div className="flex items-center justify-between px-4 py-3 bg-slate-900/90 backdrop-blur">
-                    <div className="flex gap-1">
-                        <button
-                            onClick={() => setActiveTab("chat")}
-                            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                                activeTab === "chat" 
-                                    ? "bg-primary text-white" 
-                                    : "text-slate-400 hover:text-white"
-                            }`}
-                        >
-                            Chat
-                        </button>
-                        <button
-                            onClick={() => setActiveTab("qa")}
-                            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                                activeTab === "qa" 
-                                    ? "bg-primary text-white" 
-                                    : "text-slate-400 hover:text-white"
-                            }`}
-                        >
-                            Q&A {qaItems.filter(q => q.status === "unanswered").length > 0 && (
-                                <span className="ml-1 px-1.5 py-0.5 bg-red-500 rounded-full text-xs">
-                                    {qaItems.filter(q => q.status === "unanswered").length}
-                                </span>
-                            )}
-                        </button>
-                        <button
-                            onClick={() => setActiveTab("audio")}
-                            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                                activeTab === "audio" 
-                                    ? "bg-primary text-white" 
-                                    : "text-slate-400 hover:text-white"
-                            }`}
-                        >
-                            Audio {audioRequests.filter(a => a.status === "pending").length > 0 && (
-                                <span className="ml-1 px-1.5 py-0.5 bg-red-500 rounded-full text-xs">
-                                    {audioRequests.filter(a => a.status === "pending").length}
-                                </span>
-                            )}
-                        </button>
+                {/* Drag Handle */}
+                <div className="w-full flex justify-center pt-4 pb-1 cursor-pointer group" onClick={onClose}>
+                    <div className={`w-12 h-1.5 rounded-full transition-colors ${darkMode ? "bg-white/10 group-hover:bg-white/20" : "bg-slate-200 group-hover:bg-slate-300"}`} />
+                </div>
+
+                {/* Tab Navigation */}
+                <div className="flex items-center justify-between px-6 py-2 border-b border-white/5">
+                    <div className="flex gap-2">
+                        {[
+                            { id: "chat", label: "Chat", count: 0 },
+                            { id: "qa", label: "Q&A", count: qaItems.filter(q => q.status === "unanswered").length },
+                            { id: "audio", label: "Audio", count: audioRequests.filter(a => a.status === "pending").length }
+                        ].map(tab => (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id as any)}
+                                className={`
+                                    relative px-5 py-2.5 rounded-full text-[12px] font-black uppercase tracking-widest transition-all
+                                    ${activeTab === tab.id 
+                                        ? "bg-[#f77f00] text-white shadow-lg shadow-[#f77f00]/20" 
+                                        : `${darkMode ? "text-white/40 hover:text-white" : "text-slate-500 hover:text-slate-900"}`
+                                    }
+                                `}
+                            >
+                                {tab.label}
+                                {tab.count > 0 && (
+                                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[9px] flex items-center justify-center text-white border-2 border-[#121212]">
+                                        {tab.count}
+                                    </span>
+                                )}
+                            </button>
+                        ))}
                     </div>
                     <button 
                         onClick={onClose}
-                        className="p-2 rounded-full hover:bg-slate-800"
+                        className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${darkMode ? "bg-white/5 text-white/40 hover:bg-white/10" : "bg-slate-100 text-slate-400 hover:bg-slate-200"}`}
                     >
-                        <span className="material-icons text-white">close</span>
+                        <span className="material-icons text-[20px]">close</span>
                     </button>
                 </div>
 
-                {/* Content */}
-                <div className="flex-1 overflow-hidden">
+                {/* Content Area */}
+                <div className="flex-1 overflow-hidden relative">
                     {/* Chat Tab */}
                     {activeTab === "chat" && (
-                        <div className="h-full overflow-y-auto p-4 space-y-3">
+                        <div className="h-full overflow-y-auto p-6 space-y-4 no-scrollbar">
                             {mode !== "live" ? (
-                                <div className="flex items-center justify-center h-full text-slate-400">
-                                    <div className="text-center">
-                                        <span className="material-icons text-4xl mb-2">chat_bubble_outline</span>
-                                        <p>Chat will appear when you go live</p>
-                                    </div>
+                                <div className="flex flex-col items-center justify-center h-full opacity-20">
+                                    <span className="material-icons text-[64px] mb-4">chat_bubble_outline</span>
+                                    <p className="text-[11px] font-black uppercase tracking-[0.2em]">Chat Reserved for Live</p>
                                 </div>
                             ) : messages.length === 0 ? (
-                                <div className="flex items-center justify-center h-full text-slate-400">
-                                    <p>Waiting for messages...</p>
+                                <div className="flex items-center justify-center h-full opacity-20">
+                                    <p className="animate-pulse text-[11px] font-black uppercase tracking-[0.2em]">Synchronizing Stream...</p>
                                 </div>
                             ) : (
                                 messages.map((msg, index) => (
@@ -390,6 +384,7 @@ export function MobileChatOverlay({ mode, isOpen, onClose }: MobileChatOverlayPr
                                         message={msg}
                                         isNew={newMessageIds.has(msg.id)}
                                         isLast={index === messages.length - 1}
+                                        darkMode={darkMode}
                                     />
                                 ))
                             )}
@@ -399,21 +394,20 @@ export function MobileChatOverlay({ mode, isOpen, onClose }: MobileChatOverlayPr
 
                     {/* Q&A Tab */}
                     {activeTab === "qa" && (
-                        <div className="h-full overflow-y-auto p-4 space-y-3">
+                        <div className="h-full overflow-y-auto p-6 space-y-4 no-scrollbar">
                             {qaItems.length === 0 ? (
-                                <div className="flex items-center justify-center h-full text-slate-400">
-                                    <div className="text-center">
-                                        <span className="material-icons text-4xl mb-2">question_answer</span>
-                                        <p>No questions yet</p>
-                                    </div>
+                                <div className="flex flex-col items-center justify-center h-full opacity-20">
+                                    <span className="material-icons text-[64px] mb-4">question_answer</span>
+                                    <p className="text-[11px] font-black uppercase tracking-[0.2em]">No Questions Registered</p>
                                 </div>
                             ) : (
                                 qaItems.map(item => (
-                                    <QAItem 
+                                    <QAItemItem 
                                         key={item.id} 
                                         item={item}
                                         onPin={() => handlePinQA(item.id)}
                                         onAnswer={() => handleAnswerQA(item.id)}
+                                        darkMode={darkMode}
                                     />
                                 ))
                             )}
@@ -422,117 +416,126 @@ export function MobileChatOverlay({ mode, isOpen, onClose }: MobileChatOverlayPr
 
                     {/* Audio Requests Tab */}
                     {activeTab === "audio" && (
-                        <div className="h-full overflow-y-auto p-4 space-y-3">
+                        <div className="h-full overflow-y-auto p-6 space-y-4 no-scrollbar">
                             {audioRequests.length === 0 ? (
-                                <div className="flex items-center justify-center h-full text-slate-400">
-                                    <div className="text-center">
-                                        <span className="material-icons text-4xl mb-2">mic</span>
-                                        <p>No audio requests</p>
-                                    </div>
+                                <div className="flex flex-col items-center justify-center h-full opacity-20">
+                                    <span className="material-icons text-[64px] mb-4">mic</span>
+                                    <p className="text-[11px] font-black uppercase tracking-[0.2em]">Audio Buffer Empty</p>
                                 </div>
                             ) : (
                                 audioRequests.map(req => (
-                                    <AudioRequestItem 
+                                    <AudioRequestItemItem 
                                         key={req.id} 
                                         request={req}
                                         onAccept={() => handleAcceptAudio(req.id)}
                                         onDecline={() => handleDeclineAudio(req.id)}
+                                        darkMode={darkMode}
                                     />
                                 ))
                             )}
                         </div>
                     )}
                 </div>
+                
+                {/* Safe Area Spacer */}
+                <div className="h-safe" />
             </div>
         </div>
     );
-}
+});
 
 // Chat message component with animation
-function ChatMessageItem({ message, isNew, isLast }: { message: ChatMessage; isNew: boolean; isLast: boolean }) {
+function ChatMessageItem({ message, isNew, isLast, darkMode }: { message: ChatMessage; isNew: boolean; isLast: boolean; darkMode: boolean }) {
     const isHighlight = message.isHighlight;
     
     return (
         <div 
-            className={`flex items-start gap-2 p-2 rounded-xl transition-all duration-300 ${
-                isHighlight 
-                    ? "bg-orange-500/20 border border-orange-500/30" 
-                    : "bg-black/40"
-            } ${isNew && isLast ? "animate-slide-in-from-top" : ""}`}
+            className={`
+                flex items-start gap-4 p-4 rounded-[24px] transition-all duration-500 ease-out border
+                ${isHighlight 
+                    ? "bg-[#f77f00]/10 border-[#f77f00]/30 shadow-lg shadow-[#f77f00]/5" 
+                    : `${darkMode ? "bg-white/5 border-transparent" : "bg-slate-50 border-transparent"}`
+                } 
+                ${isNew && isLast ? "animate-in slide-in-from-top-4 duration-300" : ""}
+            `}
         >
             {/* Avatar */}
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-[12px] font-black flex-shrink-0 shadow-sm ${
                 isHighlight 
-                    ? "bg-gradient-to-br from-orange-400 to-red-500 text-white"
-                    : "bg-slate-700 text-slate-300"
+                    ? "bg-[#f77f00] text-white"
+                    : `${darkMode ? "bg-white/10 text-white/60" : "bg-white text-slate-400"}`
             }`}>
                 {message.from.charAt(0).toUpperCase()}
             </div>
             
             {/* Content */}
             <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                    <span className={`font-semibold text-sm ${isHighlight ? "text-orange-400" : "text-white"}`}>
+                <div className="flex items-center gap-3">
+                    <span className={`text-[13px] font-black uppercase tracking-tight ${isHighlight ? "text-[#f77f00]" : `${darkMode ? "text-white" : "text-slate-900"}`}`}>
                         {message.from}
                     </span>
                     {message.langTag && message.langTag !== "en" && (
-                        <span className="text-[10px] px-1 py-0.5 bg-slate-700 rounded text-slate-400">
+                        <span className={`text-[9px] font-black px-1.5 py-0.5 rounded bg-black/20 text-white/40 uppercase tracking-tighter`}>
                             {message.langTag.toUpperCase()}
                         </span>
                     )}
-                    <span className="text-[10px] text-slate-500">{message.time}</span>
+                    <span className={`text-[10px] font-bold uppercase tracking-widest ${darkMode ? "text-white/20" : "text-slate-400"} ml-auto`}>{message.time}</span>
                 </div>
-                <p className="text-sm text-slate-200 break-words">{message.body}</p>
+                <p className={`text-[14px] mt-1 break-words ${darkMode ? "text-white/80" : "text-slate-600"} leading-snug`}>{message.body}</p>
             </div>
         </div>
     );
 }
 
 // Q&A item component
-function QAItem({ item, onPin, onAnswer }: { item: QaItem; onPin: () => void; onAnswer: () => void }) {
-    const statusColors = {
-        unanswered: "bg-slate-700",
-        pinned: "bg-orange-500/20 border border-orange-500/30",
-        answered: "bg-emerald-500/20 border border-emerald-500/30",
-    };
-    
-    const statusIcons = {
-        unanswered: "help_outline",
-        pinned: "push_pin",
-        answered: "check_circle",
-    };
+function QAItemItem({ item, onPin, onAnswer, darkMode }: { item: QaItem; onPin: () => void; onAnswer: () => void; darkMode: boolean }) {
+    const isPinned = item.status === "pinned";
+    const isAnswered = item.status === "answered";
     
     return (
-        <div className={`p-3 rounded-xl ${statusColors[item.status]}`}>
-            <div className="flex items-start gap-2">
-                <span className="material-icons text-slate-400 text-lg">{statusIcons[item.status]}</span>
-                <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                        <span className="font-semibold text-sm text-white">{item.from}</span>
-                        <span className="text-[10px] text-slate-500">{item.langTag.toUpperCase()}</span>
+        <div className={`
+            p-5 rounded-[28px] border transition-all duration-300
+            ${isPinned ? "bg-[#f77f00]/10 border-[#f77f00]/30 shadow-lg shadow-[#f77f00]/5" : ""}
+            ${isAnswered ? "bg-emerald-500/10 border-emerald-500/20 opacity-60" : ""}
+            ${!isPinned && !isAnswered ? `${darkMode ? "bg-white/5 border-transparent" : "bg-slate-50 border-transparent"}` : ""}
+        `}>
+            <div className="flex items-start gap-4">
+                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-sm ${
+                    isPinned ? "bg-[#f77f00] text-white" : 
+                    isAnswered ? "bg-emerald-500 text-white" : 
+                    `${darkMode ? "bg-white/10 text-white/40" : "bg-white text-slate-400"}`
+                }`}>
+                    <span className="material-icons text-[20px]">
+                        {isPinned ? "push_pin" : isAnswered ? "check_circle" : "help_outline"}
+                    </span>
+                </div>
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                        <span className={`text-[13px] font-black uppercase tracking-tight ${darkMode ? "text-white" : "text-slate-900"}`}>{item.from}</span>
+                        <span className={`text-[10px] font-black uppercase tracking-tighter ${darkMode ? "text-white/20" : "text-slate-400"}`}>{item.langTag.toUpperCase()}</span>
                     </div>
-                    <p className="text-sm text-slate-200">{item.question}</p>
+                    <p className={`text-[14px] font-bold leading-snug ${darkMode ? "text-white/90" : "text-slate-700"}`}>{item.question}</p>
                 </div>
             </div>
             
             {/* Actions */}
-            {item.status !== "answered" && (
-                <div className="flex gap-2 mt-3">
-                    {item.status === "unanswered" && (
+            {!isAnswered && (
+                <div className="flex gap-2 mt-5">
+                    {!isPinned && (
                         <button 
                             onClick={onPin}
-                            className="flex-1 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs text-white font-medium"
+                            className={`flex-1 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all active:scale-95 ${darkMode ? "bg-white/5 text-white/60" : "bg-white text-slate-500 border border-slate-100 shadow-sm"}`}
                         >
-                            <span className="material-icons text-sm mr-1">push_pin</span>
-                            Pin
+                            <span className="material-icons text-[16px]">push_pin</span>
+                            Pin to Stream
                         </button>
                     )}
                     <button 
                         onClick={onAnswer}
-                        className="flex-1 py-2 rounded-lg bg-primary hover:bg-primary/80 text-xs text-white font-medium"
+                        className="flex-2 py-3 px-6 rounded-2xl bg-[#f77f00] text-white text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-[#f77f00]/20"
                     >
-                        <span className="material-icons text-sm mr-1">check</span>
-                        Answer
+                        <span className="material-icons text-[16px]">chat</span>
+                        {isPinned ? "Answer Live" : "Answer Now"}
                     </button>
                 </div>
             )}
@@ -541,60 +544,59 @@ function QAItem({ item, onPin, onAnswer }: { item: QaItem; onPin: () => void; on
 }
 
 // Audio request component
-function AudioRequestItem({ request, onAccept, onDecline }: { 
+function AudioRequestItemItem({ request, onAccept, onDecline, darkMode }: { 
     request: AudioRequest; 
     onAccept: () => void; 
     onDecline: () => void;
+    darkMode: boolean;
 }) {
-    if (request.status !== "pending") {
-        return (
-            <div className={`p-3 rounded-xl ${
-                request.status === "accepted" 
-                    ? "bg-emerald-500/20 border border-emerald-500/30"
-                    : "bg-slate-800"
-            }`}>
-                <div className="flex items-center gap-2">
-                    <span className="material-icons text-emerald-700 dark:text-emerald-400">
-                        {request.status === "accepted" ? "check_circle" : "cancel"}
-                    </span>
-                    <div>
-                        <span className="text-sm text-white font-medium">{request.viewerName}</span>
-                        <span className="text-xs text-slate-400 ml-2">
-                            {request.status === "accepted" ? "Connected" : "Declined"}
-                        </span>
-                    </div>
-                </div>
-            </div>
-        );
-    }
+    const isPending = request.status === "pending";
+    const isAccepted = request.status === "accepted";
     
     return (
-        <div className="p-3 rounded-xl bg-slate-800 border border-slate-700">
-            <div className="flex items-center gap-2 mb-3">
-                <span className="material-icons text-orange-400 animate-pulse">mic</span>
-                <div>
-                    <span className="text-sm text-white font-medium">{request.viewerName}</span>
-                    <span className="text-xs text-slate-400 ml-2">wants to speak</span>
+        <div className={`
+            p-5 rounded-[28px] border transition-all duration-300
+            ${isAccepted ? "bg-emerald-500/10 border-emerald-500/20" : `${darkMode ? "bg-white/5 border-transparent" : "bg-slate-50 border-transparent"}`}
+        `}>
+            <div className="flex items-center gap-4">
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
+                    isAccepted ? "bg-emerald-500 text-white shadow-emerald-500/20 shadow-lg" : 
+                    isPending ? "bg-[#f77f00]/20 text-[#f77f00] animate-pulse" :
+                    `${darkMode ? "bg-white/5 text-white/20" : "bg-white text-slate-300 shadow-sm"}`
+                }`}>
+                    <span className="material-icons text-[24px]">
+                        {isAccepted ? "mic" : "mic_none"}
+                    </span>
                 </div>
-                <span className="text-[10px] text-slate-500 ml-auto">{request.time}</span>
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                        <span className={`text-[14px] font-black uppercase tracking-tight ${darkMode ? "text-white" : "text-slate-900"}`}>{request.viewerName}</span>
+                        <span className={`text-[10px] font-black uppercase tracking-tighter ${darkMode ? "text-white/20" : "text-slate-400"}`}>{request.time}</span>
+                    </div>
+                    <span className={`text-[11px] font-bold uppercase tracking-widest ${isAccepted ? "text-emerald-500" : isPending ? "text-[#f77f00]" : "text-slate-500"}`}>
+                        {request.status === "pending" ? "Requesting Audio Access" : 
+                         request.status === "accepted" ? "Connected to Host" : "Connection Terminated"}
+                    </span>
+                </div>
             </div>
             
-            <div className="flex gap-2">
-                <button 
-                    onClick={onAccept}
-                    className="flex-1 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-xs text-white font-medium flex items-center justify-center gap-1"
-                >
-                    <span className="material-icons text-sm">call</span>
-                    Accept
-                </button>
-                <button 
-                    onClick={onDecline}
-                    className="flex-1 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs text-white font-medium flex items-center justify-center gap-1"
-                >
-                    <span className="material-icons text-sm">call_end</span>
-                    Decline
-                </button>
-            </div>
+            {isPending && (
+                <div className="flex gap-3 mt-5">
+                    <button 
+                        onClick={onDecline}
+                        className={`flex-1 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all active:scale-95 ${darkMode ? "bg-white/5 text-white/40" : "bg-white text-slate-400 border border-slate-100 shadow-sm"}`}
+                    >
+                        Decline
+                    </button>
+                    <button 
+                        onClick={onAccept}
+                        className="flex-2 py-3 px-6 rounded-2xl bg-[#f77f00] text-white text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-[#f77f00]/20"
+                    >
+                        <span className="material-icons text-[18px]">mic</span>
+                        Allow Voice
+                    </button>
+                </div>
+            )}
         </div>
     );
 }

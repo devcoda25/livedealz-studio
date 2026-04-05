@@ -16,28 +16,37 @@ import {
     Campaign, CampaignSession
 } from "../components/shared/types";
 
-// Mobile-Specific Components
-import { MobileTopNav } from "../components/mobile/MobileTopNav";
-import { MobileBottomNav } from "../components/mobile/MobileBottomNav";
-import { MobileRightActions } from "../components/mobile/MobileRightActions";
-import { MobileFilterSheet } from "../components/mobile/MobileFilterSheet";
-import { MobileSourcesSheet } from "../components/mobile/MobileSourcesSheet";
-import { MobileScenesSheet } from "../components/mobile/MobileScenesSheet";
-import { MobileSettingsSheet } from "../components/mobile/MobileSettingsSheet";
-import { MobilePollsSheet } from "../components/mobile/MobilePollsSheet";
-import { MobileGiveawaysSheet } from "../components/mobile/MobileGiveawaysSheet";
-import { MobileMultiCamSheet } from "../components/mobile/MobileMultiCamSheet";
-import { MobileLiveChat } from "../components/mobile/MobileLiveChat";
-import { MobileSlideMenu } from "../components/mobile/MobileSlideMenu";
-import { MobileCommerceSheet } from "../components/mobile/MobileCommerceSheet";
-import { MobilePinnedProduct } from "../components/mobile/MobilePinnedProduct";
-import { CartNotification, createCartEvent } from "../components/mobile/CartNotification";
-import { SalesGoalBar } from "../components/mobile/SalesGoalBar";
-import { ProductCarousel } from "../components/mobile/ProductCarousel";
-import { MobileTeleprompterSheet } from "../components/mobile/MobileTeleprompterSheet";
-import { MobileTeleprompterOverlay } from "../components/mobile/MobileTeleprompterOverlay";
-import { MobileProductFormSheet } from "../components/mobile/MobileProductFormSheet";
-import { MobileLiveNotification, LiveNotificationEvent } from "../components/mobile/MobileLiveNotification";
+// Mobile-Specific Components - Shared
+import { MobileTopNav } from "../components/mobile/shared/MobileTopNav";
+import { MobileBottomNav } from "../components/mobile/shared/MobileBottomNav";
+import { MobileRightActions } from "../components/mobile/shared/MobileRightActions";
+import { MobileFilterSheet } from "../components/mobile/shared/MobileFilterSheet";
+import { MobileSourcesSheet } from "../components/mobile/shared/MobileSourcesSheet";
+import { MobileScenesSheet } from "../components/mobile/shared/MobileScenesSheet";
+import { MobileSettingsSheet } from "../components/mobile/shared/MobileSettingsSheet";
+import { MobileMultiCamSheet } from "../components/mobile/shared/MobileMultiCamSheet";
+import { MobileSlideMenu } from "../components/mobile/shared/MobileSlideMenu";
+import { MobileCommerceSheet } from "../components/mobile/shared/MobileCommerceSheet";
+import { MobilePinnedProduct } from "../components/mobile/shared/MobilePinnedProduct";
+import { ProductCarousel } from "../components/mobile/shared/ProductCarousel";
+
+// Mobile-Specific Components - Live
+import { MobileLiveChat } from "../components/mobile/live/MobileLiveChat";
+import { MobileChatOverlay } from "../components/mobile/live/MobileChatOverlay";
+import { MobilePollsSheet } from "../components/mobile/live/MobilePollsSheet";
+import { MobileGiveawaysSheet } from "../components/mobile/live/MobileGiveawaysSheet";
+import { MobileLiveNotification, LiveNotificationEvent } from "../components/mobile/live/MobileLiveNotification";
+import { CartNotification, createCartEvent } from "../components/mobile/live/CartNotification";
+import { SalesGoalBar } from "../components/mobile/live/SalesGoalBar";
+import { MobileLiveHUD } from "../components/mobile/live/MobileLiveHUD";
+
+// Mobile-Specific Components - Record / Rehearsal
+import { MobileTeleprompterSheet } from "../components/mobile/record/MobileTeleprompterSheet";
+import { MobileTeleprompterOverlay } from "../components/mobile/record/MobileTeleprompterOverlay";
+import { MobileProductFormSheet } from "../components/mobile/record/MobileProductFormSheet";
+import { MobileRecordHUD } from "../components/mobile/record/MobileRecordHUD";
+import { MobileRehearsalHUD } from "../components/mobile/rehearsal/MobileRehearsalHUD";
+
 import { FilterCategory } from "../../../engines/media/types";
 import { Spinner } from "@/components/ui/spinner";
 
@@ -475,7 +484,7 @@ export function MobileStudioView() {
             const newEvent: LiveNotificationEvent = {
                 id: uid("notif"),
                 type: isPurchase ? "purchase" : "cart",
-                userNode: <span className="text-[#FF5C00]">{randomBuyer}</span>,
+                userNode: <span className="text-[#f77f00]">{randomBuyer}</span>,
                 message: isPurchase 
                     ? `just purchased ${randomProduct?.name || "an item"}` 
                     : `added ${randomProduct?.name || "an item"} to cart`,
@@ -669,7 +678,12 @@ export function MobileStudioView() {
 
     return (
         <MobileErrorBoundary>
-        <div className={`fixed inset-0 ${darkMode ? "bg-black" : "bg-white"} overflow-hidden`} suppressHydrationWarning aria-label="mobile-studio">
+        <div 
+            className={`fixed inset-0 ${darkMode ? "bg-black" : "bg-white"} overflow-hidden touch-none`} 
+            style={{ height: '100dvh' }}
+            suppressHydrationWarning 
+            aria-label="mobile-studio"
+        >
             {/* Camera/Video preview - visible layer on top */}
             <div className="absolute inset-0 z-[1] bg-gradient-to-br from-slate-900 to-slate-800">
                 <video
@@ -697,63 +711,85 @@ export function MobileStudioView() {
 
             {/* Floating overlay layer */}
             <div className="absolute inset-0 pointer-events-none z-10 flex flex-col justify-between">
-                {/* Top nav */}
-                <MobileTopNav
-                    hostName="Evzone Shop"
-                    viewerCount={viewerCount}
-                    mode={mode}
-                    liveTimerLabel={liveTimerLabel}
-                    recordingTimerLabel={recordingTimerLabel}
-                    onEndLive={handleEndLive}
-                    onModeChange={handleModeChange}
-                    darkMode={darkMode}
-                />
-
-                {/* Right side actions */}
-                <MobileRightActions
-                    cameraFacing={cameraFacing}
-                    onFlipCamera={handleFlipCamera}
-                    micOn={micOn}
-                    onToggleMic={handleToggleMic}
-                    onOpenSettings={() => setSettingsOpen(true)}
-                    onSendReaction={() => setHeartCount(v => v + 5)}
-                    productCount={products.length}
-                    onOpenProducts={() => setActivePanel("commerce")}
-                    stream={streamRef.current}
-                />
-
-                {/* Floating Reactions overlay */}
-                <FloatingReactions triggerHeartCount={heartCount} />
-
-                {/* Social Proof Pops */}
-                <MobileLiveNotification 
-                    event={currentNotification} 
-                    onComplete={() => setCurrentNotification(null)} 
-                />
+                {/* Mode-Specific HUD UI */}
+                {mode === "live" ? (
+                    <MobileLiveHUD
+                        hostName="Studio Host"
+                        viewerCount={viewerCount}
+                        liveTimerLabel={liveTimerLabel}
+                        onEndLive={handlePlayButton}
+                        onModeChange={handleModeChange}
+                        cameraFacing={cameraFacing}
+                        onFlipCamera={handleFlipCamera}
+                        micOn={micOn}
+                        onToggleMic={() => setMicOn(!micOn)}
+                        stream={streamRef.current}
+                        onOpenSettings={() => setSettingsOpen(true)}
+                        onOpenCommerce={() => setActivePanel("commerce")}
+                        onSendReaction={() => setHeartCount(prev => prev + 1)}
+                        productCount={products.length}
+                        isChatOpen={activePanel === "chat"}
+                        onToggleChat={(open: boolean) => setActivePanel(open ? "chat" : "none")}
+                        currentNotification={currentNotification}
+                        onNotificationComplete={() => setCurrentNotification(null)}
+                        triggerHeartCount={heartCount}
+                        salesGoal={salesGoal}
+                        salesCount={salesCount}
+                        cartEvents={cartEvents}
+                        darkMode={darkMode}
+                    />
+                ) : mode === "record" ? (
+                    <MobileRecordHUD
+                        hostName="Studio Host"
+                        mode={mode}
+                        recordingTimerLabel={recordingTimerLabel}
+                        onEndLive={handlePlayButton}
+                        onModeChange={handleModeChange}
+                        cameraFacing={cameraFacing}
+                        onFlipCamera={handleFlipCamera}
+                        micOn={micOn}
+                        onToggleMic={() => setMicOn(!micOn)}
+                        stream={streamRef.current}
+                        onOpenSettings={() => setSettingsOpen(true)}
+                        onOpenCommerce={() => setActivePanel("commerce")}
+                        onOpenCampaigns={() => setTeleprompterSheetOpen(true)}
+                        onSendReaction={() => setHeartCount(prev => prev + 1)}
+                        productCount={products.length}
+                        activePrompterSession={activePrompterSession}
+                        isSessionActive={isSessionActive}
+                        onClosePrompter={() => setActivePrompterSession(null)}
+                        darkMode={darkMode}
+                    />
+                ) : (
+                    <MobileRehearsalHUD
+                        hostName="Studio Host"
+                        mode={mode}
+                        onEndLive={handlePlayButton}
+                        onModeChange={handleModeChange}
+                        cameraFacing={cameraFacing}
+                        onFlipCamera={handleFlipCamera}
+                        micOn={micOn}
+                        onToggleMic={() => setMicOn(!micOn)}
+                        stream={streamRef.current}
+                        onOpenSettings={() => setSettingsOpen(true)}
+                        onOpenCommerce={() => setActivePanel("commerce")}
+                        onOpenCampaigns={() => setTeleprompterSheetOpen(true)}
+                        onSendReaction={() => setHeartCount(prev => prev + 1)}
+                        productCount={products.length}
+                        darkMode={darkMode}
+                    />
+                )}
 
                 {/* Center area - chat bubbles */}
-                <div className="flex-1 relative">
+                <div className="flex-1 relative pointer-events-none">
                     {/* Chat bubbles - left side, bottom aligned */}
-                    <div className="absolute bottom-0 left-0 right-16 pointer-events-none">
+                    <div className="absolute bottom-0 left-0 right-16">
                         <MobileLiveChat
                             messages={chatMessages}
                             mode={mode}
                             isEnabled={true}
                         />
                     </div>
-
-                    {/* Sales goal bar - top right */}
-                    {isLive && (
-                        <div className="absolute top-2 right-14 pointer-events-auto">
-                            <SalesGoalBar
-                                currentSales={salesCount * 29.99}
-                                goalAmount={salesGoal}
-                                salesCount={salesCount}
-                                darkMode={darkMode}
-                                onSetGoal={() => setSalesGoal(500)}
-                            />
-                        </div>
-                    )}
                 </div>
 
                 {/* Pinned product overlay */}
@@ -770,11 +806,6 @@ export function MobileStudioView() {
                             toast({ title: "Share Link Copied!", description: "Share this product with viewers" });
                         }}
                     />
-                )}
-
-                {/* Cart notifications */}
-                {isLive && (
-                    <CartNotification events={cartEvents} />
                 )}
 
                 {/* Product carousel */}

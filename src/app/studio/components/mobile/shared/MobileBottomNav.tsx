@@ -6,7 +6,7 @@
  */
 
 import React, { memo } from "react";
-import { Mode } from "../shared/types";
+import { Mode } from "../../shared/types";
 
 interface MobileBottomNavProps {
     mode: Mode;
@@ -31,7 +31,6 @@ export const MobileBottomNav = memo(function MobileBottomNav({
 }: MobileBottomNavProps) {
     const isLiveActive = mode === "live" && isSessionActive;
     const isRecordActive = mode === "record" && isSessionActive;
-    const isRehearsalActive = mode === "rehearsal" && isSessionActive;
     const isActive = isSessionActive;
 
     // Determine button style based on mode and active state
@@ -40,7 +39,7 @@ export const MobileBottomNav = memo(function MobileBottomNav({
             // Session is running - show stop style
             switch (mode) {
                 case "live":
-                    return "bg-white shadow-[0_0_20px_rgba(255,255,255,0.3)]";
+                    return "bg-white shadow-[0_0_20px_rgba(255,255,255,0.4)] transition-all";
                 case "record":
                     return "bg-red-500 shadow-[0_0_20px_rgba(239,68,68,0.5)]";
                 default:
@@ -54,22 +53,22 @@ export const MobileBottomNav = memo(function MobileBottomNav({
             case "record":
                 return "bg-red-400 shadow-[0_0_20px_rgba(248,113,113,0.4)]";
             default:
-                return "bg-[#FF5C00] shadow-[0_0_20px_rgba(255,92,0,0.4)]";
+                return "bg-[#f77f00] shadow-[0_0_25px_rgba(247,127,0,0.4)] hover:shadow-[0_0_35px_rgba(247,127,0,0.6)]";
         }
     };
 
     const getRingStyle = () => {
         if (isActive) {
             switch (mode) {
-                case "live": return "border-white/60";
-                case "record": return "border-red-300/60";
-                default: return "border-blue-300/60";
+                case "live": return "border-white/60 ring-white/20";
+                case "record": return "border-red-300/60 ring-red-500/20";
+                default: return "border-blue-300/60 ring-blue-500/20";
             }
         }
         switch (mode) {
-            case "live": return "border-red-400/60";
-            case "record": return "border-red-300/60";
-            default: return "border-[#FF5C00]/60";
+            case "live": return "border-red-400/60 ring-red-500/10";
+            case "record": return "border-red-200/60 ring-red-400/10";
+            default: return "border-[#f77f00]/60 ring-[#f77f00]/20";
         }
     };
 
@@ -87,11 +86,11 @@ export const MobileBottomNav = memo(function MobileBottomNav({
     return (
         <div className="relative z-50 pointer-events-auto">
             {/* Gradient background */}
-            <div className={`absolute inset-0 bg-gradient-to-t ${darkMode ? "from-black/80 via-black/40" : "from-white/90 via-white/50"} to-transparent h-28 -top-12`} />
+            <div className={`absolute inset-0 bg-gradient-to-t ${darkMode ? "from-black/90 via-black/40" : "from-white/95 via-white/40"} to-transparent h-32 -top-12 pointer-events-none`} />
 
             {/* Control bar */}
-            <div className="relative flex items-center justify-center px-6 pb-safe pt-2 pb-4">
-                <div className="flex items-center justify-between w-full max-w-[320px]">
+            <div className="relative flex items-center justify-center px-6 pt-2 pb-[env(safe-area-inset-bottom,0px)]">
+                <div className="flex items-center justify-between w-full max-w-[340px]">
                     {/* Sources */}
                     <NavButton
                         icon="folder"
@@ -109,32 +108,40 @@ export const MobileBottomNav = memo(function MobileBottomNav({
                     />
 
                     {/* PLAY - Large center button */}
-                    <button
-                        onClick={onToggleLive}
-                        className={`
-                            relative flex items-center justify-center
-                            w-[68px] h-[68px] rounded-full
-                            transition-all duration-200 active:scale-95
-                            shadow-lg
-                            ${getButtonStyle()}
-                        `}
-                    >
-                        {/* Ring */}
-                        <div className={`absolute inset-[-3px] rounded-full border-[3px] ${getRingStyle()}`} />
+                    <div className="relative group">
+                        {/* Outer Glow */}
+                        <div className={`
+                            absolute inset-[-8px] rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500
+                            ${isActive ? "bg-white/20" : "bg-[#f77f00]/20"}
+                        `} />
+                        
+                        <button
+                            onClick={onToggleLive}
+                            className={`
+                                relative flex items-center justify-center
+                                w-[72px] h-[72px] rounded-full
+                                transition-all duration-300 active:scale-90 hover:scale-105
+                                shadow-lg
+                                ${getButtonStyle()}
+                            `}
+                        >
+                            {/* Inner Ring */}
+                            <div className={`absolute inset-[-4px] rounded-full border-[2px] transition-all duration-300 ${getRingStyle()}`} />
 
-                        {/* Icon */}
-                        <span className={`material-icons text-[28px] ${isActive ? "text-red-500" : "text-white"}`}>
-                            {getIcon()}
-                        </span>
+                            {/* Icon */}
+                            <span className={`material-icons text-[32px] ${isActive ? "text-red-500" : "text-white"} drop-shadow-sm`}>
+                                {getIcon()}
+                            </span>
 
-                        {/* Pulse animation when active */}
-                        {isActive && mode === "live" && (
-                            <span className="absolute inset-0 rounded-full animate-ping bg-red-500/20" />
-                        )}
-                        {isActive && mode === "record" && (
-                            <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse" />
-                        )}
-                    </button>
+                            {/* Pulse animation when active */}
+                            {isActive && mode === "live" && (
+                                <span className="absolute inset-0 rounded-full animate-ping bg-red-500/20" />
+                            )}
+                            {isActive && (
+                                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-white animate-pulse shadow-lg" />
+                            )}
+                        </button>
+                    </div>
 
                     {/* Settings */}
                     <NavButton
@@ -172,19 +179,21 @@ function NavButton({
     return (
         <button
             onClick={onClick}
-            className="flex flex-col items-center gap-1 active:scale-90 transition-transform"
+            className="flex flex-col items-center gap-1.5 active:scale-90 transition-transform group outline-none"
         >
             <div className={`
-                w-11 h-11 rounded-full flex items-center justify-center
-                backdrop-blur-md transition-all duration-150
+                w-12 h-12 flex items-center justify-center
+                transition-all duration-300
                 ${darkMode
-                    ? "bg-white/10 text-white/80 border border-white/10"
-                    : "bg-slate-100/80 text-slate-600 border border-slate-200"
+                    ? "text-white/40 group-hover:text-white"
+                    : "text-slate-400 group-hover:text-slate-900"
                 }
             `}>
-                <span className="material-icons text-[20px]">{icon}</span>
+                <span className="material-icons text-[26px]">{icon}</span>
             </div>
-            <span className={`text-[9px] font-medium ${darkMode ? "text-white/60" : "text-slate-500"}`}>{label}</span>
+            <span className={`text-[9px] font-black tracking-[0.15em] transition-all uppercase ${darkMode ? "text-white/30 group-hover:text-white/60" : "text-slate-400 group-hover:text-slate-600"}`}>
+                {label}
+            </span>
         </button>
     );
 }

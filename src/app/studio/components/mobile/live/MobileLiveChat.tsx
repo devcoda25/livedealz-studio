@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useEffect, useRef, memo } from "react";
-import { Mode, ChatMsg } from "../shared/types";
+import { Mode, ChatMsg } from "../../shared/types";
 
 interface MobileLiveChatProps {
     messages?: ChatMsg[];
@@ -20,8 +20,10 @@ interface AnimatedMessage extends ChatMsg {
     _enteredAt: number;
 }
 
+const EMPTY_MESSAGES: ChatMsg[] = [];
+
 export const MobileLiveChat = memo(function MobileLiveChat({
-    messages = [],
+    messages = EMPTY_MESSAGES,
     mode,
     isEnabled = true,
     maxVisible = 6,
@@ -33,7 +35,7 @@ export const MobileLiveChat = memo(function MobileLiveChat({
     // Process new messages
     useEffect(() => {
         if (mode !== "live" || !isEnabled) {
-            setVisibleMessages([]);
+            setVisibleMessages(prev => prev.length === 0 ? prev : []);
             lastProcessedIdx.current = -1;
             return;
         }
@@ -106,24 +108,29 @@ const ChatBubble = memo(function ChatBubble({
     const isSystem = message.system;
     const hasLang = message.langTag && message.langTag !== "en" && message.langTag !== "System";
 
-    // Color based on first character of name for variety
+    // Premium avatar colors
     const nameHash = message.from.charCodeAt(0) % 6;
-    const avatarColors = [
-        "bg-pink-500", "bg-purple-500", "bg-blue-500",
-        "bg-emerald-500", "bg-amber-500", "bg-rose-500",
+    const avatarGradients = [
+        "from-pink-500 to-rose-600", 
+        "from-violet-500 to-purple-600", 
+        "from-blue-500 to-cyan-600",
+        "from-emerald-500 to-teal-600", 
+        "from-amber-400 to-orange-500", 
+        "from-fuchsia-500 to-purple-600",
     ];
 
     if (isSystem) {
         return (
             <div
                 className={`
-                    flex items-center gap-2 px-3 py-1.5 rounded-full max-w-fit
-                    bg-white/10 backdrop-blur-md
-                    transform transition-all duration-300 ease-out
+                    flex items-center gap-2 px-4 py-2 rounded-full max-w-fit
+                    bg-white/10 backdrop-blur-xl border border-white/5
+                    transform transition-all duration-500 ease-out
                     ${isNew ? "translate-y-4 opacity-0 animate-[bubbleIn_0.3s_ease-out_forwards]" : "opacity-100"}
                 `}
             >
-                <span className="text-[10px] text-white/60">{message.body}</span>
+                <span className="material-icons text-[14px] text-[#f77f00]">info</span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-white/70">{message.body}</span>
             </div>
         );
     }
@@ -131,32 +138,34 @@ const ChatBubble = memo(function ChatBubble({
     return (
         <div
             className={`
-                flex items-center gap-2 px-2.5 py-1.5 rounded-2xl max-w-fit
-                bg-black/40 backdrop-blur-md border border-white/5
-                transform transition-all duration-300 ease-out
+                flex items-center gap-3 px-3 py-2 rounded-[20px] max-w-fit
+                bg-black/60 backdrop-blur-xl border border-white/10 shadow-lg
+                transform transition-all duration-500 ease-out
                 ${isNew ? "translate-y-4 opacity-0 animate-[bubbleIn_0.3s_ease-out_forwards]" : "opacity-100"}
             `}
         >
             {/* Avatar */}
             <div className={`
-                w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0
-                text-[10px] font-bold text-white
-                ${avatarColors[nameHash]}
+                w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0
+                text-[11px] font-black text-white shadow-lg
+                bg-gradient-to-br ${avatarGradients[nameHash]}
             `}>
                 {message.from.charAt(0).toUpperCase()}
             </div>
 
             {/* Content */}
-            <div className="flex items-center gap-1.5 min-w-0">
-                <span className="text-[11px] font-semibold text-white/90 truncate max-w-[80px]">
-                    {message.from}
-                </span>
-                {hasLang && (
-                    <span className="text-[8px] px-1 py-0.5 rounded bg-white/10 text-white/50 uppercase">
-                        {message.langTag}
+            <div className="flex flex-col min-w-0">
+                <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-black text-white uppercase tracking-tight truncate max-w-[100px]">
+                        {message.from}
                     </span>
-                )}
-                <span className="text-[11px] text-white/80 truncate max-w-[140px]">
+                    {hasLang && (
+                        <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-white/10 text-white/40 uppercase tracking-tighter">
+                            {message.langTag}
+                        </span>
+                    )}
+                </div>
+                <span className="text-[12px] font-bold text-white/90 leading-tight">
                     {message.body}
                 </span>
             </div>
