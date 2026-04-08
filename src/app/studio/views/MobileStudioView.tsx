@@ -27,8 +27,6 @@ import { MobileSettingsSheet } from "../components/mobile/shared/MobileSettingsS
 import { MobileMultiCamSheet } from "../components/mobile/shared/MobileMultiCamSheet";
 import { MobileSlideMenu } from "../components/mobile/shared/MobileSlideMenu";
 import { MobileCommerceSheet } from "../components/mobile/shared/MobileCommerceSheet";
-import { MobilePinnedProduct } from "../components/mobile/shared/MobilePinnedProduct";
-import { ProductCarousel } from "../components/mobile/shared/ProductCarousel";
 
 // Mobile-Specific Components - Live
 import { MobileLiveChat } from "../components/mobile/live/MobileLiveChat";
@@ -45,10 +43,19 @@ import { MobileTeleprompterSheet } from "../components/mobile/record/MobileTelep
 import { MobileTeleprompterOverlay } from "../components/mobile/record/MobileTeleprompterOverlay";
 import { MobileProductFormSheet } from "../components/mobile/record/MobileProductFormSheet";
 import { MobileRecordHUD } from "../components/mobile/record/MobileRecordHUD";
+import { RecordPage } from "../components/mobile/record/RecordPage";
 import { MobileRehearsalHUD } from "../components/mobile/rehearsal/MobileRehearsalHUD";
+import { MobileHomePage } from "../components/mobile/shared/MobileHomePage";
+import { VideosPage } from "../components/mobile/shared/VideosPage";
+import { CampaignsPage } from "../components/mobile/shared/CampaignsPage";
+import { ProfilePage } from "../components/mobile/shared/ProfilePage";
+import { SettingsPage } from "../components/mobile/shared/SettingsPage";
+import { MorePage } from "../components/mobile/shared/MorePage";
+import { PreLivePage } from "../components/mobile/live/PreLivePage";
 
 import { FilterCategory } from "../../../engines/media/types";
 import { Spinner } from "@/components/ui/spinner";
+import { getRecordEffectCssFilter } from "../components/mobile/record/recordEffects";
 
 // Error boundary to catch rendering errors
 class MobileErrorBoundary extends Component<{ children: React.ReactNode; fallback?: React.ReactNode }, { hasError: boolean }> {
@@ -117,11 +124,21 @@ export function MobileStudioView() {
 
     // Session state
     const [mode, setMode] = useState<Mode>("lobby");
+    const [lobbyPage, setLobbyPage] = useState<"home" | "videos" | "campaigns" | "profile" | "settings" | "more">("home");
+    const [preLiveMode, setPreLiveMode] = useState(false);
     const [isSessionActive, setIsSessionActive] = useState(false);
+    const [isLivePaused, setIsLivePaused] = useState(false);
     const [isMounted, setIsMounted] = useState(false);
     const [hasCameraPermission, setHasCameraPermission] = useState(false);
     const [cameraError, setCameraError] = useState<string | null>(null);
     const [isDemoMode, setIsDemoMode] = useState(false);
+
+    // More page state
+    const [ordersOpen, setOrdersOpen] = useState(false);
+    const [earningsOpen, setEarningsOpen] = useState(false);
+    const [audienceOpen, setAudienceOpen] = useState(false);
+    const [messagesOpen, setMessagesOpen] = useState(false);
+    const [isFollowing, setIsFollowing] = useState(false);
 
     // Media state
     const [micOn, setMicOn] = useState(true);
@@ -129,6 +146,7 @@ export function MobileStudioView() {
     const [cameraFacing, setCameraFacing] = useState<"user" | "environment">("user");
     const [screenShareOn, setScreenShareOn] = useState(false);
     const [activeFilter, setActiveFilter] = useState("none");
+    const [recordPreviewFilter, setRecordPreviewFilter] = useState<string | null>(null);
     const [activeFilterCategory, setActiveFilterCategory] = useState<FilterCategory | null>(null);
     const [filterIntensity, setFilterIntensity] = useState(100);
     const [captionsOn, setCaptionsOn] = useState(false);
@@ -566,6 +584,8 @@ export function MobileStudioView() {
     // Mode change handler - ONLY changes mode, does NOT auto-start
     const handleModeChange = useCallback((newMode: Mode) => {
         setMode(newMode);
+        setRecordPreviewFilter(null);
+        setIsLivePaused(false);
         // If switching modes while active, stop current session
         if (isSessionActive) {
             setIsSessionActive(false);
@@ -591,14 +611,17 @@ export function MobileStudioView() {
                 }
             }
             setIsSessionActive(false);
+            setIsLivePaused(false);
             toast({ title: "Session Ended" });
         } else {
             // Start session based on current mode
             if (mode === "live") {
                 setIsSessionActive(true);
+                setIsLivePaused(false);
                 setLiveSeconds(0);
                 toast({ title: "You are Live!", description: "Broadcasting to viewers" });
             } else if (mode === "record") {
+                setRecordPreviewFilter(null);
                 const success = await engineStartRecording();
                 if (success) {
                    setIsSessionActive(true);
@@ -613,11 +636,95 @@ export function MobileStudioView() {
         }
     }, [isSessionActive, isRecording, mode, engineStartRecording, engineStartStopRecording, toast]);
 
-    const handleToggleMic = useCallback(() => {
-        if (streamRef.current) {
-            streamRef.current.getAudioTracks().forEach(t => t.enabled = !t.enabled);
+    const recordStartInFlight = useRef(false);
+
+    const handleStartRecord = useCallback(async () => {
+        if (recordStartInFlight.current) return;
+        if (isSessionActive || isRecording) return;
+        if (mode !== "record") return;
+
+        recordStartInFlight.current = true;
+        try {
+            setRecordPreviewFilter(null);
+            const success = await engineStartRecording();
+            if (success) {
+                setIsSessionActive(true);
+                toast({ title: "Recording Started", description: "Recording locally" });
+            } else {
+                toast({ title: "Recording Failed", variant: "destructive" });
+            }
+        } finally {
+            recordStartInFlight.current = false;
         }
-        setMicOn(v => !v);
+    }, [engineStartRecording, isRecording, isSessionActive, mode, toast]);
+
+    const handleStopRecord = useCallback(async () => {
+        if (mode !== "record") return;
+
+        const blob = await engineStartStopRecording();
+        if (blob) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `recording-${Date.now()}.webm`;
+            a.click();
+            URL.revokeObjectURL(url);
+            toast({ title: "Recording Saved", description: "Your video has been downloaded." });
+        }
+        setIsSessionActive(false);
+    }, [engineStartStopRecording, mode, toast]);
+
+    const handleToggleMic = useCallback(() => {
+        const next = !micOn;
+        setMicOn(next);
+        if (streamRef.current) {
+            const livePaused = mode === "live" && isSessionActive && isLivePaused;
+            streamRef.current.getAudioTracks().forEach((t) => (t.enabled = next && !livePaused));
+        }
+    }, [isLivePaused, isSessionActive, micOn, mode]);
+
+    const handleToggleLivePause = useCallback(() => {
+        if (mode !== "live" || !isSessionActive) return;
+
+        setIsLivePaused((prev) => {
+            const next = !prev;
+            if (streamRef.current) {
+                streamRef.current.getVideoTracks().forEach((t) => (t.enabled = !next));
+                streamRef.current.getAudioTracks().forEach((t) => (t.enabled = !next && micOn));
+            }
+            return next;
+        });
+    }, [isSessionActive, micOn, mode]);
+
+    const handleEndLiveAndExit = useCallback(() => {
+        if (mode !== "live") {
+            setMode("lobby");
+            return;
+        }
+
+        if (isSessionActive) {
+            setIsSessionActive(false);
+            toast({ title: "Live ended" });
+        }
+
+        setIsLivePaused(false);
+        if (streamRef.current) {
+            streamRef.current.getVideoTracks().forEach((t) => (t.enabled = true));
+            streamRef.current.getAudioTracks().forEach((t) => (t.enabled = micOn));
+        }
+        setMode("lobby");
+    }, [isSessionActive, micOn, mode, toast]);
+
+    const handleSendLiveMessage = useCallback((body: string) => {
+        const message = body.trim();
+        if (!message) return;
+        const msg: ChatMsg = {
+            id: uid("m"),
+            from: "Host",
+            body: message,
+            time: nowTimeLabel(),
+        };
+        setChatMessages(prev => [...prev, msg].slice(-50));
     }, []);
 
     const handleToggleCam = useCallback(() => {
@@ -684,11 +791,18 @@ export function MobileStudioView() {
             suppressHydrationWarning 
             aria-label="mobile-studio"
         >
-            {/* Camera/Video preview - visible layer on top */}
+            {/* Camera/Video preview - visible layer on top - hidden in lobby/prelive modes */}
+            {mode !== "lobby" && !preLiveMode && (
             <div className="absolute inset-0 z-[1] bg-gradient-to-br from-slate-900 to-slate-800">
                 <video
                     ref={previewVideoRef}
                     className="absolute inset-0 w-full h-full object-cover bg-black"
+                    style={{
+                        filter: getRecordEffectCssFilter(
+                            mode === "record" ? (recordPreviewFilter ?? activeFilter) : activeFilter,
+                            filterIntensity
+                        ),
+                    }}
                     autoPlay
                     playsInline
                     muted
@@ -708,121 +822,227 @@ export function MobileStudioView() {
                     </div>
                 )}
             </div>
+            )}
 
             {/* Floating overlay layer */}
             <div className="absolute inset-0 pointer-events-none z-10 flex flex-col justify-between">
                 {/* Mode-Specific HUD UI */}
-                {mode === "live" ? (
-                    <MobileLiveHUD
-                        hostName="Studio Host"
-                        viewerCount={viewerCount}
-                        liveTimerLabel={liveTimerLabel}
-                        onEndLive={handlePlayButton}
-                        onModeChange={handleModeChange}
-                        cameraFacing={cameraFacing}
-                        onFlipCamera={handleFlipCamera}
-                        micOn={micOn}
-                        onToggleMic={() => setMicOn(!micOn)}
-                        stream={streamRef.current}
-                        onOpenSettings={() => setSettingsOpen(true)}
-                        onOpenCommerce={() => setActivePanel("commerce")}
-                        onSendReaction={() => setHeartCount(prev => prev + 1)}
-                        productCount={products.length}
-                        isChatOpen={activePanel === "chat"}
-                        onToggleChat={(open: boolean) => setActivePanel(open ? "chat" : "none")}
-                        currentNotification={currentNotification}
-                        onNotificationComplete={() => setCurrentNotification(null)}
-                        triggerHeartCount={heartCount}
-                        salesGoal={salesGoal}
-                        salesCount={salesCount}
-                        cartEvents={cartEvents}
-                        darkMode={darkMode}
-                    />
-                ) : mode === "record" ? (
-                    <MobileRecordHUD
-                        hostName="Studio Host"
-                        mode={mode}
-                        recordingTimerLabel={recordingTimerLabel}
-                        onEndLive={handlePlayButton}
-                        onModeChange={handleModeChange}
-                        cameraFacing={cameraFacing}
-                        onFlipCamera={handleFlipCamera}
-                        micOn={micOn}
-                        onToggleMic={() => setMicOn(!micOn)}
-                        stream={streamRef.current}
-                        onOpenSettings={() => setSettingsOpen(true)}
-                        onOpenCommerce={() => setActivePanel("commerce")}
-                        onOpenCampaigns={() => setTeleprompterSheetOpen(true)}
-                        onSendReaction={() => setHeartCount(prev => prev + 1)}
-                        productCount={products.length}
-                        activePrompterSession={activePrompterSession}
-                        isSessionActive={isSessionActive}
-                        onClosePrompter={() => setActivePrompterSession(null)}
-                        darkMode={darkMode}
-                    />
-                ) : (
-                    <MobileRehearsalHUD
-                        hostName="Studio Host"
-                        mode={mode}
-                        onEndLive={handlePlayButton}
-                        onModeChange={handleModeChange}
-                        cameraFacing={cameraFacing}
-                        onFlipCamera={handleFlipCamera}
-                        micOn={micOn}
-                        onToggleMic={() => setMicOn(!micOn)}
-                        stream={streamRef.current}
-                        onOpenSettings={() => setSettingsOpen(true)}
-                        onOpenCommerce={() => setActivePanel("commerce")}
-                        onOpenCampaigns={() => setTeleprompterSheetOpen(true)}
-                        onSendReaction={() => setHeartCount(prev => prev + 1)}
-                        productCount={products.length}
-                        darkMode={darkMode}
-                    />
+                {mode === "lobby" && !preLiveMode && (
+                    <div className="pointer-events-auto">
+                        <MobileHomePage
+                            hostName="Studio Host"
+                            storeHandle="yourstore"
+                            activeTab={lobbyPage}
+                            onGoToPreLive={() => setPreLiveMode(true)}
+                            onStartRecording={() => {
+                                setMode("record");
+                            }}
+                            onStartRehearsal={() => {
+                                setMode("rehearsal");
+                            }}
+                            onOpenCampaigns={() => setLobbyPage("campaigns")}
+                            onOpenProducts={() => setActivePanel("commerce")}
+                            onOpenSettings={() => setLobbyPage("settings")}
+                            onOpenAnalytics={() => {
+                                toast({ title: "Analytics", description: "View your performance metrics" });
+                            }}
+                            onGoHome={() => setLobbyPage("home")}
+                            onOpenVideos={() => setLobbyPage("videos")}
+                            onOpenProfile={() => setLobbyPage("profile")}
+                            onOpenMore={() => setLobbyPage("more")}
+                            darkMode={darkMode}
+                        />
+                    </div>
                 )}
 
-                {/* Center area - chat bubbles */}
+                {mode === "lobby" && lobbyPage === "videos" && (
+                    <div className="pointer-events-auto">
+                        <VideosPage
+                            onGoBack={() => setLobbyPage("home")}
+                            onOpenSettings={() => setSettingsOpen(true)}
+                            darkMode={darkMode}
+                        />
+                    </div>
+                )}
+
+                {mode === "lobby" && lobbyPage === "campaigns" && (
+                    <div className="pointer-events-auto">
+                        <CampaignsPage
+                            onGoBack={() => setLobbyPage("home")}
+                            onOpenSettings={() => setSettingsOpen(true)}
+                            darkMode={darkMode}
+                        />
+                    </div>
+                )}
+
+                {mode === "lobby" && lobbyPage === "profile" && (
+                    <div className="pointer-events-auto">
+                        <ProfilePage
+                            onGoBack={() => setLobbyPage("home")}
+                            onOpenSettings={() => setSettingsOpen(true)}
+                            storeHandle="yourstore"
+                            darkMode={darkMode}
+                        />
+                    </div>
+                )}
+
+                {mode === "lobby" && lobbyPage === "settings" && (
+                    <div className="pointer-events-auto">
+                        <SettingsPage
+                            onGoBack={() => setLobbyPage("home")}
+                            onOpenSettings={() => setSettingsOpen(true)}
+                            darkMode={darkMode}
+                        />
+                    </div>
+                )}
+
+                {mode === "lobby" && lobbyPage === "more" && (
+                    <div className="pointer-events-auto">
+                        <MorePage
+                            onGoBack={() => setLobbyPage("home")}
+                            onOpenAnalytics={() => toast({ title: "Analytics", description: "View your performance metrics" })}
+                            onOpenProducts={() => setActivePanel("commerce")}
+                            onOpenOrders={() => toast({ title: "Orders", description: "View customer orders" })}
+                            onOpenEarnings={() => setEarningsOpen(true)}
+                            onOpenAudience={() => setAudienceOpen(true)}
+                            onOpenMessages={() => setMessagesOpen(true)}
+                            onOpenTranslations={() => {}}
+                            onOpenSoundLibrary={() => {}}
+                            onOpenBackgrounds={() => {}}
+                            onOpenStickers={() => {}}
+                            darkMode={darkMode}
+                        />
+                    </div>
+                )}
+
+                {preLiveMode && (
+                    <div className="pointer-events-auto">
+                        <PreLivePage
+                            hostName="Studio Host"
+                            storeHandle="yourstore"
+                            followerCount={12500}
+                            onGoLive={() => {
+                                setPreLiveMode(false);
+                                setMode("live");
+                                setIsLivePaused(false);
+                                setIsSessionActive(true);
+                                setLiveSeconds(0);
+                                toast({ title: "You are Live!", description: "Broadcasting to viewers" });
+                            }}
+                            onOpenProducts={() => setActivePanel("commerce")}
+                            onOpenCampaigns={() => setLobbyPage("campaigns")}
+                            onOpenAnalytics={() => {
+                                toast({ title: "Analytics", description: "View your performance metrics" });
+                            }}
+                            onOpenSettings={() => setSettingsOpen(true)}
+                            onFlipCamera={handleFlipCamera}
+                            onGoBack={() => setPreLiveMode(false)}
+                            darkMode={darkMode}
+                        />
+                    </div>
+                )}
+
+                {/* HUDs - hidden in lobby mode */}
+                {mode !== "lobby" && !preLiveMode && (
+                <>
+                {mode === "live" ? (
+                    <div className="pointer-events-auto">
+                        <MobileLiveHUD
+                            hostName="Studio Host"
+                            viewerCount={viewerCount}
+                            liveTimerLabel={liveTimerLabel}
+                            onEndLive={handleEndLiveAndExit}
+                            onModeChange={handleModeChange}
+                            onSendMessage={handleSendLiveMessage}
+                            isLiveActive={isLive}
+                            isPaused={isLivePaused}
+                            onTogglePause={handleToggleLivePause}
+                            cameraFacing={cameraFacing}
+                            onFlipCamera={handleFlipCamera}
+                            micOn={micOn}
+                            onToggleMic={handleToggleMic}
+                            stream={streamRef.current}
+                            onOpenSettings={() => setSettingsOpen(true)}
+                            onOpenCommerce={() => setActivePanel("commerce")}
+                            onSendReaction={() => setHeartCount(prev => prev + 1)}
+                            productCount={products.length}
+                            isChatOpen={activePanel === "chat"}
+                            onToggleChat={(open: boolean) => setActivePanel(open ? "chat" : "none")}
+                            currentNotification={currentNotification}
+                            onNotificationComplete={() => setCurrentNotification(null)}
+                            triggerHeartCount={heartCount}
+                            salesGoal={salesGoal}
+                            salesCount={salesCount}
+                            cartEvents={cartEvents}
+                            darkMode={darkMode}
+                        />
+                    </div>
+                ) : mode === "record" ? (
+                    <div className="pointer-events-auto">
+                        <RecordPage
+                            hostName="Studio Host"
+                            isRecording={isSessionActive}
+                            recordingTime={recordingTimerLabel}
+                            micOn={micOn}
+                            activeFilter={activeFilter}
+                            previewFilter={recordPreviewFilter}
+                            onFlipCamera={handleFlipCamera}
+                            onToggleMic={handleToggleMic}
+                            onStartRecording={handleStartRecord}
+                            onStopRecording={handleStopRecord}
+                            onPreviewFilter={(filter) => setRecordPreviewFilter(filter)}
+                            onClearPreviewFilter={() => setRecordPreviewFilter(null)}
+                            onSelectFilter={(filter) => {
+                                setActiveFilter(filter);
+                                setRecordPreviewFilter(null);
+                            }}
+                            onGoBack={() => setMode("lobby")}
+                            darkMode={darkMode}
+                        />
+                    </div>
+                ) : (
+                    <div className="pointer-events-auto">
+                        <MobileRehearsalHUD
+                            hostName="Studio Host"
+                            mode={mode}
+                            onEndLive={handlePlayButton}
+                            onModeChange={handleModeChange}
+                            cameraFacing={cameraFacing}
+                            onFlipCamera={handleFlipCamera}
+                            micOn={micOn}
+                            onToggleMic={() => setMicOn(!micOn)}
+                            stream={streamRef.current}
+                            onOpenSettings={() => setSettingsOpen(true)}
+                            onOpenCommerce={() => setActivePanel("commerce")}
+                            onOpenCampaigns={() => setTeleprompterSheetOpen(true)}
+                            onSendReaction={() => setHeartCount(prev => prev + 1)}
+                            productCount={products.length}
+                            darkMode={darkMode}
+                        />
+                    </div>
+                )}
+                </>)}
+
+                {/* Center area - chat bubbles - hidden in lobby */}
+                {isLive && (
                 <div className="flex-1 relative pointer-events-none">
                     {/* Chat bubbles - left side, bottom aligned */}
-                    <div className="absolute bottom-0 left-0 right-16">
+                    <div className="absolute bottom-20 left-0">
                         <MobileLiveChat
                             messages={chatMessages}
                             mode={mode}
                             isEnabled={true}
+                            variant="tiktok"
+                            maxVisible={6}
                         />
                     </div>
                 </div>
-
-                {/* Pinned product overlay */}
-                {showPinnedProduct && isLive && (
-                    <MobilePinnedProduct
-                        product={products.find(p => p.id === highlightedProductId) ?? null}
-                        flash={flash}
-                        flashUrgency={flashUrgency}
-                        darkMode={darkMode}
-                        onBuy={(id) => {
-                            toast({ title: "Added to Cart!", description: "Product added to your cart" });
-                        }}
-                        onPin={(id) => {
-                            toast({ title: "Share Link Copied!", description: "Share this product with viewers" });
-                        }}
-                    />
                 )}
 
-                {/* Product carousel */}
-                {isLive && products.length > 0 && (
-                    <ProductCarousel
-                        products={products}
-                        highlightedId={highlightedProductId}
-                        flash={flash}
-                        darkMode={darkMode}
-                        onSelectProduct={setHighlightedProductId}
-                        onQuickBuy={(id) => {
-                            toast({ title: "Quick Buy!", description: "Processing your order..." });
-                        }}
-                    />
-                )}
+                {/* Product overlays removed for now (they were covering core Live UI). */}
 
-                {/* Bottom nav */}
+                {/* Bottom nav - hidden in lobby/record/live/prelive */}
+                {mode !== "lobby" && mode !== "record" && mode !== "live" && !preLiveMode && (
                 <MobileBottomNav
                     mode={mode}
                     isSessionActive={isSessionActive}
@@ -833,6 +1053,7 @@ export function MobileStudioView() {
                     onOpenSettings={() => setSettingsOpen(true)}
                     onOpenCampaigns={() => setTeleprompterSheetOpen(true)}
                 />
+                )}
             </div>
 
             {/* Teleprompter Overlay */}

@@ -21,6 +21,7 @@ interface MobileRightActionsProps {
     onSendReaction: () => void;
     productCount: number;
     onOpenProducts: () => void;
+    variant?: "full" | "compact";
 }
 
 export const MobileRightActions = memo(function MobileRightActions({
@@ -33,17 +34,24 @@ export const MobileRightActions = memo(function MobileRightActions({
     onSendReaction,
     productCount,
     onOpenProducts,
+    variant = "full",
     darkMode = true
 }: MobileRightActionsProps & { darkMode?: boolean }) {
+    const compact = variant === "compact";
     return (
-        <div className="absolute right-3 top-1/2 -translate-y-1/2 z-30 flex flex-col items-center gap-4 pointer-events-auto">
+        <div
+            className={`absolute right-3 z-30 flex flex-col items-center pointer-events-auto ${
+                compact ? "top-[46%] -translate-y-1/2 gap-3" : "top-1/2 -translate-y-1/2 gap-4"
+            }`}
+        >
             {/* --- Primary Capture Controls --- */}
-            <div className="space-y-3">
+            <div className={compact ? "space-y-2" : "space-y-3"}>
                 <ActionButton
                     icon="cameraswitch"
                     label="Flip"
                     onClick={onFlipCamera}
                     darkMode={darkMode}
+                    compact={compact}
                 />
 
                 <div className="relative group">
@@ -54,6 +62,7 @@ export const MobileRightActions = memo(function MobileRightActions({
                         active={!micOn}
                         darkMode={darkMode}
                         activeColor={micOn ? "white" : "red"}
+                        compact={compact}
                     />
                     {micOn && (
                         <div className="absolute -left-3 top-1/2 -translate-y-1/2">
@@ -63,10 +72,10 @@ export const MobileRightActions = memo(function MobileRightActions({
                 </div>
             </div>
 
-            <div className={`w-8 h-[1px] ${darkMode ? "bg-white/10" : "bg-slate-200"}`} />
+            {!compact && <div className={`w-8 h-[1px] ${darkMode ? "bg-white/10" : "bg-slate-200"}`} />}
 
             {/* --- Engagement & Management --- */}
-            <div className="space-y-3">
+            <div className={compact ? "space-y-2" : "space-y-3"}>
                 {/* Hype / Reaction Trigger */}
                 <ActionButton
                     icon="favorite"
@@ -74,6 +83,7 @@ export const MobileRightActions = memo(function MobileRightActions({
                     onClick={onSendReaction}
                     activeColor="pink"
                     darkMode={darkMode}
+                    compact={compact}
                 />
 
                 {/* The "Hub" - Settings & Tools */}
@@ -82,10 +92,11 @@ export const MobileRightActions = memo(function MobileRightActions({
                     label="Tools"
                     onClick={onOpenSettings}
                     darkMode={darkMode}
+                    compact={compact}
                 />
             </div>
 
-            <div className={`w-8 h-[1px] ${darkMode ? "bg-white/10" : "bg-slate-200"}`} />
+            {!compact && <div className={`w-8 h-[1px] ${darkMode ? "bg-white/10" : "bg-slate-200"}`} />}
 
             {/* --- Commerce --- */}
             <ActionButton
@@ -96,6 +107,7 @@ export const MobileRightActions = memo(function MobileRightActions({
                 activeColor="orange"
                 darkMode={darkMode}
                 glow={productCount > 0}
+                compact={compact}
             />
         </div>
     );
@@ -111,6 +123,7 @@ function ActionButton({
     activeColor = "white",
     darkMode = true,
     glow = false,
+    compact = false,
 }: {
     icon: string;
     label: string;
@@ -120,6 +133,7 @@ function ActionButton({
     activeColor?: "white" | "orange" | "pink" | "red";
     darkMode?: boolean;
     glow?: boolean;
+    compact?: boolean;
 }) {
     const getBgColor = () => {
         if (active || activeColor === "orange" || activeColor === "pink" || activeColor === "red") {
@@ -134,15 +148,15 @@ function ActionButton({
     return (
         <button
             onClick={onClick}
-            className="flex flex-col items-center gap-1.5 active:scale-95 transition-all group"
+            className={`flex flex-col items-center active:scale-95 transition-all group ${compact ? "gap-0" : "gap-1.5"}`}
         >
             <div className={`
-                relative w-14 h-14 rounded-[20px] flex items-center justify-center
+                relative ${compact ? "w-12 h-12 rounded-2xl" : "w-14 h-14 rounded-[20px]"} flex items-center justify-center
                 backdrop-blur-2xl transition-all duration-300 border
                 ${getBgColor()}
                 ${glow && activeColor === "orange" ? "animate-pulse" : ""}
             `}>
-                <span className="material-icons text-[24px] drop-shadow-md">{icon}</span>
+                <span className={`material-icons ${compact ? "text-[22px]" : "text-[24px]"} drop-shadow-md`}>{icon}</span>
                 
                 {badge !== undefined && badge > 0 && (
                     <span className="absolute -top-1.5 -right-1.5 min-w-[22px] h-[22px] px-1.5 rounded-full bg-rose-600 text-white text-[10px] font-black flex items-center justify-center border-2 border-[#121212] shadow-xl animate-in zoom-in">
@@ -150,9 +164,11 @@ function ActionButton({
                     </span>
                 )}
             </div>
-            <span className={`text-[10px] font-black ${darkMode ? "text-white/60 drop-shadow-sm uppercase tracking-tighter" : "text-slate-500 uppercase tracking-tighter"}`}>
-                {label}
-            </span>
+            {!compact && (
+                <span className={`text-[10px] font-black ${darkMode ? "text-white/60 drop-shadow-sm uppercase tracking-tighter" : "text-slate-500 uppercase tracking-tighter"}`}>
+                    {label}
+                </span>
+            )}
         </button>
     );
 }

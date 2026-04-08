@@ -6,6 +6,7 @@ import { config } from 'dotenv';
 import { Server } from 'socket.io';
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 
 // Load environment variables from .env file
 config();
@@ -19,8 +20,55 @@ const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
 
 const HLS_OUTPUT_DIR = path.join(process.cwd(), '.hls-output');
+const NEXT_DIST_DIR = path.join(process.cwd(), '.next');
+const ROUTES_MANIFEST_PATH = path.join(NEXT_DIST_DIR, 'routes-manifest.json');
+const PRERENDER_MANIFEST_PATH = path.join(NEXT_DIST_DIR, 'prerender-manifest.json');
 
-app.prepare().then(() => {
+let routesManifestEnsured: Promise<void> | null = null;
+
+async function ensureDevRoutesManifest(): Promise<void> {
+  if (!dev) return;
+  if (fs.existsSync(ROUTES_MANIFEST_PATH) && fs.existsSync(PRERENDER_MANIFEST_PATH)) return;
+
+  if (!routesManifestEnsured) {
+    routesManifestEnsured = (async () => {
+      await fs.promises.mkdir(NEXT_DIST_DIR, { recursive: true });
+      const manifest = {
+        version: 3,
+        caseSensitive: false,
+        rewrites: { beforeFiles: [], afterFiles: [], fallback: [] },
+        redirects: [],
+        headers: [],
+        i18n: undefined,
+        skipMiddlewareUrlNormalize: false,
+      };
+      await fs.promises.writeFile(ROUTES_MANIFEST_PATH, JSON.stringify(manifest), 'utf8');
+
+      if (!fs.existsSync(PRERENDER_MANIFEST_PATH)) {
+        const prerenderManifest = {
+          version: 4,
+          routes: {},
+          dynamicRoutes: {},
+          notFoundRoutes: [],
+          preview: {
+            previewModeId: crypto.randomBytes(16).toString('hex'),
+            previewModeSigningKey: crypto.randomBytes(32).toString('hex'),
+            previewModeEncryptionKey: crypto.randomBytes(32).toString('hex'),
+          },
+        };
+        await fs.promises.writeFile(PRERENDER_MANIFEST_PATH, JSON.stringify(prerenderManifest, null, 2), 'utf8');
+      }
+    })().catch((err) => {
+      routesManifestEnsured = null;
+      throw err;
+    });
+  }
+
+  await routesManifestEnsured;
+}
+
+app.prepare().then(async () => {
+  await ensureDevRoutesManifest();
   const httpServer = createServer(async (req, res) => {
     try {
       // Serve HLS files
@@ -58,6 +106,7 @@ app.prepare().then(() => {
         return;
       }
 
+      await ensureDevRoutesManifest();
       const parsedUrl = parse(req.url!, true);
       await handle(req, res, parsedUrl);
     } catch (err) {

@@ -1,8 +1,8 @@
 /**
- * Mobile Live Chat - TikTok-style floating chat bubbles
+ * Mobile Live Chat
  * 
- * Chat bubbles animate upward from the bottom-right, stack naturally,
- * and fade out after a few seconds - just like TikTok Live.
+ * - TikTok variant: stacked bottom-left comments that flow upward and fade
+ * - Instagram variant: simple stacked rows (no timed fade/float)
  */
 
 import React, { useState, useEffect, useRef, memo } from "react";
@@ -13,6 +13,7 @@ interface MobileLiveChatProps {
     mode: Mode;
     isEnabled?: boolean;
     maxVisible?: number;
+    variant?: "tiktok" | "instagram";
 }
 
 interface AnimatedMessage extends ChatMsg {
@@ -27,7 +28,22 @@ export const MobileLiveChat = memo(function MobileLiveChat({
     mode,
     isEnabled = true,
     maxVisible = 6,
+    variant = "tiktok",
 }: MobileLiveChatProps) {
+    if (variant === "instagram") {
+        if (mode !== "live" || !isEnabled) return null;
+        const visible = (messages ?? EMPTY_MESSAGES).slice(-maxVisible);
+        return (
+            <div className="w-full max-w-[320px] pointer-events-none px-4 pb-2">
+                <div className="flex flex-col gap-2">
+                    {visible.map((msg) => (
+                        <InstagramChatRow key={msg.id} message={msg} />
+                    ))}
+                </div>
+            </div>
+        );
+    }
+
     const [visibleMessages, setVisibleMessages] = useState<AnimatedMessage[]>([]);
     const lastProcessedIdx = useRef(-1);
     const animCounter = useRef(0);
@@ -78,18 +94,17 @@ export const MobileLiveChat = memo(function MobileLiveChat({
 
     return (
         <div
-            className="relative w-full max-w-[280px] pointer-events-none"
+            className="relative w-full max-w-[320px] pointer-events-none"
             style={{
                 maskImage: 'linear-gradient(to bottom, transparent 0%, black 10%, black 90%, transparent 100%)',
                 WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 10%, black 90%, transparent 100%)',
             }}
         >
-            <div className="flex flex-col gap-1.5 px-3 py-4">
+            <div className="flex flex-col gap-1.5 px-4 pb-3 pt-6">
                 {visibleMessages.map((msg) => (
-                    <ChatBubble
+                    <TikTokChatRow
                         key={msg._animId}
                         message={msg}
-                        isNew={Date.now() - msg._enteredAt < 500}
                     />
                 ))}
             </div>
@@ -97,16 +112,10 @@ export const MobileLiveChat = memo(function MobileLiveChat({
     );
 });
 
-// Individual chat bubble - TikTok style
-const ChatBubble = memo(function ChatBubble({
-    message,
-    isNew,
-}: {
-    message: AnimatedMessage;
-    isNew: boolean;
-}) {
+const TikTokChatRow = memo(function TikTokChatRow({ message }: { message: AnimatedMessage }) {
     const isSystem = message.system;
     const hasLang = message.langTag && message.langTag !== "en" && message.langTag !== "System";
+    const isNew = Date.now() - message._enteredAt < 500;
 
     // Premium avatar colors
     const nameHash = message.from.charCodeAt(0) % 6;
@@ -125,9 +134,9 @@ const ChatBubble = memo(function ChatBubble({
                 className={`
                     flex items-center gap-2 px-4 py-2 rounded-full max-w-fit
                     bg-white/10 backdrop-blur-xl border border-white/5
-                    transform transition-all duration-500 ease-out
-                    ${isNew ? "translate-y-4 opacity-0 animate-[bubbleIn_0.3s_ease-out_forwards]" : "opacity-100"}
+                    ${isNew ? "opacity-0" : "opacity-100"}
                 `}
+                style={{ animation: "tiktokChatLife 5s ease-out forwards" }}
             >
                 <span className="material-icons text-[14px] text-[#f77f00]">info</span>
                 <span className="text-[10px] font-black uppercase tracking-widest text-white/70">{message.body}</span>
@@ -138,11 +147,12 @@ const ChatBubble = memo(function ChatBubble({
     return (
         <div
             className={`
-                flex items-center gap-3 px-3 py-2 rounded-[20px] max-w-fit
-                bg-black/60 backdrop-blur-xl border border-white/10 shadow-lg
-                transform transition-all duration-500 ease-out
-                ${isNew ? "translate-y-4 opacity-0 animate-[bubbleIn_0.3s_ease-out_forwards]" : "opacity-100"}
+                flex items-center gap-3 max-w-fit
+                px-3 py-2 rounded-[18px]
+                bg-black/45 backdrop-blur-xl border border-white/10 shadow-lg
+                ${isNew ? "opacity-0" : "opacity-100"}
             `}
+            style={{ animation: "tiktokChatLife 5s ease-out forwards" }}
         >
             {/* Avatar */}
             <div className={`
@@ -180,6 +190,25 @@ if (typeof document !== "undefined") {
         const style = document.createElement("style");
         style.id = styleId;
         style.textContent = `
+            @keyframes tiktokChatLife {
+                0% {
+                    transform: translateY(14px) scale(0.98);
+                    opacity: 0;
+                }
+                10% {
+                    transform: translateY(0) scale(1);
+                    opacity: 1;
+                }
+                80% {
+                    transform: translateY(0) scale(1);
+                    opacity: 1;
+                }
+                100% {
+                    transform: translateY(-8px) scale(1);
+                    opacity: 0;
+                }
+            }
+
             @keyframes bubbleIn {
                 0% {
                     transform: translateY(16px) scale(0.95);
@@ -196,3 +225,43 @@ if (typeof document !== "undefined") {
 }
 
 export default MobileLiveChat;
+
+const InstagramChatRow = memo(function InstagramChatRow({ message }: { message: ChatMsg }) {
+    const isSystem = message.system;
+    const nameHash = message.from.charCodeAt(0) % 6;
+    const avatarGradients = [
+        "from-pink-500 to-rose-600",
+        "from-violet-500 to-purple-600",
+        "from-blue-500 to-cyan-600",
+        "from-emerald-500 to-teal-600",
+        "from-amber-400 to-orange-500",
+        "from-fuchsia-500 to-purple-600",
+    ];
+
+    if (isSystem) {
+        return (
+            <div className="flex items-center gap-2">
+                <div className="h-7 w-7 rounded-full bg-white/10 border border-white/10 backdrop-blur-md flex items-center justify-center">
+                    <span className="material-icons text-[#f77f00] text-[16px]">info</span>
+                </div>
+                <div className="px-3 py-2 rounded-2xl bg-black/45 border border-white/10 backdrop-blur-md">
+                    <span className="text-[12px] font-bold text-white/85">{message.body}</span>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="flex items-center gap-2">
+            <div
+                className={`h-7 w-7 rounded-full bg-gradient-to-br ${avatarGradients[nameHash]} flex items-center justify-center text-[11px] font-black text-white shadow-lg`}
+            >
+                {message.from.charAt(0).toUpperCase()}
+            </div>
+            <div className="min-w-0">
+                <span className="text-[12px] font-black text-white/90 drop-shadow-sm">{message.from}</span>
+                <span className="text-[12px] font-semibold text-white/80 drop-shadow-sm"> {message.body}</span>
+            </div>
+        </div>
+    );
+});
