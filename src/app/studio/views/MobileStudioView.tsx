@@ -37,6 +37,8 @@ import { MobileLiveNotification, LiveNotificationEvent } from "../components/mob
 import { CartNotification, createCartEvent } from "../components/mobile/live/CartNotification";
 import { SalesGoalBar } from "../components/mobile/live/SalesGoalBar";
 import { MobileLiveHUD } from "../components/mobile/live/MobileLiveHUD";
+import { LiveTogetherSheet, LiveGuest, LiveGuestLayout, LiveGuestRequest } from "../components/mobile/live/LiveTogetherSheet";
+import { LiveGuestsOverlay } from "../components/mobile/live/LiveGuestsOverlay";
 
 // Mobile-Specific Components - Record / Rehearsal
 import { MobileTeleprompterSheet } from "../components/mobile/record/MobileTeleprompterSheet";
@@ -79,15 +81,6 @@ class MobileErrorBoundary extends Component<{ children: React.ReactNode; fallbac
         }
         return this.props.children;
     }
-}
-
-// Co-host type
-interface CoHost {
-    id: number;
-    name: string;
-    status: "Pending" | "Accepted" | "Declined";
-    isMainPresenter?: boolean;
-    isPresenting?: boolean;
 }
 
 export function MobileStudioView() {
@@ -179,11 +172,12 @@ export function MobileStudioView() {
     const [cartEvents, setCartEvents] = useState<any[]>([]);
     const [showPinnedProduct, setShowPinnedProduct] = useState(true);
 
-    // Co-hosts - EMPTY by default, host must invite
-    const [coHosts, setCoHosts] = useState<CoHost[]>([]);
-    const [mainPresenterId, setMainPresenterId] = useState<number | null>(null);
-    const [hostPresenting, setHostPresenting] = useState(false);
-    const [coHostsPanelOpen, setCoHostsPanelOpen] = useState(false);
+    // Multi-guest / LIVE Together (simulated)
+    const [guestRequests, setGuestRequests] = useState<LiveGuestRequest[]>([]);
+    const [liveGuests, setLiveGuests] = useState<LiveGuest[]>([]);
+    const [guestLayout, setGuestLayout] = useState<LiveGuestLayout>("panel");
+    const [pinnedGuestId, setPinnedGuestId] = useState<string | null>(null);
+    const maxGuestsOnStage = 5;
 
     // UI state
     const [filtersOpen, setFiltersOpen] = useState(false);
@@ -280,9 +274,6 @@ export function MobileStudioView() {
     const liveTimerLabel = useMemo(() => formatHMS(liveSeconds), [liveSeconds]);
     const recordingTimerLabel = useMemo(() => formatHMS(recordingDuration), [recordingDuration]);
 
-    // Accepted co-hosts for display
-    const acceptedCoHosts = useMemo(() => coHosts.filter(c => c.status === "Accepted"), [coHosts]);
-
     // Mount only once - must match between server and client
     useEffect(() => {
         setIsMounted(true);
@@ -371,8 +362,8 @@ export function MobileStudioView() {
             { id: uid("m"), from: "System", body: "Welcome to Live Dealz!", time: nowTimeLabel(), system: true, langTag: "System" },
         ]);
         setBuyers(INITIAL_BUYERS.map(b => ({ ...b, lastActionAt: Date.now() })));
-        // Co-hosts array starts EMPTY - host must invite them
-        setCoHosts([]);
+        setGuestRequests([]);
+        setLiveGuests([]);
     }, [isMounted]);
 
     // Live timer
@@ -406,6 +397,22 @@ export function MobileStudioView() {
             };
             setChatMessages(prev => [...prev, msg].slice(-50));
         }, 1400);
+        return () => clearInterval(interval);
+    }, [isLive, simulate]);
+
+    // Simulate viewers requesting to join (TikTok-like)
+    useEffect(() => {
+        if (!isLive || !simulate) return;
+        const names = ["Amina", "Brian", "Cynthia", "David", "Esther", "Felix", "Grace", "Hassan", "Ivy", "James"];
+        const interval = setInterval(() => {
+            if (Math.random() < 0.65) return;
+            const name = `${names[Math.floor(Math.random() * names.length)]}${Math.floor(Math.random() * 99)}`;
+            const id = uid("req");
+            setGuestRequests((prev) => {
+                if (prev.length >= 8) return prev;
+                return [{ id, name, requestedAt: Date.now() }, ...prev];
+            });
+        }, 9000);
         return () => clearInterval(interval);
     }, [isLive, simulate]);
 
@@ -520,42 +527,82 @@ export function MobileStudioView() {
         return () => clearTimeout(timer);
     }, [isSessionActive, products]);
 
-    // Co-host handlers
-    const handleInviteCoHost = useCallback((name: string) => {
-        const newCoHost: CoHost = {
-            id: Date.now(),
+    // LIVE Together handlers (simulated, no WebRTC)
+    const handleInviteGuest = useCallback((name: string) => {
+        const newGuest: LiveGuest = {
+            id: uid("g"),
             name,
-            status: "Pending",
-            isPresenting: false,
+            status: "invited",
+            isOnStage: false,
+            isMuted: false,
+            videoOn: true,
         };
-        setCoHosts(prev => [...prev, newCoHost]);
-        toast({ title: "Invitation Sent", description: `Invite sent to ${name}` });
+        setLiveGuests((prev) => [newGuest, ...prev]);
+        toast({ title: "Invite sent", description: `Invited ${name} to join` });
 
-        // Simulate acceptance after 2-4 seconds
+        // Simulate acceptance + connection
         setTimeout(() => {
-            setCoHosts(prev => prev.map(c =>
-                c.id === newCoHost.id ? { ...c, status: "Accepted" as const } : c
-            ));
-            toast({ title: "Co-host Joined", description: `${name} has joined the stream` });
-        }, 2000 + Math.random() * 2000);
+            setLiveGuests((prev) => prev.map((g) => (g.id === newGuest.id ? { ...g, status: "connecting" } : g)));
+        }, 900 + Math.random() * 800);
+        setTimeout(() => {
+            setLiveGuests((prev) => prev.map((g) => (g.id === newGuest.id ? { ...g, status: "joined" } : g)));
+            toast({ title: "Guest joined", description: `${name} is in the room` });
+        }, 2200 + Math.random() * 1600);
     }, [toast]);
 
-    const handleRemoveCoHost = useCallback((id: number) => {
-        setCoHosts(prev => prev.filter(c => c.id !== id));
-        toast({ title: "Co-host Removed" });
-    }, [toast]);
-
-    const handleToggleCoHostPresenting = useCallback((id: number) => {
-        setCoHosts(prev => prev.map(c => ({
-            ...c,
-            isPresenting: c.id === id ? !c.isPresenting : false,
-        })));
-        setHostPresenting(false);
+    const handleCancelInvite = useCallback((guestId: string) => {
+        setLiveGuests((prev) => prev.filter((g) => g.id !== guestId));
     }, []);
 
-    const handleToggleHostPresenting = useCallback(() => {
-        setHostPresenting(true);
-        setCoHosts(prev => prev.map(c => ({ ...c, isPresenting: false })));
+    const handleKickGuest = useCallback((guestId: string) => {
+        setLiveGuests((prev) => prev.filter((g) => g.id !== guestId));
+        setPinnedGuestId((p) => (p === guestId ? null : p));
+        toast({ title: "Guest removed" });
+    }, [toast]);
+
+    const handleToggleGuestStage = useCallback((guestId: string) => {
+        setLiveGuests((prev) => {
+            const onStageCount = prev.filter((g) => g.isOnStage).length;
+            return prev.map((g) => {
+                if (g.id !== guestId) return g;
+                if (!g.isOnStage && onStageCount >= maxGuestsOnStage) return g;
+                return { ...g, isOnStage: !g.isOnStage };
+            });
+        });
+    }, [maxGuestsOnStage]);
+
+    const handleToggleGuestMute = useCallback((guestId: string) => {
+        setLiveGuests((prev) => prev.map((g) => (g.id === guestId ? { ...g, isMuted: !g.isMuted } : g)));
+    }, []);
+
+    const handleToggleGuestVideo = useCallback((guestId: string) => {
+        setLiveGuests((prev) => prev.map((g) => (g.id === guestId ? { ...g, videoOn: !g.videoOn } : g)));
+    }, []);
+
+    const handleAcceptGuestRequest = useCallback((requestId: string) => {
+        const req = guestRequests.find((r) => r.id === requestId);
+        if (!req) return;
+        
+        const newGuest: LiveGuest = {
+            id: uid("g"),
+            name: req.name,
+            status: "joined",
+            isOnStage: true,
+            isMuted: false,
+            videoOn: true,
+        };
+        
+        setLiveGuests((gprev) => [newGuest, ...gprev]);
+        setGuestRequests((prev) => prev.filter((r) => r.id !== requestId));
+        
+        // Toast called outside setGuestRequests to avoid setState during render error
+        setTimeout(() => {
+            toast({ title: "Request accepted", description: `${req.name} joined` });
+        }, 0);
+    }, [toast, guestRequests]);
+
+    const handleDeclineGuestRequest = useCallback((requestId: string) => {
+        setGuestRequests((prev) => prev.filter((r) => r.id !== requestId));
     }, []);
 
     // Camera flip handler
@@ -957,6 +1004,7 @@ export function MobileStudioView() {
                             isLiveActive={isLive}
                             isPaused={isLivePaused}
                             onTogglePause={handleToggleLivePause}
+                            onOpenGuests={() => setActivePanel("cohosts")}
                             cameraFacing={cameraFacing}
                             onFlipCamera={handleFlipCamera}
                             micOn={micOn}
@@ -1026,6 +1074,14 @@ export function MobileStudioView() {
                 {/* Center area - chat bubbles - hidden in lobby */}
                 {isLive && (
                 <div className="flex-1 relative pointer-events-none">
+                    {/* Guest stage overlay (LIVE Together) */}
+                    <LiveGuestsOverlay
+                        guests={liveGuests}
+                        layout={guestLayout}
+                        pinnedGuestId={pinnedGuestId}
+                        onPin={setPinnedGuestId}
+                        darkMode={darkMode}
+                    />
                     {/* Chat bubbles - left side, bottom aligned */}
                     <div className="absolute bottom-20 left-0">
                         <MobileLiveChat
@@ -1270,15 +1326,29 @@ export function MobileStudioView() {
 
             {/* Co-hosts panel */}
             {activePanel === "cohosts" && (
-                <CoHostsPanel
-                    darkMode={darkMode}
-                    coHosts={coHosts}
-                    hostPresenting={hostPresenting}
+                <LiveTogetherSheet
+                    open={true}
                     onClose={() => setActivePanel("none")}
-                    onInvite={handleInviteCoHost}
-                    onRemove={handleRemoveCoHost}
-                    onTogglePresenting={handleToggleCoHostPresenting}
-                    onToggleHostPresenting={handleToggleHostPresenting}
+                    darkMode={darkMode}
+                    requests={guestRequests}
+                    onAcceptRequest={handleAcceptGuestRequest}
+                    onDeclineRequest={handleDeclineGuestRequest}
+                    onSimulateRequest={() => {
+                        const name = `Guest${Math.floor(Math.random() * 900 + 100)}`;
+                        setGuestRequests((prev) => [{ id: uid("req"), name, requestedAt: Date.now() }, ...prev].slice(0, 8));
+                    }}
+                    guests={liveGuests}
+                    maxGuests={5}
+                    onInvite={handleInviteGuest}
+                    onCancelInvite={handleCancelInvite}
+                    onKick={handleKickGuest}
+                    onToggleStage={handleToggleGuestStage}
+                    onToggleMute={handleToggleGuestMute}
+                    onToggleVideo={handleToggleGuestVideo}
+                    layout={guestLayout}
+                    onSetLayout={(l) => setGuestLayout(l)}
+                    pinnedGuestId={pinnedGuestId}
+                    onPin={setPinnedGuestId}
                 />
             )}
 
@@ -1354,167 +1424,5 @@ export function MobileStudioView() {
             )}
         </div>
         </MobileErrorBoundary>
-    );
-}
-
-// Co-hosts panel component
-function CoHostsPanel({
-    darkMode,
-    coHosts,
-    hostPresenting,
-    onClose,
-    onInvite,
-    onRemove,
-    onTogglePresenting,
-    onToggleHostPresenting,
-}: {
-    darkMode: boolean;
-    coHosts: CoHost[];
-    hostPresenting: boolean;
-    onClose: () => void;
-    onInvite: (name: string) => void;
-    onRemove: (id: number) => void;
-    onTogglePresenting: (id: number) => void;
-    onToggleHostPresenting: () => void;
-}) {
-    const [inviteName, setInviteName] = useState("");
-
-    const handleInvite = () => {
-        if (inviteName.trim()) {
-            onInvite(inviteName.trim());
-            setInviteName("");
-        }
-    };
-
-    return (
-        <>
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 animate-in fade-in duration-200" onClick={onClose} />
-            <div className={`fixed bottom-0 left-0 right-0 z-50 max-h-[75vh] ${darkMode ? "bg-slate-950" : "bg-white"} rounded-t-3xl animate-in slide-in-from-bottom duration-300 flex flex-col`}>
-                {/* Drag handle */}
-                <div className="flex justify-center pt-3 pb-2 cursor-pointer" onClick={onClose}>
-                    <div className={`w-10 h-1 ${darkMode ? "bg-slate-700" : "bg-slate-300"} rounded-full`} />
-                </div>
-
-                {/* Header */}
-                <div className="flex items-center justify-between px-5 pb-3">
-                    <h2 className={`${darkMode ? "text-white" : "text-slate-900"} text-lg font-bold`}>Co-hosts</h2>
-                    <button onClick={onClose} className={`w-8 h-8 rounded-full ${darkMode ? "bg-slate-800 text-slate-400" : "bg-slate-100 text-slate-500"} flex items-center justify-center`}>
-                        <span className="material-icons text-[18px]">close</span>
-                    </button>
-                </div>
-
-                {/* Invite input */}
-                <div className="px-5 pb-3">
-                    <div className="flex gap-2">
-                        <input
-                            type="text"
-                            value={inviteName}
-                            onChange={(e) => setInviteName(e.target.value)}
-                            placeholder="Enter co-host name..."
-                            className={`flex-1 px-4 py-2.5 rounded-xl text-sm ${darkMode ? "bg-slate-800 text-white placeholder-slate-500 border-slate-700" : "bg-slate-100 text-slate-900 placeholder-slate-400 border-slate-200"} border focus:outline-none focus:ring-2 focus:ring-[#FF5C00]/50`}
-                            onKeyDown={(e) => e.key === "Enter" && handleInvite()}
-                        />
-                        <button
-                            onClick={handleInvite}
-                            disabled={!inviteName.trim()}
-                            className="px-4 py-2.5 rounded-xl bg-[#FF5C00] text-white text-sm font-semibold disabled:opacity-40 active:scale-95 transition-all"
-                        >
-                            Invite
-                        </button>
-                    </div>
-                </div>
-
-                {/* Host presenting toggle */}
-                <div className="px-5 pb-2">
-                    <button
-                        onClick={onToggleHostPresenting}
-                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${hostPresenting ? "bg-[#FF5C00]/10 border border-[#FF5C00]/30" : darkMode ? "bg-slate-900 border border-slate-800" : "bg-slate-50 border border-slate-200"}`}
-                    >
-                        <div className={`w-10 h-10 rounded-full ${hostPresenting ? "bg-[#FF5C00]" : darkMode ? "bg-slate-700" : "bg-slate-300"} flex items-center justify-center`}>
-                            <span className="material-icons text-white text-[18px]">person</span>
-                        </div>
-                        <div className="flex-1 text-left">
-                            <span className={`${darkMode ? "text-white" : "text-slate-900"} text-sm font-medium`}>You (Host)</span>
-                            {hostPresenting && <span className="text-[#FF5C00] text-[10px] ml-2 font-bold">PRESENTING</span>}
-                        </div>
-                        {hostPresenting && <span className="material-icons text-[#FF5C00] text-[20px]">check_circle</span>}
-                    </button>
-                </div>
-
-                {/* Co-hosts list */}
-                <div className="flex-1 overflow-y-auto px-5 py-2">
-                    {coHosts.length === 0 ? (
-                        <div className={`flex flex-col items-center justify-center py-8 ${darkMode ? "text-slate-500" : "text-slate-400"}`}>
-                            <span className="material-icons text-4xl mb-2">group_add</span>
-                            <span className="text-sm">No co-hosts yet</span>
-                            <span className="text-xs mt-1">Invite someone to join your stream</span>
-                        </div>
-                    ) : (
-                        <div className="space-y-2">
-                            {coHosts.map((coHost) => (
-                                <div
-                                    key={coHost.id}
-                                    className={`flex items-center gap-3 p-3 rounded-xl ${coHost.isPresenting ? "bg-blue-500/10 border border-blue-500/30" : darkMode ? "bg-slate-900 border border-slate-800" : "bg-slate-50 border border-slate-200"}`}
-                                >
-                                    <div className={`w-10 h-10 rounded-full ${coHost.isPresenting ? "bg-blue-500" : coHost.status === "Accepted" ? "bg-emerald-500" : "bg-amber-500"} flex items-center justify-center`}>
-                                        <span className="material-icons text-white text-[18px]">
-                                            {coHost.isPresenting ? "present_to_all" : coHost.status === "Accepted" ? "person" : "hourglass_top"}
-                                        </span>
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-1.5">
-                                            <span className={`${darkMode ? "text-white" : "text-slate-900"} text-sm font-medium truncate`}>{coHost.name}</span>
-                                        </div>
-                                        <span className={`text-[10px] ${
-                                            coHost.isPresenting 
-                                                ? "text-blue-400 font-bold" 
-                                                : coHost.status === "Accepted" 
-                                                    ? "text-emerald-400" 
-                                                    : "text-amber-400"
-                                        }`}>
-                                            {coHost.isPresenting 
-                                                ? "On Screen" 
-                                                : coHost.status === "Accepted" 
-                                                    ? "Joined - Add to screen" 
-                                                    : "Waiting for response..."}
-                                        </span>
-                                    </div>
-                                    <div className="flex items-center gap-1">
-                                        {coHost.status === "Accepted" && (
-                                            <button
-                                                onClick={() => onTogglePresenting(coHost.id)}
-                                                className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold flex items-center gap-1 transition-all active:scale-95 ${
-                                                    coHost.isPresenting 
-                                                        ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" 
-                                                        : "bg-[#FF5C00] text-white"
-                                                }`}
-                                            >
-                                                <span className="material-icons text-[14px]">
-                                                    {coHost.isPresenting ? "remove_circle_outline" : "add_circle_outline"}
-                                                </span>
-                                                {coHost.isPresenting ? "Remove" : "Add"}
-                                            </button>
-                                        )}
-                                        <button
-                                            onClick={() => onRemove(coHost.id)}
-                                            className={`w-8 h-8 rounded-full flex items-center justify-center ${darkMode ? "bg-slate-800 text-red-400 hover:bg-red-500/20" : "bg-slate-100 text-red-500 hover:bg-red-50"}`}
-                                        >
-                                            <span className="material-icons text-[16px]">close</span>
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-
-                {/* Footer */}
-                <div className={`p-4 ${darkMode ? "border-slate-800" : "border-slate-200"} border-t`}>
-                    <p className={`text-xs text-center ${darkMode ? "text-slate-600" : "text-slate-400"}`}>
-                        Invite co-hosts first, then tap &quot;Add&quot; to show them on your stream
-                    </p>
-                </div>
-            </div>
-        </>
     );
 }

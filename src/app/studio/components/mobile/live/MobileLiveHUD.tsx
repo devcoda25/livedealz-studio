@@ -13,6 +13,7 @@ interface MobileLiveHUDProps {
     isLiveActive: boolean;
     isPaused: boolean;
     onTogglePause: () => void;
+    onOpenGuests: () => void;
     
     // Right Actions
     cameraFacing: "user" | "environment";
@@ -48,6 +49,7 @@ export function MobileLiveHUD({
     isLiveActive,
     isPaused,
     onTogglePause,
+    onOpenGuests,
     onOpenSettings,
     onOpenCommerce,
     onSendReaction,
@@ -101,6 +103,15 @@ export function MobileLiveHUD({
                                 <span className="text-white text-[12px] font-black tabular-nums">{viewerCount.toLocaleString()}</span>
                             </div>
                         )}
+
+                        <button
+                            onClick={onOpenGuests}
+                            className="h-10 w-10 rounded-full bg-black/45 border border-white/10 backdrop-blur-md flex items-center justify-center active:scale-95 transition-transform"
+                            aria-label="Guests"
+                            type="button"
+                        >
+                            <span className="material-icons text-white text-[20px]">group_add</span>
+                        </button>
 
                         <button
                             onClick={onOpenSettings}
