@@ -108,6 +108,7 @@ export function MobileStudioView() {
     } = useEngines();
 
     const { toast } = useToast();
+    const [queuedToast, setQueuedToast] = useState<{ title: string; description?: string; variant?: any } | null>(null);
     const videoRef = useRef<HTMLVideoElement | null>(null);
     const previewVideoRef = useRef<HTMLVideoElement | null>(null);
     const streamRef = useRef<MediaStream | null>(null);
@@ -281,6 +282,13 @@ export function MobileStudioView() {
         return () => engineDisconnect();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    // Avoid "setState while rendering a different component" warnings by dispatching toast after commit.
+    useEffect(() => {
+        if (!queuedToast) return;
+        toast(queuedToast);
+        setQueuedToast(null);
+    }, [queuedToast, toast]);
 
     // Detect system theme AFTER mount (client-only, avoids hydration mismatch)
     useEffect(() => {
@@ -538,7 +546,7 @@ export function MobileStudioView() {
             videoOn: true,
         };
         setLiveGuests((prev) => [newGuest, ...prev]);
-        toast({ title: "Invite sent", description: `Invited ${name} to join` });
+        setQueuedToast({ title: "Invite sent", description: `Invited ${name} to join` });
 
         // Simulate acceptance + connection
         setTimeout(() => {
@@ -546,9 +554,9 @@ export function MobileStudioView() {
         }, 900 + Math.random() * 800);
         setTimeout(() => {
             setLiveGuests((prev) => prev.map((g) => (g.id === newGuest.id ? { ...g, status: "joined" } : g)));
-            toast({ title: "Guest joined", description: `${name} is in the room` });
+            setQueuedToast({ title: "Guest joined", description: `${name} is in the room` });
         }, 2200 + Math.random() * 1600);
-    }, [toast]);
+    }, []);
 
     const handleCancelInvite = useCallback((guestId: string) => {
         setLiveGuests((prev) => prev.filter((g) => g.id !== guestId));
@@ -557,8 +565,8 @@ export function MobileStudioView() {
     const handleKickGuest = useCallback((guestId: string) => {
         setLiveGuests((prev) => prev.filter((g) => g.id !== guestId));
         setPinnedGuestId((p) => (p === guestId ? null : p));
-        toast({ title: "Guest removed" });
-    }, [toast]);
+        setQueuedToast({ title: "Guest removed" });
+    }, []);
 
     const handleToggleGuestStage = useCallback((guestId: string) => {
         setLiveGuests((prev) => {
@@ -594,12 +602,8 @@ export function MobileStudioView() {
         
         setLiveGuests((gprev) => [newGuest, ...gprev]);
         setGuestRequests((prev) => prev.filter((r) => r.id !== requestId));
-        
-        // Toast called outside setGuestRequests to avoid setState during render error
-        setTimeout(() => {
-            toast({ title: "Request accepted", description: `${req.name} joined` });
-        }, 0);
-    }, [toast, guestRequests]);
+        setQueuedToast({ title: "Request accepted", description: `${req.name} joined` });
+    }, [guestRequests]);
 
     const handleDeclineGuestRequest = useCallback((requestId: string) => {
         setGuestRequests((prev) => prev.filter((r) => r.id !== requestId));
