@@ -23,6 +23,8 @@ interface MobileLiveHUDProps {
     stream: MediaStream | null;
     onOpenSettings: () => void;
     onOpenCommerce: () => void;
+    onOpenFilters: () => void;
+    onOpenElements: () => void;
     onSendReaction: () => void;
     productCount: number;
     
@@ -52,6 +54,8 @@ export function MobileLiveHUD({
     onOpenGuests,
     onOpenSettings,
     onOpenCommerce,
+    onOpenFilters,
+    onOpenElements,
     onSendReaction,
     isChatOpen,
     onToggleChat,
@@ -78,67 +82,70 @@ export function MobileLiveHUD({
             <div className="pointer-events-auto relative z-50 px-4 pt-[env(safe-area-inset-top,0px)]">
                 <div className="flex items-center justify-between pt-3">
                     <div className="flex items-center gap-2 min-w-0">
-                        <div className="h-9 w-9 rounded-full bg-white/15 border border-white/10 backdrop-blur-md flex items-center justify-center overflow-hidden">
-                            <span className="material-icons text-white/80 text-[18px]">person</span>
-                        </div>
+                        <span className="material-icons text-white text-[22px] drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">person</span>
                         <div className="min-w-0">
-                            <p className="text-white text-[13px] font-black truncate max-w-[160px]">{hostName}</p>
+                            <p className="text-white text-[13px] font-black truncate max-w-[160px] drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">{hostName}</p>
                         </div>
                     </div>
 
                     <div className="flex items-center gap-2">
                         {isLiveActive ? (
-                            <div className="px-3 py-1.5 rounded-full bg-rose-600/90 border border-rose-400/25 backdrop-blur-md">
-                                <span className="text-white text-[11px] font-black tracking-[0.2em] uppercase">Live</span>
-                            </div>
+                            <span className="text-white text-[11px] font-black tracking-[0.2em] uppercase drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">LIVE</span>
                         ) : (
-                            <div className="px-3 py-1.5 rounded-full bg-black/45 border border-white/10 backdrop-blur-md">
-                                <span className="text-white text-[11px] font-black tracking-[0.2em] uppercase">Preview</span>
-                            </div>
+                            <span className="text-white text-[11px] font-black tracking-[0.2em] uppercase drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">PREVIEW</span>
                         )}
 
                         {isLiveActive && (
-                            <div className="px-3 py-1.5 rounded-full bg-black/45 border border-white/10 backdrop-blur-md flex items-center gap-1.5">
-                                <span className="material-icons text-white/80 text-[16px]">visibility</span>
-                                <span className="text-white text-[12px] font-black tabular-nums">{viewerCount.toLocaleString()}</span>
+                            <div className="flex items-center gap-1.5">
+                                <span className="material-icons text-white text-[16px] drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">visibility</span>
+                                <span className="text-white text-[12px] font-black tabular-nums drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">{viewerCount.toLocaleString()}</span>
                             </div>
                         )}
 
                         <button
                             onClick={onOpenGuests}
-                            className="h-10 w-10 rounded-full bg-black/45 border border-white/10 backdrop-blur-md flex items-center justify-center active:scale-95 transition-transform"
+                            className="h-10 w-10 flex items-center justify-center active:scale-95 transition-transform"
                             aria-label="Guests"
                             type="button"
                         >
-                            <span className="material-icons text-white text-[20px]">group_add</span>
+                            <span className="material-icons text-white text-[22px] drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">group_add</span>
                         </button>
 
                         <button
                             onClick={onOpenSettings}
-                            className="h-10 w-10 rounded-full bg-black/45 border border-white/10 backdrop-blur-md flex items-center justify-center active:scale-95 transition-transform"
-                            aria-label="Tools"
+                            className="h-10 w-10 flex items-center justify-center active:scale-95 transition-transform"
+                            aria-label="More tools"
                             type="button"
                         >
-                            <span className="material-icons text-white text-[20px]">more_horiz</span>
+                            <span className="material-icons text-white text-[22px] drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">more_horiz</span>
+                        </button>
+
+                        <button
+                            onClick={onOpenElements}
+                            className="h-10 w-10 flex items-center justify-center active:scale-95 transition-transform"
+                            aria-label="Add element"
+                            type="button"
+                        >
+                            <span className="material-icons text-white text-[22px] drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">add_box</span>
                         </button>
 
                         <button
                             onClick={onTogglePause}
                             disabled={!isLiveActive}
-                            className="h-10 w-10 rounded-full bg-black/45 border border-white/10 backdrop-blur-md flex items-center justify-center active:scale-95 transition-transform disabled:opacity-40"
+                            className="h-10 w-10 flex items-center justify-center active:scale-95 transition-transform disabled:opacity-40"
                             aria-label={isPaused ? "Resume live" : "Pause live"}
                             type="button"
                         >
-                            <span className="material-icons text-white text-[20px]">{isPaused ? "play_arrow" : "pause"}</span>
+                            <span className="material-icons text-white text-[22px] drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">{isPaused ? "play_arrow" : "pause"}</span>
                         </button>
 
                         <button
                             onClick={onEndLive}
-                            className="h-10 w-10 rounded-full bg-black/45 border border-white/10 backdrop-blur-md flex items-center justify-center active:scale-95 transition-transform"
+                            className="h-10 w-10 flex items-center justify-center active:scale-95 transition-transform"
                             aria-label="End live"
                             type="button"
                         >
-                            <span className="material-icons text-white text-[20px]">close</span>
+                            <span className="material-icons text-white text-[22px] drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">close</span>
                         </button>
                     </div>
                 </div>
@@ -155,9 +162,7 @@ export function MobileLiveHUD({
 
                 {isLiveActive && isPaused && (
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <div className="px-4 py-2 rounded-full bg-black/55 border border-white/10 backdrop-blur-md">
-                            <span className="text-white text-[12px] font-black tracking-[0.2em] uppercase">Paused</span>
-                        </div>
+                        <span className="text-white text-[12px] font-black tracking-[0.2em] uppercase drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">PAUSED</span>
                     </div>
                 )}
             </div>
@@ -168,8 +173,8 @@ export function MobileLiveHUD({
             {/* Bottom comment composer (Instagram Live style) */}
             <div className="pointer-events-auto absolute left-0 right-0 bottom-0 z-40 px-4 pb-[calc(env(safe-area-inset-bottom,0px)+12px)]">
                 <div className="flex items-center gap-3">
-                    <div className="flex-1 flex items-center gap-2 px-4 py-3 rounded-full bg-black/45 border border-white/10 backdrop-blur-md">
-                        <span className="material-icons text-white/60 text-[18px]">chat_bubble_outline</span>
+                    <div className="flex-1 flex items-center gap-2 px-2 py-2">
+                        <span className="material-icons text-white text-[18px] drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">chat_bubble_outline</span>
                         <input
                             value={comment}
                             onChange={(e) => setComment(e.target.value)}
@@ -177,7 +182,7 @@ export function MobileLiveHUD({
                                 if (e.key === "Enter") handleSend();
                             }}
                             placeholder="Comment"
-                            className="flex-1 bg-transparent outline-none text-white text-[13px] placeholder:text-white/45"
+                            className="flex-1 bg-transparent outline-none text-white text-[13px] placeholder:text-white/60 drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]"
                         />
                         <button
                             type="button"
@@ -185,26 +190,35 @@ export function MobileLiveHUD({
                             className="h-8 w-8 rounded-full flex items-center justify-center active:scale-95 transition-transform"
                             aria-label="Send comment"
                         >
-                            <span className="material-icons text-white text-[20px]">send</span>
+                            <span className="material-icons text-white text-[20px] drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">send</span>
                         </button>
                     </div>
 
                     <button
                         onClick={onSendReaction}
-                        className="h-12 w-12 rounded-full bg-black/45 border border-white/10 backdrop-blur-md flex items-center justify-center active:scale-95 transition-transform"
+                        className="h-12 w-12 flex items-center justify-center active:scale-95 transition-transform"
                         aria-label="Send reaction"
                         type="button"
                     >
-                        <span className="material-icons text-white text-[22px]">favorite_border</span>
+                        <span className="material-icons text-white text-[24px] drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">favorite_border</span>
                     </button>
 
                     <button
                         onClick={onOpenCommerce}
-                        className="h-12 w-12 rounded-full bg-black/45 border border-white/10 backdrop-blur-md flex items-center justify-center active:scale-95 transition-transform"
+                        className="h-12 w-12 flex items-center justify-center active:scale-95 transition-transform"
                         aria-label="Open products"
                         type="button"
                     >
-                        <span className="material-icons text-white text-[22px]">shopping_bag</span>
+                        <span className="material-icons text-white text-[24px] drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">shopping_bag</span>
+                    </button>
+
+                    <button
+                        onClick={onOpenFilters}
+                        className="h-12 w-12 flex items-center justify-center active:scale-95 transition-transform"
+                        aria-label="Open filters"
+                        type="button"
+                    >
+                        <span className="material-icons text-white text-[24px] drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">auto_awesome</span>
                     </button>
                 </div>
             </div>

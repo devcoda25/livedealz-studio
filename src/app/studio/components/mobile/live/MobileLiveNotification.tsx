@@ -44,45 +44,33 @@ export const MobileLiveNotification = memo(function MobileLiveNotification({
     if (!event) return null;
 
     const iconMap = {
-        cart: { icon: "shopping_cart", color: "bg-[#f77f00]", textColor: "text-white" },
-        purchase: { icon: "payments", color: "bg-emerald-500", textColor: "text-white" },
-        follow: { icon: "person_add", color: "bg-blue-500", textColor: "text-white" },
+        cart: { icon: "shopping_cart" },
+        purchase: { icon: "payments" },
+        follow: { icon: "person_add" },
     };
 
-    const { icon, color, textColor } = iconMap[event.type];
+    const { icon } = iconMap[event.type];
 
     return (
         <div className={`
-            fixed left-4 bottom-52 z-[60] pointer-events-none transition-all duration-700 cubic-bezier(0.23, 1, 0.32, 1)
-            ${isVisible ? "opacity-100 translate-x-0 scale-100" : "opacity-0 -translate-x-12 scale-90"}
+            fixed left-1/2 top-[calc(env(safe-area-inset-top,0px)+84px)] -translate-x-1/2 z-[60] pointer-events-none
+            transition-all duration-700 cubic-bezier(0.23, 1, 0.32, 1)
+            ${isVisible ? "opacity-100 translate-y-0 scale-100" : "opacity-0 -translate-y-6 scale-95"}
         `}>
-            <div className={`
-                flex items-center gap-4 p-3 pr-6 rounded-[28px] shadow-2xl relative overflow-hidden
-                ${darkMode ? "bg-[#121212]/95 border border-white/10" : "bg-white/95 border border-slate-200"}
-                backdrop-blur-2xl
-            `}>
-                {/* Icon Circle */}
-                <div className={`w-10 h-10 rounded-2xl ${color} flex items-center justify-center shadow-lg transition-transform active:scale-95`}>
-                    <span className={`material-icons ${textColor} text-[20px]`}>{icon}</span>
-                </div>
+            <div className="flex items-center gap-3">
+                <span className={`material-icons text-[20px] ${event.type === "purchase" ? "text-emerald-300" : event.type === "cart" ? "text-[#f77f00]" : "text-blue-300"} drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]`}>
+                    {icon}
+                </span>
 
                 {/* Text Content */}
                 <div className="flex flex-col min-w-0">
-                    <span className={`${darkMode ? "text-white" : "text-slate-900"} text-[13px] font-black uppercase tracking-tight leading-tight truncate max-w-[160px]`}>
+                    <span className="text-white text-[13px] font-black uppercase tracking-tight leading-tight truncate max-w-[180px] drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">
                         {event.userNode}
                     </span>
-                    <span className={`${darkMode ? "text-white/40" : "text-slate-500"} text-[10px] font-black uppercase tracking-widest leading-tight mt-0.5`}>
+                    <span className="text-white/80 text-[10px] font-black uppercase tracking-widest leading-tight mt-0.5 drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">
                         {event.message}
                     </span>
                 </div>
-
-                {/* Activity Border Pulse */}
-                {event.type === "purchase" && (
-                    <div className="absolute inset-0 rounded-[28px] border-2 border-emerald-500/30 animate-pulse pointer-events-none" />
-                )}
-                {event.type === "cart" && (
-                    <div className="absolute inset-0 rounded-[28px] border-2 border-[#f77f00]/30 animate-pulse pointer-events-none" />
-                )}
             </div>
         </div>
     );

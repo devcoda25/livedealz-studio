@@ -240,7 +240,7 @@ export function StagePreview(props: {
                             {/* Hidden video - used as input source for FilterEngine */}
                             <video
                                 ref={videoRef}
-                                className="w-full h-full object-cover opacity-0 absolute inset-0"
+                                className="w-full h-full object-cover absolute inset-0"
                                 autoPlay muted playsInline
                             />
                             {/* Banuba AR container - single source of truth for video feed */}
@@ -290,7 +290,7 @@ export function StagePreview(props: {
                         {/* Hidden video - used as input source for FilterEngine */}
                         <video
                             ref={videoRef}
-                            className={`absolute inset-0 w-full h-full object-cover opacity-0 ${mediaClasses}`}
+                            className={`absolute inset-0 w-full h-full object-cover ${mediaClasses}`}
                             autoPlay muted playsInline
                         />
                         {/* Banuba AR container - single source of truth for video feed */}

@@ -4,6 +4,7 @@ import React, { Component, ErrorInfo, useCallback, useEffect, useMemo, useRef, u
 import { useToast } from "@/hooks/use-toast";
 import { useStudioSocket } from "@/hooks/useStudioSocket";
 import { useEngines } from "@/hooks/useEngines";
+import { useAppTheme } from "@/components/ThemeProvider";
 // StagePreview removed - using direct video element for camera
 // Shared Components & Infrastructure
 import { FloatingReactions } from "../components/shared/FloatingReactions";
@@ -39,6 +40,8 @@ import { SalesGoalBar } from "../components/mobile/live/SalesGoalBar";
 import { MobileLiveHUD } from "../components/mobile/live/MobileLiveHUD";
 import { LiveTogetherSheet, LiveGuest, LiveGuestLayout, LiveGuestRequest } from "../components/mobile/live/LiveTogetherSheet";
 import { LiveGuestsOverlay } from "../components/mobile/live/LiveGuestsOverlay";
+import { MobileOverlayElementsLayer, type MobileOverlayElement } from "../components/mobile/live/MobileOverlayElementsLayer";
+import { MobileOverlayElementsSheet } from "../components/mobile/live/MobileOverlayElementsSheet";
 
 // Mobile-Specific Components - Record / Rehearsal
 import { MobileTeleprompterSheet } from "../components/mobile/record/MobileTeleprompterSheet";
@@ -113,8 +116,9 @@ export function MobileStudioView() {
     const previewVideoRef = useRef<HTMLVideoElement | null>(null);
     const streamRef = useRef<MediaStream | null>(null);
 
-    // Theme - detect system preference
-    const [darkMode, setDarkMode] = useState(true);
+    // Theme (global)
+    const { theme, toggleTheme } = useAppTheme();
+    const darkMode = theme === "dark";
 
     // Session state
     const [mode, setMode] = useState<Mode>("lobby");
@@ -198,6 +202,11 @@ export function MobileStudioView() {
     const [productFormOpen, setProductFormOpen] = useState(false);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
     const [currentNotification, setCurrentNotification] = useState<LiveNotificationEvent | null>(null);
+
+    // On-screen overlay elements (text/alerts) for mobile live
+    const [overlayElements, setOverlayElements] = useState<MobileOverlayElement[]>([]);
+    const [overlaySheetOpen, setOverlaySheetOpen] = useState(false);
+    const [overlaySheetFocusId, setOverlaySheetFocusId] = useState<string | null>(null);
 
     // Sources state
     const [sources, setSources] = useState([
@@ -290,29 +299,7 @@ export function MobileStudioView() {
         setQueuedToast(null);
     }, [queuedToast, toast]);
 
-    // Detect system theme AFTER mount (client-only, avoids hydration mismatch)
-    useEffect(() => {
-        if (!isMounted) return;
-        if (typeof window === "undefined") return;
-
-        const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-        setDarkMode(prefersDark);
-
-        const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-        const handleChange = (e: MediaQueryListEvent) => setDarkMode(e.matches);
-        mediaQuery.addEventListener("change", handleChange);
-        return () => mediaQuery.removeEventListener("change", handleChange);
-    }, [isMounted]);
-
-    // Sync dark mode to document AFTER mount only
-    useEffect(() => {
-        if (!isMounted) return;
-        if (darkMode) {
-            document.documentElement.classList.add("dark");
-        } else {
-            document.documentElement.classList.remove("dark");
-        }
-    }, [darkMode, isMounted]);
+    // Note: theme class is managed globally by ThemeProvider.
 
     // Placeholder video URL (Pexels - Woman showing ingredients)
     const PLACEHOLDER_VIDEO = "https://videos.pexels.com/video-files/6595455/6595455-uhd_1440_2560_30fps.mp4";
@@ -356,6 +343,23 @@ export function MobileStudioView() {
             streamRef.current?.getTracks().forEach(t => t.stop());
         };
     }, [isMounted]);
+
+    // Attach the already-acquired stream to the preview <video> whenever the preview layer mounts.
+    // (The camera stream is initialized while we are still in "lobby", where the preview <video> isn't rendered yet.)
+    useEffect(() => {
+        if (!isMounted) return;
+        if (mode === "lobby" || preLiveMode) return;
+        const el = previewVideoRef.current;
+        if (!el) return;
+
+        const stream = streamRef.current;
+        if (stream && el.srcObject !== stream) {
+            el.srcObject = stream;
+            el.play().catch(() => { });
+        } else if (!stream && el.src) {
+            el.play().catch(() => { });
+        }
+    }, [isMounted, mode, preLiveMode]);
 
     // Initialize data - NO co-hosts by default
     useEffect(() => {
@@ -624,6 +628,7 @@ export function MobileStudioView() {
             streamRef.current = stream;
             if (previewVideoRef.current) {
                 previewVideoRef.current.srcObject = stream;
+                previewVideoRef.current.play().catch(() => { });
             }
         } catch (err) {
             console.error("[MobileStudio] Failed to flip camera:", err);
@@ -861,8 +866,10 @@ export function MobileStudioView() {
                     controls={false}
                     preload="auto"
                 />
-                {/* Dark overlay for text readability */}
-                <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/40 pointer-events-none" />
+                {/* No UI backgrounds on Live: keep feed fully clear */}
+                {mode !== "live" && (
+                    <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/40 pointer-events-none" />
+                )}
                 {/* Camera indicator */}
                 {!camOn && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/80">
@@ -1016,6 +1023,8 @@ export function MobileStudioView() {
                             stream={streamRef.current}
                             onOpenSettings={() => setSettingsOpen(true)}
                             onOpenCommerce={() => setActivePanel("commerce")}
+                            onOpenFilters={() => setFiltersOpen(true)}
+                            onOpenElements={() => setOverlaySheetOpen(true)}
                             onSendReaction={() => setHeartCount(prev => prev + 1)}
                             productCount={products.length}
                             isChatOpen={activePanel === "chat"}
@@ -1086,6 +1095,25 @@ export function MobileStudioView() {
                         onPin={setPinnedGuestId}
                         darkMode={darkMode}
                     />
+
+                    {/* Overlay elements (draggable text/alerts) */}
+                    <MobileOverlayElementsLayer
+                        elements={overlayElements}
+                        onChange={(id, patch) => {
+                            setOverlayElements((prev) => prev.map((el) => (el.id === id ? { ...el, ...patch } : el)));
+                        }}
+                        onRequestEdit={(id) => {
+                            setOverlaySheetOpen(true);
+                            setOverlaySheetFocusId(id);
+                            // Bring edited element to front
+                            setOverlayElements((prev) => {
+                                const idx = prev.findIndex((e) => e.id === id);
+                                if (idx < 0) return prev;
+                                const el = prev[idx];
+                                return [el, ...prev.slice(0, idx), ...prev.slice(idx + 1)];
+                            });
+                        }}
+                    />
                     {/* Chat bubbles - left side, bottom aligned */}
                     <div className="absolute bottom-20 left-0">
                         <MobileLiveChat
@@ -1134,6 +1162,32 @@ export function MobileStudioView() {
                 onSelectFilter={setActiveFilter}
                 intensity={filterIntensity}
                 onIntensityChange={setFilterIntensity}
+                darkMode={darkMode}
+            />
+
+            {/* Overlay elements sheet */}
+            <MobileOverlayElementsSheet
+                open={overlaySheetOpen}
+                focusId={overlaySheetFocusId}
+                onClose={() => {
+                    setOverlaySheetOpen(false);
+                    setOverlaySheetFocusId(null);
+                }}
+                elements={overlayElements}
+                onAdd={(type) => {
+                    const id = uid("el");
+                    const next: MobileOverlayElement = {
+                        id,
+                        type,
+                        text: type === "text" ? "New text" : "Alert message",
+                        tone: type === "alert" ? "info" : undefined,
+                        xPct: 0.5,
+                        yPct: 0.35,
+                    };
+                    setOverlayElements((prev) => [next, ...prev]);
+                }}
+                onUpdate={(id, patch) => setOverlayElements((prev) => prev.map((el) => (el.id === id ? { ...el, ...patch } : el)))}
+                onRemove={(id) => setOverlayElements((prev) => prev.filter((el) => el.id !== id))}
                 darkMode={darkMode}
             />
 
@@ -1235,7 +1289,7 @@ export function MobileStudioView() {
                 mode={mode}
                 onModeChange={handleModeChange}
                 darkMode={darkMode}
-                onToggleDarkMode={() => setDarkMode(v => !v)}
+                onToggleDarkMode={toggleTheme}
                 onOpenTool={handleOpenTool}
             />
 

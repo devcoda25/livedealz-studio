@@ -26,13 +26,13 @@ export const LiveGuestsOverlay = memo(function LiveGuestsOverlay({
 
   return (
     <div className="absolute top-[calc(env(safe-area-inset-top,0px)+66px)] left-4 right-4 z-30 pointer-events-auto">
-      <div className={`rounded-3xl border shadow-2xl overflow-hidden ${darkMode ? "bg-black/35 border-white/10" : "bg-white/80 border-slate-200"}`}>
-        <div className="flex items-center justify-between px-4 py-3">
+      <div className="rounded-3xl overflow-hidden">
+        <div className="flex items-center justify-between px-0 py-2">
           <div className="flex items-center gap-2">
-            <span className={`material-icons ${darkMode ? "text-white/70" : "text-slate-700"} text-[18px]`}>group</span>
-            <span className={`${darkMode ? "text-white" : "text-slate-900"} text-[12px] font-black`}>{onStage.length} guest{onStage.length === 1 ? "" : "s"}</span>
+            <span className="material-icons text-white text-[18px] drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">group</span>
+            <span className="text-white text-[12px] font-black drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">{onStage.length} guest{onStage.length === 1 ? "" : "s"}</span>
           </div>
-          <div className={`${darkMode ? "text-white/45" : "text-slate-500"} text-[11px] font-bold uppercase tracking-wide`}>
+          <div className="text-white/80 text-[11px] font-bold uppercase tracking-wide drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">
             {layout}
           </div>
         </div>
@@ -77,13 +77,13 @@ export const LiveGuestsOverlay = memo(function LiveGuestsOverlay({
               className="w-full text-left"
               aria-label="Toggle pinned guest"
             >
-              <div className={`p-4 rounded-2xl border ${darkMode ? "bg-white/5 border-white/10" : "bg-white border-slate-200"}`}>
+              <div className="p-0 rounded-2xl">
                 <div className="flex items-center justify-between">
                   <div className="min-w-0">
-                    <p className={`${darkMode ? "text-white" : "text-slate-900"} text-[13px] font-black truncate`}>{pinned.name}</p>
-                    <p className={`${darkMode ? "text-white/45" : "text-slate-500"} text-[12px]`}>Pinned</p>
+                    <p className="text-white text-[13px] font-black truncate drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">{pinned.name}</p>
+                    <p className="text-white/80 text-[12px] drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">Pinned</p>
                   </div>
-                  <span className={`material-icons ${darkMode ? "text-[#FF5C00]" : "text-[#FF5C00]"} text-[18px]`}>push_pin</span>
+                  <span className="material-icons text-white text-[18px] drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">push_pin</span>
                 </div>
               </div>
             </button>
@@ -133,23 +133,17 @@ function GuestTile({
     <button
       type="button"
       onClick={onClick}
-      className={`p-3 rounded-2xl border flex items-center gap-3 active:scale-[0.99] transition-transform ${
-        active
-          ? "bg-[#FF5C00]/10 border-[#FF5C00]/30"
-          : darkMode
-            ? "bg-black/20 border-white/10"
-            : "bg-white border-slate-200"
-      }`}
+      className="p-0 rounded-2xl flex items-center gap-3 active:scale-[0.99] transition-transform"
       aria-label={`Guest ${guest.name}`}
     >
       <div className={`h-9 w-9 rounded-full bg-gradient-to-br ${avatarGradients[nameHash]} flex items-center justify-center text-white text-[12px] font-black shadow-lg`}>
         {guest.name.charAt(0).toUpperCase()}
       </div>
       <div className="min-w-0 text-left">
-        <p className={`${darkMode ? "text-white" : "text-slate-900"} text-[12px] font-black truncate`}>{guest.name}</p>
+        <p className="text-white text-[12px] font-black truncate drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">{guest.name}</p>
         <div className="flex items-center gap-2">
-          {guest.isMuted && <span className="material-icons text-[14px] text-white/60">mic_off</span>}
-          {!guest.videoOn && <span className="material-icons text-[14px] text-white/60">videocam_off</span>}
+          {guest.isMuted && <span className="material-icons text-[14px] text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">mic_off</span>}
+          {!guest.videoOn && <span className="material-icons text-[14px] text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">videocam_off</span>}
         </div>
       </div>
     </button>
@@ -157,4 +151,3 @@ function GuestTile({
 }
 
 export default LiveGuestsOverlay;
-

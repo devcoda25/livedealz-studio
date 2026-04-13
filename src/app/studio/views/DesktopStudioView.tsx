@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Spinner } from "@/components/ui/spinner";
 import { useStudioSocket } from "@/hooks/useStudioSocket";
 import { useEngines } from "@/hooks/useEngines";
+import { useAppTheme } from "@/components/ThemeProvider";
 
 // Local imports
 // Shared Components & Infrastructure
@@ -138,8 +139,9 @@ export function DesktopStudioView() {
     return () => clearInterval(interval);
   }, [getSocket, engineSetSocket]);
 
-  // Detect system color scheme preference on mount
-  const [darkMode, setDarkMode] = useState(false); // Default to avoid SSR mismatch, useEffect will update
+  // Theme (global)
+  const { theme, toggleTheme } = useAppTheme();
+  const darkMode = theme === "dark";
   const [mode, setMode] = useState<Mode>("lobby");
   const [isSessionActive, setIsSessionActive] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
@@ -151,31 +153,12 @@ export function DesktopStudioView() {
   // Social Engagement
   const [heartCount, setHeartCount] = useState(0);
 
-  // Initialize dark mode from system preference on mount (client only)
+  // Mount only (client only)
   useEffect(() => {
     setIsMounted(true);
-    setDarkMode(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
   }, []);
 
-  // Listen for system theme changes
-  useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleChange = (e: MediaQueryListEvent) => {
-      setDarkMode(e.matches);
-    };
-
-    mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
-  }, []);
-
-  // Sync darkMode with document class for CSS variables
-  useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
-  }, [darkMode]);
+  // Note: theme class is managed globally by ThemeProvider.
   const [simulate, setSimulate] = useState(false);
 
   // Simulate likes while live and simulate is true
@@ -1903,7 +1886,7 @@ export function DesktopStudioView() {
         </button>
 
         <button
-          onClick={() => setDarkMode((v) => !v)}
+          onClick={toggleTheme}
           className={
             "inline-flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-full border " +
             (darkMode ? "border-slate-700 bg-slate-900 text-slate-100" : "border-slate-300 bg-white text-slate-700")

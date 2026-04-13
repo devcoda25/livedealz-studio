@@ -133,13 +133,12 @@ const TikTokChatRow = memo(function TikTokChatRow({ message }: { message: Animat
             <div
                 className={`
                     flex items-center gap-2 px-4 py-2 rounded-full max-w-fit
-                    bg-white/10 backdrop-blur-xl border border-white/5
                     ${isNew ? "opacity-0" : "opacity-100"}
                 `}
                 style={{ animation: "tiktokChatLife 5s ease-out forwards" }}
             >
-                <span className="material-icons text-[14px] text-[#f77f00]">info</span>
-                <span className="text-[10px] font-black uppercase tracking-widest text-white/70">{message.body}</span>
+                <span className="material-icons text-[14px] text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">info</span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">{message.body}</span>
             </div>
         );
     }
@@ -148,8 +147,7 @@ const TikTokChatRow = memo(function TikTokChatRow({ message }: { message: Animat
         <div
             className={`
                 flex items-center gap-3 max-w-fit
-                px-3 py-2 rounded-[18px]
-                bg-black/45 backdrop-blur-xl border border-white/10 shadow-lg
+                px-0 py-0
                 ${isNew ? "opacity-0" : "opacity-100"}
             `}
             style={{ animation: "tiktokChatLife 5s ease-out forwards" }}
@@ -166,16 +164,16 @@ const TikTokChatRow = memo(function TikTokChatRow({ message }: { message: Animat
             {/* Content */}
             <div className="flex flex-col min-w-0">
                 <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-black text-white uppercase tracking-tight truncate max-w-[100px]">
+                    <span className="text-[11px] font-black text-white uppercase tracking-tight truncate max-w-[100px] drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">
                         {message.from}
                     </span>
                     {hasLang && (
-                        <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-white/10 text-white/40 uppercase tracking-tighter">
+                        <span className="text-[8px] font-black text-white/60 uppercase tracking-tighter drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">
                             {message.langTag}
                         </span>
                     )}
                 </div>
-                <span className="text-[12px] font-bold text-white/90 leading-tight">
+                <span className="text-[12px] font-bold text-white leading-tight drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">
                     {message.body}
                 </span>
             </div>
@@ -241,12 +239,8 @@ const InstagramChatRow = memo(function InstagramChatRow({ message }: { message: 
     if (isSystem) {
         return (
             <div className="flex items-center gap-2">
-                <div className="h-7 w-7 rounded-full bg-white/10 border border-white/10 backdrop-blur-md flex items-center justify-center">
-                    <span className="material-icons text-[#f77f00] text-[16px]">info</span>
-                </div>
-                <div className="px-3 py-2 rounded-2xl bg-black/45 border border-white/10 backdrop-blur-md">
-                    <span className="text-[12px] font-bold text-white/85">{message.body}</span>
-                </div>
+                <span className="material-icons text-white text-[16px] drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">info</span>
+                <span className="text-[12px] font-bold text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">{message.body}</span>
             </div>
         );
     }
