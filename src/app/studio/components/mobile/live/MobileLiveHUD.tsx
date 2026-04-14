@@ -168,7 +168,7 @@ export function MobileLiveHUD({
             </div>
 
             {/* Floating Reactions */}
-            <FloatingReactions triggerHeartCount={triggerHeartCount} />
+            <FloatingReactions triggerHeartCount={triggerHeartCount} className="right-24" />
 
             {/* Bottom comment composer (Instagram Live style) */}
             <div className="pointer-events-auto absolute left-0 right-0 bottom-0 z-40 px-4 pb-[calc(env(safe-area-inset-bottom,0px)+12px)]">

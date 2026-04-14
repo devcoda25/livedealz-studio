@@ -3,6 +3,7 @@ import React, { useState, useEffect, memo } from 'react';
 export interface FloatingReactionsProps {
     // A counter that tells the component to spawn another heart
     triggerHeartCount?: number;
+    className?: string;
 }
 
 interface Particle {
@@ -30,7 +31,7 @@ const ICONS = {
     star: "M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.27 5.82 21 7 14.14l-5-4.87 6.91-1.01L12 2z"
 };
 
-export const FloatingReactions = memo(function FloatingReactions({ triggerHeartCount = 0 }: FloatingReactionsProps) {
+export const FloatingReactions = memo(function FloatingReactions({ triggerHeartCount = 0, className }: FloatingReactionsProps) {
     const [particles, setParticles] = useState<Particle[]>([]);
 
     useEffect(() => {
@@ -58,7 +59,7 @@ export const FloatingReactions = memo(function FloatingReactions({ triggerHeartC
     }, [triggerHeartCount]);
 
     return (
-        <div className="absolute bottom-[20%] right-4 w-16 h-80 pointer-events-none z-[60] overflow-visible flex flex-col justify-end items-center">
+        <div className={`absolute bottom-[20%] right-4 w-16 h-80 pointer-events-none z-[60] overflow-visible flex flex-col justify-end items-center ${className ?? ""}`}>
             {particles.map((p) => (
                 <div
                     key={p.id}

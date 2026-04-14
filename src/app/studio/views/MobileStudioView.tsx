@@ -1093,6 +1093,8 @@ export function MobileStudioView() {
                         layout={guestLayout}
                         pinnedGuestId={pinnedGuestId}
                         onPin={setPinnedGuestId}
+                        maxGuests={maxGuestsOnStage}
+                        onOpenCoHosts={() => setActivePanel("cohosts")}
                         darkMode={darkMode}
                     />
 
