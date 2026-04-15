@@ -51,7 +51,7 @@ import { MobileRecordHUD } from "../components/mobile/record/MobileRecordHUD";
 import { RecordPage } from "../components/mobile/record/RecordPage";
 import { MobileRehearsalHUD } from "../components/mobile/rehearsal/MobileRehearsalHUD";
 import { MobileHomePage } from "../components/mobile/shared/MobileHomePage";
-import { VideosPage } from "../components/mobile/shared/VideosPage";
+import { VideosPage, type RecordedClip } from "../components/mobile/shared/VideosPage";
 import { CampaignsPage } from "../components/mobile/shared/CampaignsPage";
 import { ProfilePage } from "../components/mobile/shared/ProfilePage";
 import { SettingsPage } from "../components/mobile/shared/SettingsPage";
@@ -147,6 +147,15 @@ export function MobileStudioView() {
     const [recordPreviewFilter, setRecordPreviewFilter] = useState<string | null>(null);
     const [activeFilterCategory, setActiveFilterCategory] = useState<FilterCategory | null>(null);
     const [filterIntensity, setFilterIntensity] = useState(100);
+
+    // Local (mobile) recording state - avoids relying on composed desktop scene graph
+    const [localIsRecording, setLocalIsRecording] = useState(false);
+    const [localRecordingSeconds, setLocalRecordingSeconds] = useState(0);
+    const localRecorderRef = useRef<MediaRecorder | null>(null);
+    const localChunksRef = useRef<BlobPart[]>([]);
+    const localMimeTypeRef = useRef<string>("video/webm");
+    const localStartMsRef = useRef<number>(0);
+    const [recordedClips, setRecordedClips] = useState<RecordedClip[]>([]);
     const [captionsOn, setCaptionsOn] = useState(false);
     const [transcriptionOn, setTranscriptionOn] = useState(false);
     const [transcript, setTranscript] = useState("");
@@ -282,7 +291,10 @@ export function MobileStudioView() {
     }, [flash.active, flash.secondsLeft]);
 
     const liveTimerLabel = useMemo(() => formatHMS(liveSeconds), [liveSeconds]);
-    const recordingTimerLabel = useMemo(() => formatHMS(recordingDuration), [recordingDuration]);
+    const recordingTimerLabel = useMemo(
+        () => formatHMS(localIsRecording ? localRecordingSeconds : recordingDuration),
+        [localIsRecording, localRecordingSeconds, recordingDuration]
+    );
 
     // Mount only once - must match between server and client
     useEffect(() => {
@@ -382,6 +394,32 @@ export function MobileStudioView() {
     useEffect(() => {
         if (!isLive) return;
         const interval = setInterval(() => setLiveSeconds(v => v + 1), 1000);
+        return () => clearInterval(interval);
+    }, [isLive]);
+
+    // Local recording timer (mobile)
+    useEffect(() => {
+        if (!localIsRecording) return;
+        const interval = setInterval(() => setLocalRecordingSeconds((v) => v + 1), 1000);
+        return () => clearInterval(interval);
+    }, [localIsRecording]);
+
+    // Auto-hide lifecycle for overlay alert elements
+    useEffect(() => {
+        if (!isLive) return;
+        const interval = setInterval(() => {
+            const now = Date.now();
+            let changed = false;
+            setOverlayElements((prev) => {
+                const next = prev.filter((el) => {
+                    if (!el.expiresAt) return true;
+                    const keep = el.expiresAt > now;
+                    if (!keep) changed = true;
+                    return keep;
+                });
+                return changed ? next : prev;
+            });
+        }, 500);
         return () => clearInterval(interval);
     }, [isLive]);
 
@@ -637,23 +675,154 @@ export function MobileStudioView() {
         }
     }, [cameraFacing]);
 
+    // ==========================================
+    // Local (mobile) recorder helpers
+    // ==========================================
+    const pickMediaRecorderMimeType = useCallback(() => {
+        const mr: any = typeof window !== "undefined" ? (window as any).MediaRecorder : null;
+        const isSupported = (t: string) => !!mr?.isTypeSupported?.(t);
+        const candidates = [
+            "video/webm;codecs=vp9,opus",
+            "video/webm;codecs=vp8,opus",
+            "video/webm",
+            "video/mp4",
+        ];
+        return candidates.find(isSupported) ?? "";
+    }, []);
+
+    const startLocalRecording = useCallback(async () => {
+        const stream = streamRef.current;
+        if (!stream) return false;
+
+        if (localRecorderRef.current && localRecorderRef.current.state !== "inactive") {
+            return false;
+        }
+
+        const mimeType = pickMediaRecorderMimeType();
+        try {
+            const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+            localChunksRef.current = [];
+            localMimeTypeRef.current = recorder.mimeType || mimeType || "video/webm";
+            localStartMsRef.current = Date.now();
+
+            recorder.ondataavailable = (e: BlobEvent) => {
+                if (e.data && e.data.size > 0) localChunksRef.current.push(e.data);
+            };
+
+            recorder.start(250);
+            localRecorderRef.current = recorder;
+            setLocalRecordingSeconds(0);
+            setLocalIsRecording(true);
+            return true;
+        } catch (err) {
+            console.error("[MobileStudio] MediaRecorder start failed:", err);
+            return false;
+        }
+    }, [pickMediaRecorderMimeType]);
+
+    const stopLocalRecording = useCallback(async () => {
+        const recorder = localRecorderRef.current;
+        if (!recorder || recorder.state === "inactive") {
+            setLocalIsRecording(false);
+            return null;
+        }
+
+        const mimeType = localMimeTypeRef.current || recorder.mimeType || "video/webm";
+
+        const blob = await new Promise<Blob | null>((resolve) => {
+            const handleStop = () => {
+                const chunks = localChunksRef.current;
+                const out = chunks.length ? new Blob(chunks, { type: mimeType }) : null;
+                resolve(out);
+            };
+
+            recorder.addEventListener("stop", handleStop, { once: true });
+            try {
+                recorder.requestData?.();
+                recorder.stop();
+            } catch (e) {
+                console.error("[MobileStudio] MediaRecorder stop failed:", e);
+                resolve(null);
+            }
+        });
+
+        localRecorderRef.current = null;
+        localChunksRef.current = [];
+        localStartMsRef.current = 0;
+        setLocalIsRecording(false);
+        return blob;
+    }, []);
+
+    const saveRecordedClip = useCallback(
+        (blob: Blob, durationSec: number) => {
+            const createdAt = Date.now();
+            const mimeType = blob.type || "video/webm";
+            const url = URL.createObjectURL(blob);
+            const clip: RecordedClip = {
+                id: uid("clip"),
+                title: "Recording",
+                createdAt,
+                durationSec: Math.max(1, Math.round(durationSec)),
+                url,
+                mimeType,
+                filterId: activeFilter,
+                intensity: filterIntensity,
+            };
+            setRecordedClips((prev) => [clip, ...prev]);
+
+            // Auto download (keeps UX consistent with current behavior)
+            const ext = mimeType.includes("mp4") ? "mp4" : "webm";
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `recording-${createdAt}.${ext}`;
+            a.click();
+
+            toast({ title: "Recording Saved", description: "Your video has been saved to My Videos and downloaded." });
+        },
+        [activeFilter, filterIntensity, toast]
+    );
+
     // Mode change handler - ONLY changes mode, does NOT auto-start
     const handleModeChange = useCallback((newMode: Mode) => {
         setMode(newMode);
         setRecordPreviewFilter(null);
         setIsLivePaused(false);
         // If switching modes while active, stop current session
+        if (localIsRecording) {
+            const durationSec = localRecordingSeconds;
+            void stopLocalRecording().then((blob) => {
+                if (blob) saveRecordedClip(blob, durationSec);
+            });
+        }
+
+        if (isRecording) {
+            void engineStartStopRecording();
+        }
+
         if (isSessionActive) {
             setIsSessionActive(false);
             toast({ title: "Session stopped", description: `Switched to ${newMode} mode` });
         }
-    }, [isSessionActive, toast]);
+    }, [
+        engineStartStopRecording,
+        isRecording,
+        isSessionActive,
+        localIsRecording,
+        localRecordingSeconds,
+        saveRecordedClip,
+        stopLocalRecording,
+        toast,
+    ]);
 
     // Play button handler - starts session based on current mode
     const handlePlayButton = useCallback(async () => {
-        if (isSessionActive || isRecording) {
+        if (isSessionActive || isRecording || localIsRecording) {
             // Stop current session
-            if (isRecording) {
+            if (localIsRecording) {
+                const durationSec = localRecordingSeconds;
+                const blob = await stopLocalRecording();
+                if (blob) saveRecordedClip(blob, durationSec);
+            } else if (isRecording) {
                 const blob = await engineStartStopRecording();
                 if (blob) {
                    // Auto download
@@ -678,7 +847,7 @@ export function MobileStudioView() {
                 toast({ title: "You are Live!", description: "Broadcasting to viewers" });
             } else if (mode === "record") {
                 setRecordPreviewFilter(null);
-                const success = await engineStartRecording();
+                const success = await startLocalRecording();
                 if (success) {
                    setIsSessionActive(true);
                    toast({ title: "Recording Started", description: "Recording locally" });
@@ -690,19 +859,30 @@ export function MobileStudioView() {
                 toast({ title: "Rehearsal Started", description: "Practice mode active" });
             }
         }
-    }, [isSessionActive, isRecording, mode, engineStartRecording, engineStartStopRecording, toast]);
+    }, [
+        engineStartStopRecording,
+        isRecording,
+        isSessionActive,
+        localIsRecording,
+        localRecordingSeconds,
+        mode,
+        saveRecordedClip,
+        startLocalRecording,
+        stopLocalRecording,
+        toast,
+    ]);
 
     const recordStartInFlight = useRef(false);
 
     const handleStartRecord = useCallback(async () => {
         if (recordStartInFlight.current) return;
-        if (isSessionActive || isRecording) return;
+        if (isSessionActive || isRecording || localIsRecording) return;
         if (mode !== "record") return;
 
         recordStartInFlight.current = true;
         try {
             setRecordPreviewFilter(null);
-            const success = await engineStartRecording();
+            const success = await startLocalRecording();
             if (success) {
                 setIsSessionActive(true);
                 toast({ title: "Recording Started", description: "Recording locally" });
@@ -712,23 +892,16 @@ export function MobileStudioView() {
         } finally {
             recordStartInFlight.current = false;
         }
-    }, [engineStartRecording, isRecording, isSessionActive, mode, toast]);
+    }, [isRecording, isSessionActive, localIsRecording, mode, startLocalRecording, toast]);
 
     const handleStopRecord = useCallback(async () => {
         if (mode !== "record") return;
 
-        const blob = await engineStartStopRecording();
-        if (blob) {
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = `recording-${Date.now()}.webm`;
-            a.click();
-            URL.revokeObjectURL(url);
-            toast({ title: "Recording Saved", description: "Your video has been downloaded." });
-        }
+        const durationSec = localRecordingSeconds;
+        const blob = await stopLocalRecording();
+        if (blob) saveRecordedClip(blob, durationSec);
         setIsSessionActive(false);
-    }, [engineStartStopRecording, mode, toast]);
+    }, [localRecordingSeconds, mode, saveRecordedClip, stopLocalRecording]);
 
     const handleToggleMic = useCallback(() => {
         const next = !micOn;
@@ -918,6 +1091,7 @@ export function MobileStudioView() {
                         <VideosPage
                             onGoBack={() => setLobbyPage("home")}
                             onOpenSettings={() => setSettingsOpen(true)}
+                            clips={recordedClips}
                             darkMode={darkMode}
                         />
                     </div>
@@ -1025,6 +1199,8 @@ export function MobileStudioView() {
                             onOpenCommerce={() => setActivePanel("commerce")}
                             onOpenFilters={() => setFiltersOpen(true)}
                             onOpenElements={() => setOverlaySheetOpen(true)}
+                            onOpenGiveaways={() => setGiveawaysOpen(true)}
+                            onOpenTeleprompter={() => setTeleprompterSheetOpen(true)}
                             onSendReaction={() => setHeartCount(prev => prev + 1)}
                             productCount={products.length}
                             isChatOpen={activePanel === "chat"}
@@ -1057,7 +1233,17 @@ export function MobileStudioView() {
                                 setActiveFilter(filter);
                                 setRecordPreviewFilter(null);
                             }}
-                            onGoBack={() => setMode("lobby")}
+                            onGoBack={() => {
+                                void (async () => {
+                                    if (localIsRecording) {
+                                        const durationSec = localRecordingSeconds;
+                                        const blob = await stopLocalRecording();
+                                        if (blob) saveRecordedClip(blob, durationSec);
+                                        setIsSessionActive(false);
+                                    }
+                                    setMode("lobby");
+                                })();
+                            }}
                             darkMode={darkMode}
                         />
                     </div>
@@ -1102,7 +1288,16 @@ export function MobileStudioView() {
                     <MobileOverlayElementsLayer
                         elements={overlayElements}
                         onChange={(id, patch) => {
-                            setOverlayElements((prev) => prev.map((el) => (el.id === id ? { ...el, ...patch } : el)));
+                            setOverlayElements((prev) =>
+                                prev.map((el) => {
+                                    if (el.id !== id) return el;
+                                    const merged = { ...el, ...patch };
+                                    // Keep legacy fields in sync for any older reads.
+                                    const xPct = merged.transform?.xPct ?? merged.xPct;
+                                    const yPct = merged.transform?.yPct ?? merged.yPct;
+                                    return { ...merged, xPct, yPct };
+                                })
+                            );
                         }}
                         onRequestEdit={(id) => {
                             setOverlaySheetOpen(true);
@@ -1178,17 +1373,76 @@ export function MobileStudioView() {
                 elements={overlayElements}
                 onAdd={(type) => {
                     const id = uid("el");
+                    const base = type === "text"
+                        ? { text: "New text" }
+                        : { text: "Alert message", tone: "info" as any };
+
                     const next: MobileOverlayElement = {
                         id,
                         type,
-                        text: type === "text" ? "New text" : "Alert message",
-                        tone: type === "alert" ? "info" : undefined,
+                        ...(base as any),
+                        transform: { xPct: 0.5, yPct: 0.35, scale: 1, rotationDeg: 0 },
+                        style: {
+                            textColor: "#FFFFFF",
+                            fontPreset: "classic",
+                            align: "center",
+                            shadow: true,
+                            outline: { enabled: false, color: "#000000", widthPx: 2 },
+                        },
+                        background: { mode: "none", color: "#000000", opacityPct: 40, paddingPx: 10, radiusPx: 18 },
+                        autoHide: { enabled: type === "alert", durationMs: 4000 },
+                        expiresAt: type === "alert" ? Date.now() + 4000 : undefined,
                         xPct: 0.5,
                         yPct: 0.35,
                     };
                     setOverlayElements((prev) => [next, ...prev]);
+                    setOverlaySheetFocusId(id);
                 }}
-                onUpdate={(id, patch) => setOverlayElements((prev) => prev.map((el) => (el.id === id ? { ...el, ...patch } : el)))}
+                onUpdate={(id, patch) => {
+                    setOverlayElements((prev) =>
+                        prev.map((el) => {
+                            if (el.id !== id) return el;
+                            const merged = { ...el, ...patch } as MobileOverlayElement;
+
+                            // Auto-hide handling for alerts
+                            const isAlert = merged.type === "alert";
+                            const autoHideEnabled = isAlert && (merged.autoHide?.enabled ?? false);
+                            const durationMs = merged.autoHide?.durationMs ?? 4000;
+                            const now = Date.now();
+
+                            let expiresAt = merged.expiresAt;
+                            if (autoHideEnabled) {
+                                // If toggled on or duration changed, restart timer.
+                                if (!expiresAt || expiresAt < now || patch.autoHide) {
+                                    expiresAt = now + durationMs;
+                                }
+                            } else if (isAlert) {
+                                expiresAt = undefined;
+                            }
+
+                            const xPct = merged.transform?.xPct ?? merged.xPct;
+                            const yPct = merged.transform?.yPct ?? merged.yPct;
+
+                            return { ...merged, expiresAt, xPct, yPct };
+                        })
+                    );
+                }}
+                onBringToFront={(id) => {
+                    setOverlayElements((prev) => {
+                        const idx = prev.findIndex((e) => e.id === id);
+                        if (idx < 0) return prev;
+                        const el = prev[idx];
+                        return [el, ...prev.slice(0, idx), ...prev.slice(idx + 1)];
+                    });
+                }}
+                onSendToBack={(id) => {
+                    setOverlayElements((prev) => {
+                        const idx = prev.findIndex((e) => e.id === id);
+                        if (idx < 0) return prev;
+                        const el = prev[idx];
+                        return [...prev.slice(0, idx), ...prev.slice(idx + 1), el];
+                    });
+                }}
                 onRemove={(id) => setOverlayElements((prev) => prev.filter((el) => el.id !== id))}
                 darkMode={darkMode}
             />

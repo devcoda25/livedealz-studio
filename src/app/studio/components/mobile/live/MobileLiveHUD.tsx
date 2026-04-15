@@ -25,6 +25,8 @@ interface MobileLiveHUDProps {
     onOpenCommerce: () => void;
     onOpenFilters: () => void;
     onOpenElements: () => void;
+    onOpenGiveaways: () => void;
+    onOpenTeleprompter: () => void;
     onSendReaction: () => void;
     productCount: number;
     
@@ -56,6 +58,8 @@ export function MobileLiveHUD({
     onOpenCommerce,
     onOpenFilters,
     onOpenElements,
+    onOpenGiveaways,
+    onOpenTeleprompter,
     onSendReaction,
     isChatOpen,
     onToggleChat,
@@ -172,8 +176,8 @@ export function MobileLiveHUD({
 
             {/* Bottom comment composer (Instagram Live style) */}
             <div className="pointer-events-auto absolute left-0 right-0 bottom-0 z-40 px-4 pb-[calc(env(safe-area-inset-bottom,0px)+12px)]">
-                <div className="flex items-center gap-3">
-                    <div className="flex-1 flex items-center gap-2 px-2 py-2">
+                <div className="flex items-center gap-2">
+                    <div className="flex-1 min-w-0 flex items-center gap-2 px-2 py-2">
                         <span className="material-icons text-white text-[18px] drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">chat_bubble_outline</span>
                         <input
                             value={comment}
@@ -194,32 +198,52 @@ export function MobileLiveHUD({
                         </button>
                     </div>
 
-                    <button
-                        onClick={onSendReaction}
-                        className="h-12 w-12 flex items-center justify-center active:scale-95 transition-transform"
-                        aria-label="Send reaction"
-                        type="button"
-                    >
-                        <span className="material-icons text-white text-[24px] drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">favorite_border</span>
-                    </button>
+                    <div className="shrink-0 flex items-center gap-1.5">
+                        <button
+                            onClick={onSendReaction}
+                            className="h-11 w-11 flex items-center justify-center active:scale-95 transition-transform"
+                            aria-label="Send reaction"
+                            type="button"
+                        >
+                            <span className="material-icons text-white text-[24px] drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">favorite_border</span>
+                        </button>
 
-                    <button
-                        onClick={onOpenCommerce}
-                        className="h-12 w-12 flex items-center justify-center active:scale-95 transition-transform"
-                        aria-label="Open products"
-                        type="button"
-                    >
-                        <span className="material-icons text-white text-[24px] drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">shopping_bag</span>
-                    </button>
+                        <button
+                            onClick={onOpenCommerce}
+                            className="h-11 w-11 flex items-center justify-center active:scale-95 transition-transform"
+                            aria-label="Open products"
+                            type="button"
+                        >
+                            <span className="material-icons text-white text-[24px] drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">shopping_bag</span>
+                        </button>
 
-                    <button
-                        onClick={onOpenFilters}
-                        className="h-12 w-12 flex items-center justify-center active:scale-95 transition-transform"
-                        aria-label="Open filters"
-                        type="button"
-                    >
-                        <span className="material-icons text-white text-[24px] drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">auto_awesome</span>
-                    </button>
+                        <button
+                            onClick={onOpenFilters}
+                            className="h-11 w-11 flex items-center justify-center active:scale-95 transition-transform"
+                            aria-label="Open filters"
+                            type="button"
+                        >
+                            <span className="material-icons text-white text-[24px] drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">auto_awesome</span>
+                        </button>
+
+                        <button
+                            onClick={onOpenGiveaways}
+                            className="h-11 w-11 flex items-center justify-center active:scale-95 transition-transform"
+                            aria-label="Open giveaways"
+                            type="button"
+                        >
+                            <span className="material-icons text-white text-[24px] drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">card_giftcard</span>
+                        </button>
+
+                        <button
+                            onClick={onOpenTeleprompter}
+                            className="h-11 w-11 flex items-center justify-center active:scale-95 transition-transform"
+                            aria-label="Open teleprompter"
+                            type="button"
+                        >
+                            <span className="material-icons text-white text-[24px] drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]">subtitles</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
