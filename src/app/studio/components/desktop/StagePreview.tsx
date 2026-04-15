@@ -130,22 +130,21 @@ export function StagePreview(props: {
         const engine = filterEngineRef.current;
 
         const initEngine = async () => {
-            if (videoRef.current) {
-                // We pass a dummy canvas because FilterEngine API still expects it functionally, 
-                // but Banuba uses banubaContainerRef for actual DOM rendering
-                engine.attach(videoRef.current, document.createElement('canvas'));
-                await engine.initialize();
-                engine.start();
+            if (!videoRef.current) return;
 
-                // Set up Banuba rendering to container
-                const banuba = engine.getBanubaEngine();
-                if (banuba?.isReady() && banubaContainerRef.current) {
-                    banuba.renderTo(banubaContainerRef.current);
-                }
+            // Initialize Banuba first; then re-attach so Banuba receives the current <video> input.
+            await engine.initialize();
+            engine.attach(videoRef.current, document.createElement("canvas"));
+            await engine.start();
 
-                if (onFilterEngineReady) {
-                    onFilterEngineReady(engine);
-                }
+            // Set up Banuba rendering to container
+            const banuba = engine.getBanubaEngine();
+            if (banuba?.isReady() && banubaContainerRef.current) {
+                banuba.renderTo(banubaContainerRef.current);
+            }
+
+            if (onFilterEngineReady) {
+                onFilterEngineReady(engine);
             }
         };
 

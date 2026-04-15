@@ -996,6 +996,13 @@ export function DesktopStudioView() {
             // Start camera using engine with optimal constraints
             const source = await engineStartCamera("cam1", "Camera 1");
             if (source) {
+              // Engine creates a MediaStream but does not automatically attach it to the preview <video>.
+              // Keep the stage preview fed from the raw camera stream.
+              streamRef.current = source.stream ?? null;
+              if (streamRef.current && videoRef.current) {
+                videoRef.current.srcObject = streamRef.current;
+                videoRef.current.play().catch(() => {});
+              }
               setHasCameraPermission(true);
               console.log("Streaming engine camera initialized at", canvasWidth + "x" + canvasHeight);
               return;
